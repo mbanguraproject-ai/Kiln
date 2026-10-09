@@ -17,7 +17,7 @@ window.KILN_GAMES = [
     pitch: 'Cracks race across a glazed bowl. Trace them in gold before they reach the rim.',
     genre: 'Arcade',
     accent: '--g2',
-    status: 'soon',
+    status: 'beta',
     path: 'games/goldmend/index.html',
   },
   {

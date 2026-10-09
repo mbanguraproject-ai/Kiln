@@ -28,6 +28,10 @@
   --g5: #8A47B4;        /* plum */
   --g6: #1C9FC0;        /* turquoise */
   --stone: #9AA7B4;     /* unglazed bisque, shown at game over */
+  --lead: #6A788A;      /* grout lines of the rose window */
+  --bisque: #DCD3C6;    /* unfired wedge: matte biscuit clay */
+  --gold: #C99A2E;      /* lustre */
+  --kiln: #F2862E;      /* kiln glow */
   --font-display: "Unbounded", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
@@ -39,6 +43,7 @@
     --scrim: rgba(3, 7, 12, 0.62);
     --g1: #4C76E8; --g2: #EFAE36; --g3: #22AC89; --g4: #EC6650; --g5: #A262CE; --g6: #31B4D3;
     --stone: #415064;
+    --lead: #0A0F16; --bisque: #3D4450; --gold: #E0B44A; --kiln: #FF8A33;
     color-scheme: dark;
   }
 }
@@ -48,6 +53,7 @@
   --scrim: rgba(3, 7, 12, 0.62);
   --g1: #4C76E8; --g2: #EFAE36; --g3: #22AC89; --g4: #EC6650; --g5: #A262CE; --g6: #31B4D3;
   --stone: #415064;
+  --lead: #0A0F16; --bisque: #3D4450; --gold: #E0B44A; --kiln: #FF8A33;
   color-scheme: dark;
 }
 
@@ -90,9 +96,9 @@ canvas:focus:not(:focus-visible) { outline: none; }
 .hud {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  column-gap: 12px;
+  column-gap: 8px;
   padding-block: 14px 4px;
 }
 .best {
@@ -117,10 +123,11 @@ canvas:focus:not(:focus-visible) { outline: none; }
 }
 .best.bump { animation: bump 0.45s cubic-bezier(.2, .9, .3, 1.4); }
 .score {
-  font: 800 clamp(34px, 10vw, 54px)/1 var(--font-display);
+  font: 800 clamp(30px, 9vw, 54px)/1 var(--font-display);
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   text-align: center;
+  white-space: nowrap;
 }
 .icon-btn {
   justify-self: end;
@@ -270,11 +277,160 @@ canvas:focus:not(:focus-visible) { outline: none; }
 .how { font-size: 14px; color: var(--ink-soft); text-align: left; }
 .fine { font-size: 12px; color: var(--ink-soft); }
 
+/* ---------- rose window: medallion, effects layer ---------- */
+.hud-end { justify-self: end; display: flex; align-items: center; gap: 4px; }
+.medal {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.medal canvas { width: 40px; height: 40px; display: block; border-radius: 50%; }
+.medal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 18px 4px var(--gold);
+}
+.medal.hit canvas { animation: medalHit 0.3s cubic-bezier(.2, .9, .3, 1.5); }
+.medal.ring::after { animation: ringPulse 1.4s ease-out; }
+@media (min-width: 720px) and (min-height: 600px) {
+  .medal { width: 56px; height: 56px; }
+  .medal canvas { width: 52px; height: 52px; }
+}
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+
+/* ---------- game over: the firing ---------- */
+.card.over-card { width: min(380px, 100%); gap: 12px; padding: 18px 18px 18px; }
+.fire {
+  position: relative;
+  justify-self: center;
+  width: min(100%, 290px, calc(100dvh - 430px));
+  min-width: 150px;
+  aspect-ratio: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fire canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.skip {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--scrim);
+  color: #FFFFFF;
+  font: 700 11px/1 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.3s;
+}
+.over-body { display: grid; gap: 10px; }
+.over-body h2 { font-size: 19px; }
+.over-head { display: grid; gap: 6px; justify-items: center; }
+.over-card .big { font-size: 44px; }
+.over-card .stats { gap: 6px; }
+.over-card .stat { padding: 8px 4px; }
+.over-card .stat b { font-size: min(17px, 4.4vw); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair .btn { font-size: 15px; padding: 13px 10px; }
+.pair > [hidden] + .btn { grid-column: 1 / -1; }
+@media (min-width: 720px) and (min-height: 480px) {
+  .card.over-card { width: min(760px, 100%); grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); align-items: center; column-gap: 26px; padding: 26px; }
+  .fire { width: min(100%, 400px, calc(100dvh - 120px)); }
+  .over-body h2 { font-size: 22px; }
+  .over-card .big { font-size: 54px; }
+}
+
+/* ---------- studio wall and viewer ---------- */
+#wall, #viewer { z-index: 25; }
+#viewer { z-index: 30; }
+.card.wall-card { width: min(760px, 100%); max-height: 100%; padding: 20px 16px 16px; gap: 12px; grid-template-rows: auto minmax(0, 1fr) auto; }
+.wall-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; padding-inline: 4px; }
+.wall-head h2 { font-size: 21px; }
+.wall-head p { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+.close-btn { flex: none; }
+.plaster {
+  min-height: 0;
+  overflow: auto;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.10), transparent 55%),
+    var(--plaster);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.14);
+  padding: 16px 10px;
+}
+.wall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 14px 8px; }
+.hang {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 12px;
+  font: 600 11px/1.2 var(--font-body);
+  color: var(--ink-soft);
+}
+.hang canvas { width: 84px; height: 84px; display: block; border-radius: 50%; filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.22)); }
+.hang.top canvas { box-shadow: 0 0 0 4px var(--accent), 0 0 0 6px var(--card); }
+.hang b { font: 600 12px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.hang:active canvas { transform: scale(0.97); }
+@media (min-width: 720px) and (min-height: 560px) {
+  .wall-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .hang canvas { width: 116px; height: 116px; }
+}
+.empty { padding: 26px 12px; color: var(--ink-soft); line-height: 1.5; text-align: center; font-size: 15px; }
+.empty canvas { width: 120px; height: 120px; display: block; margin: 0 auto 14px; }
+.card.viewer-card { width: min(420px, 100%); gap: 12px; padding: 18px; }
+.view-win { justify-self: center; width: min(100%, 330px, calc(100dvh - 300px)); min-width: 150px; aspect-ratio: 1; }
+.view-win canvas { width: 100%; height: 100%; display: block; }
+.view-meta { font-size: 14px; color: var(--ink-soft); font-weight: 600; }
+.legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 6px; font-size: 13px; font-weight: 700; color: var(--ink-soft); text-align: left; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.legend canvas { width: 26px; height: 26px; display: block; flex: none; }
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--plaster);
+  font: 700 14px/1.2 var(--font-body);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  animation: rise 0.3s cubic-bezier(.2, .9, .25, 1.15);
+}
+
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
 @keyframes bump { 40% { transform: scale(1.12); } }
+@keyframes medalHit { 40% { transform: scale(1.16); } }
+@keyframes ringPulse { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .overlay, .card, .chip, .best.bump { animation: none; }
+  .overlay, .card, .chip, .best.bump, .medal.hit canvas, .toast { animation: none; }
+}
+@media (max-width: 420px) {
+  .best { flex-direction: column; gap: 3px; padding: 6px 9px 7px; border-radius: 14px; }
+  .best svg { width: 13px; height: 13px; }
+  .best span { display: none; }
+  .best b { font-size: 12.5px; }
 }
 </style>
 </head>
@@ -286,15 +442,19 @@ canvas:focus:not(:focus-visible) { outline: none; }
       <span>Best</span> <b id="best">0</b>
     </div>
     <div class="score" id="score">0</div>
-    <button class="icon-btn" id="menuBtn" type="button" aria-label="Pause and settings">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg>
-    </button>
+    <div class="hud-end">
+      <button class="medal" id="medal" type="button" aria-label="Your rose window"><canvas id="medalCv" aria-hidden="true"></canvas></button>
+      <button class="icon-btn" id="menuBtn" type="button" aria-label="Pause and settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg>
+      </button>
+    </div>
     <div class="sub" id="sub"></div>
   </header>
   <main class="stage" id="stage">
     <canvas id="board" tabindex="0" aria-label="Tessera board. Drag a piece from the tray onto the grid. With a keyboard, press 1, 2 or 3 to pick a piece, move it with the arrow keys and press Enter to place it."></canvas>
   </main>
 </div>
+<canvas id="fx" aria-hidden="true"></canvas>
 
 <div class="overlay" id="pause" hidden>
   <div class="card" role="dialog" aria-modal="true" aria-label="Paused">
@@ -304,12 +464,15 @@ canvas:focus:not(:focus-visible) { outline: none; }
     <div class="stack" id="pauseMain">
       <button class="btn" id="resumeBtn" type="button">Resume</button>
       <button class="btn ghost" id="newBtn" type="button">New game</button>
+      <button class="btn ghost" id="wallBtn" type="button">Studio wall</button>
       <button class="btn ghost" id="exitBtn" type="button" hidden>Back to games</button>
       <div class="settings" id="settingsBox">
         <div class="row"><span id="sndLbl">Sound</span><button class="switch" id="sndSw" type="button" role="switch" aria-checked="true" aria-labelledby="sndLbl"></button></div>
         <div class="row"><span id="vibLbl">Vibration</span><button class="switch" id="vibSw" type="button" role="switch" aria-checked="true" aria-labelledby="vibLbl"></button></div>
       </div>
-      <p class="how">Drag a piece from the tray onto the grid. Fill a whole row or column and it clears. Clear again within three moves to keep a combo going and multiply your points. The game ends when none of your pieces fit.</p>
+      <p class="how">Drag a piece from the tray onto the grid. Fill a row or column to clear it; clear again within three moves to keep a combo going. Every tray can be placed in some order, and the game ends when none of your pieces fit.</p>
+      <p class="how">Each line you clear becomes a wedge of your rose window, the medallion by the score. Rings complete at 16, 48 and 112 lines. Combo ×3 lines get a gold edge, and a line of one glaze turns to gold leaf. When the run ends, the window is fired and hung on your studio wall.</p>
+      <div class="legend" id="legend" role="list" aria-label="Each glaze has its own motif"></div>
       <p class="how">Keyboard: press 1, 2 or 3 to pick a piece, move it with the arrow keys, then press Enter.</p>
     </div>
     <div class="stack" id="pauseConfirm" hidden>
@@ -322,19 +485,60 @@ canvas:focus:not(:focus-visible) { outline: none; }
 </div>
 
 <div class="overlay" id="over" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="overTitle">
-    <div class="eyebrow">Game over</div>
-    <h2 id="overTitle">No room left</h2>
-    <div class="ribbon" id="newBest" hidden>New best</div>
-    <div class="big" id="overScore">0</div>
-    <div class="stats">
-      <div class="stat"><span>Best</span><b id="overBest">0</b></div>
-      <div class="stat"><span>Lines</span><b id="overLines">0</b></div>
-      <div class="stat"><span>Top combo</span><b id="overCombo">0</b></div>
+  <div class="card over-card" role="dialog" aria-modal="true" aria-labelledby="overTitle">
+    <div class="fire" id="fire" role="img" aria-label="Your rose window">
+      <canvas id="fireCv"></canvas>
+      <span class="skip" id="skipHint">Tap to skip</span>
     </div>
-    <button class="btn" id="againBtn" type="button">Play again</button>
+    <div class="over-body">
+      <div class="over-head">
+        <div class="eyebrow" id="overEyebrow">No room left</div>
+        <h2 id="overTitle">Rose window</h2>
+        <div class="ribbon" id="newBest" hidden>New best</div>
+      </div>
+      <div class="big" id="overScore">0</div>
+      <div class="stats">
+        <div class="stat"><span>Best</span><b id="overBest">0</b></div>
+        <div class="stat"><span>Lines</span><b id="overLines">0</b></div>
+        <div class="stat"><span>Top combo</span><b id="overCombo">0</b></div>
+      </div>
+      <button class="btn" id="againBtn" type="button">Play again</button>
+      <div class="pair">
+        <button class="btn ghost" id="saveBtn" type="button">Save image</button>
+        <button class="btn ghost" id="overWallBtn" type="button">Studio wall</button>
+      </div>
+    </div>
   </div>
 </div>
+
+<div class="overlay" id="wall" hidden>
+  <div class="card wall-card" role="dialog" aria-modal="true" aria-labelledby="wallTitle">
+    <div class="wall-head">
+      <div>
+        <h2 id="wallTitle">Studio wall</h2>
+        <p id="wallSub">Your last 30 windows</p>
+      </div>
+      <button class="icon-btn close-btn" id="wallClose" type="button" aria-label="Close the studio wall">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 4.6 12 10.2l5.6-5.6 1.8 1.8-5.6 5.6 5.6 5.6-1.8 1.8-5.6-5.6-5.6 5.6-1.8-1.8 5.6-5.6-5.6-5.6z"/></svg>
+      </button>
+    </div>
+    <div class="plaster"><div class="wall-grid" id="wallGrid"></div></div>
+  </div>
+</div>
+
+<div class="overlay" id="viewer" hidden>
+  <div class="card viewer-card" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+    <div class="eyebrow" id="viewEyebrow">Studio wall</div>
+    <h2 id="viewTitle">Rose window</h2>
+    <div class="view-win" role="img" id="viewWin"><canvas id="viewCv"></canvas></div>
+    <div class="view-meta" id="viewMeta"></div>
+    <div class="pair">
+      <button class="btn ghost" id="viewSave" type="button">Save image</button>
+      <button class="btn" id="viewBack" type="button">Back</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script src="../../hub/sdk.js"></script>
 <script>
@@ -348,6 +552,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
   const STONE = 6;
   const CLEAR_MS = 420;
   const RETURN_MS = 220;
+  const CRUMBLE_MS = 10; // per tile, as the board turns to bisque at game over
   const WHITE = [255, 255, 255];
   const BLACK = [0, 0, 0];
   const FONT_D = '"Unbounded", "Arial Black", system-ui, sans-serif';
@@ -359,9 +564,18 @@ canvas:focus:not(:focus-visible) { outline: none; }
   const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
   const easeInCubic = t => t * t * t;
   const easeOutBack = t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
-  const rand = Math.random;
+  let rand = Math.random;  // deals and palettes (the ?debug hook can seed it)
+  const fxr = Math.random; // shards and shake: cosmetic, never touches the deal stream
 
   const store = Arcade.store;
+  const GLAZE_NAMES = ['Cobalt', 'Saffron', 'Jade', 'Coral', 'Plum', 'Turquoise'];
+  // Colour-blind motif per glaze (same order as --g1..--g6), incised into every tile and wedge.
+  const MOTIFS = ['ring', 'dot', 'cross', 'diamond', 'bar', 'chevron'];
+  // Rose window: three rings of 16, 32 and 64 wedges; each cleared line becomes one wedge.
+  const RING_SIZES = [16, 32, 64];
+  const RING_ENDS = [16, 48, 112];
+  const WINDOW_MAX = 112;
+  const STRIP_RE = /^[0-5]{8}[0-9a-z]$/;
 
   /* ---------- pieces (weight, rows separated by "/") ---------- */
   const SHAPES = [
@@ -424,24 +638,34 @@ canvas:focus:not(:focus-visible) { outline: none; }
     if (lines.count) for (const i of lineCells(lines)) nb[i] = 0;
     return nb;
   }
-  // Can all three pieces be placed in some order? Gives up (and says yes) past a work budget.
-  function solvable(b, trio) {
-    let budget = 40000;
-    const orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
-    const go = (board, list, k) => {
-      if (k === list.length) return true;
-      const s = list[k];
-      for (let r = 0; r <= N - s.h; r++) for (let c = 0; c <= N - s.wd; c++) {
-        if (--budget < 0) throw new Error('budget');
-        if (fits(board, s, r, c) && go(simulate(board, s, r, c), list, k + 1)) return true;
+  // Can all the pieces be placed in some order (line clears included)? Returns the plan
+  // [{ i, r, c }, ...] in placing order, null when no order works, or BUDGET when the
+  // work budget ran out before an answer.
+  const BUDGET = 'budget';
+  function solve(b, list, budget = 120000) {
+    const n = list.length, plan = [];
+    const go = (board, used) => {
+      const seen = [];
+      for (let i = 0; i < n; i++) {
+        if (used & (1 << i)) continue;
+        const s = list[i];
+        if (seen.includes(s.id)) continue; // two identical pieces: one order is enough
+        seen.push(s.id);
+        for (let r = 0; r <= N - s.h; r++) for (let c = 0; c <= N - s.wd; c++) {
+          if (--budget < 0) throw BUDGET;
+          if (!fits(board, s, r, c)) continue;
+          plan.push({ i, r, c });
+          if (plan.length === n || go(simulate(board, s, r, c), used | (1 << i))) return true;
+          plan.pop();
+        }
       }
       return false;
     };
     try {
-      for (const o of orders) if (go(b, o.map(i => trio[i]), 0)) return true;
-      return false;
+      return n === 0 || go(b, 0) ? plan.slice() : null;
     } catch (e) {
-      return true;
+      if (e === BUDGET) return BUDGET;
+      throw e;
     }
   }
 
@@ -451,21 +675,39 @@ canvas:focus:not(:focus-visible) { outline: none; }
     vari: new Array(N * N).fill(0),
     tray: [null, null, null],        // { s: shape, color: 0..5 }
     score: 0, combo: 0, since: 9, lines: 0, maxCombo: 0, moves: 0, startBest: 0, over: false,
+    palette: [0, 1, 2, 3],           // this run's 4 glazes
+    strips: [],                      // each cleared line: 8 glaze digits + combo (base 36), e.g. "01123300" + "2"
   };
   let best = store.get('best', 0) | 0;
   const settings = { sound: kiln.settings.sound, vib: kiln.settings.vibration };
   Arcade.on('settings', s => { settings.sound = s.sound; settings.vib = s.vibration; syncSwitches(); });
   let tutorial = store.get('tutorial', 0) | 0; // 0: never placed, 1: placed, 2: has cleared a line
 
-  function rollShape(fill, score) {
-    let total = 0;
-    const ws = SHAPES.map(s => {
+  /* ---------- fair dealing ----------
+     Every tray is proven placeable in some order before it is dealt (the guaranteed path),
+     so a loss is always the player's own placement. Difficulty rises with the score through
+     the shape weights instead: more 5-cell, 2x3 and 3x3 pieces, fewer singles and dominoes. */
+  const TUNE = { heatAt: 4000, big: 1.1, six: 0.5, nine: 1.6, small: 0.55, mercy: 0.8, trials: 40 };
+  const smooth = x => x * x * (3 - 2 * x);
+  const heatOf = score => smooth(clamp(score / TUNE.heatAt, 0, 1));
+  function shapeWeights(fill, score) {
+    const h = heatOf(score);
+    // A crowded board deals smaller pieces; the mercy fades as the heat rises.
+    const crowd = fill > 0.5 ? 1 - TUNE.mercy * h : 0;
+    return SHAPES.map(s => {
       let w = s.w;
-      if (fill > 0.5) w *= s.n <= 3 ? 1.7 : s.n >= 5 ? 0.55 : 1;
-      else if (score > 2500 && s.n >= 5) w *= 1.3;
-      total += w;
+      if (s.n >= 9) w *= 1 + TUNE.nine * h;
+      else if (s.n >= 6) w *= 1 + TUNE.six * h;
+      else if (s.n >= 5) w *= 1 + TUNE.big * h;
+      else if (s.n <= 2) w *= 1 - TUNE.small * h;
+      if (crowd > 0) w *= s.n <= 3 ? 1 + 0.7 * crowd : s.n >= 5 ? 1 - 0.45 * crowd : 1;
       return w;
     });
+  }
+  const SMALL_WEIGHTS = SHAPES.map(s => (s.n <= 3 ? s.w : 0));
+  function roll(ws) {
+    let total = 0;
+    for (const w of ws) total += w;
     let x = rand() * total;
     for (let i = 0; i < SHAPES.length; i++) if ((x -= ws[i]) < 0) return SHAPES[i];
     return SHAPES[0];
@@ -474,20 +716,44 @@ canvas:focus:not(:focus-visible) { outline: none; }
     for (let i = a.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
+  let lastDeal = null;   // { board, ids, guaranteed, path, plan } for the tray on the table
+  let debugDealer = null;
+  function dealShapes(b) {
+    if (debugDealer) return { shapes: debugDealer(b.slice(), G.score, rand), guaranteed: false, path: 'debug', plan: null };
+    const fill = b.reduce((a, v) => a + (v ? 1 : 0), 0) / (N * N);
+    const ws = shapeWeights(fill, G.score);
+    let over = null;
+    const attempt = trio => {
+      const plan = solve(b, trio);
+      if (plan === BUDGET) { if (!over) over = trio; return null; }
+      return plan;
+    };
+    // 1. The weighted draw, kept only when a placement order is found.
+    for (let k = 0; k < TUNE.trials; k++) {
+      const trio = [roll(ws), roll(ws), roll(ws)];
+      const plan = attempt(trio);
+      if (plan) return { shapes: trio, guaranteed: true, path: 'draw', plan };
+    }
+    // 2. Rescue: small pieces. Three single tiles always fit, because no row is ever left full.
+    for (let k = 0; k < 24; k++) {
+      const trio = k < 23 ? [roll(SMALL_WEIGHTS), roll(SMALL_WEIGHTS), roll(SMALL_WEIGHTS)] : [SHAPES[0], SHAPES[0], SHAPES[0]];
+      const plan = attempt(trio);
+      if (plan) return { shapes: trio, guaranteed: true, path: 'rescue', plan };
+    }
+    // 3. Work-budget fallback: a tray the search could not finish checking.
+    return { shapes: over || [SHAPES[0], SHAPES[0], SHAPES[0]], guaranteed: false, path: 'budget', plan: null };
+  }
   function dealTray() {
     const b = G.board;
-    const fill = b.reduce((a, v) => a + (v ? 1 : 0), 0) / (N * N);
-    const fair = rand() < Math.max(0.6, 1 - G.score / 7000);
-    let chosen = null;
-    for (let k = 0; k < 40; k++) {
-      const trio = [rollShape(fill, G.score), rollShape(fill, G.score), rollShape(fill, G.score)];
-      if (!trio.some(s => fitsAnywhere(b, s))) continue;
-      if (!chosen) chosen = trio;
-      if (!fair || solvable(b, trio)) { chosen = trio; break; }
-    }
-    if (!chosen) chosen = [SHAPES[0], rollShape(fill, G.score), rollShape(fill, G.score)];
-    const colors = shuffle([0, 1, 2, 3, 4, 5]);
-    return chosen.map((s, i) => ({ s, color: colors[i] }));
+    const t0 = performance.now();
+    const deal = dealShapes(b);
+    lastDeal = { board: b.slice(), ids: deal.shapes.map(s => s.id), guaranteed: deal.guaranteed, path: deal.path, plan: deal.plan, ms: performance.now() - t0 };
+    // Each tray wears 3 different glazes from this run's palette of 4.
+    const colors = shuffle(G.palette.slice()).slice(0, 3);
+    return deal.shapes.map((s, i) => ({ s, color: colors[i] }));
+  }
+  function pickPalette() {
+    return shuffle([0, 1, 2, 3, 4, 5]).slice(0, 4).sort((a, b) => a - b);
   }
 
   function serialize() {
@@ -497,7 +763,18 @@ canvas:focus:not(:focus-visible) { outline: none; }
       tray: G.tray.map(t => (t ? [t.s.id, t.color] : null)),
       score: G.score, combo: G.combo, since: G.since, lines: G.lines,
       maxCombo: G.maxCombo, moves: G.moves, startBest: G.startBest, over: G.over,
+      palette: G.palette.slice(), strips: G.strips.slice(),
     };
+  }
+  // Saves from before the rose window have no palette or strips: they load with a fresh palette
+  // that keeps the glazes already on the tray, and an empty window.
+  function restorePalette(p, tray) {
+    const ok = Array.isArray(p) && p.length === 4 && p.every(x => Number.isInteger(x) && x >= 0 && x < 6) && new Set(p).size === 4;
+    if (ok) return p.slice();
+    const pal = [];
+    for (const t of tray) if (t && !pal.includes(t.color)) pal.push(t.color);
+    for (const x of shuffle([0, 1, 2, 3, 4, 5])) if (pal.length < 4 && !pal.includes(x)) pal.push(x);
+    return pal.slice(0, 4).sort((a, b) => a - b);
   }
   function restore(d) {
     try {
@@ -506,11 +783,14 @@ canvas:focus:not(:focus-visible) { outline: none; }
       const board = d.board.map(v => clamp(v | 0, 0, 6));
       const vari = (Array.isArray(d.vari) ? d.vari : []).concat(new Array(N * N).fill(0)).slice(0, N * N).map(v => clamp(v | 0, 0, VARIANTS - 1));
       const tray = d.tray.map(t => (Array.isArray(t) && SHAPES[t[0]] ? { s: SHAPES[t[0]], color: clamp(t[1] | 0, 0, 5) } : null));
+      const strips = (Array.isArray(d.strips) ? d.strips : []).filter(x => typeof x === 'string' && STRIP_RE.test(x)).slice(0, WINDOW_MAX);
       Object.assign(G, {
         board, vari, tray,
         score: d.score | 0, combo: d.combo | 0, since: d.since | 0, lines: d.lines | 0,
         maxCombo: d.maxCombo | 0, moves: d.moves | 0, startBest: d.startBest | 0, over: false,
+        palette: restorePalette(d.palette, tray), strips,
       });
+      lastDeal = null;
       if (!G.tray.some(Boolean)) G.tray = dealTray();
       if (!G.tray.some(t => t && fitsAnywhere(G.board, t.s))) return false;
       return true;
@@ -526,10 +806,12 @@ canvas:focus:not(:focus-visible) { outline: none; }
   const cv = $('board');
   const ctx = cv.getContext('2d');
   const scoreEl = $('score'), bestEl = $('best'), bestPill = $('bestPill'), sub = $('sub');
-  const pauseEl = $('pause'), overEl = $('over');
+  const pauseEl = $('pause'), overEl = $('over'), wallEl = $('wall'), viewerEl = $('viewer');
+  const medalBtn = $('medal'), medalCv = $('medalCv'), fxCv = $('fx'), fxCtx = fxCv.getContext('2d');
 
   /* ---------- theme ---------- */
   let T = null;
+  let themeGen = 0; // bumps whenever the colours change, so cached window art is redrawn
   function parseHex(h) {
     h = (h || '#888888').trim().replace('#', '');
     if (h.length === 3) h = h.split('').map(x => x + x).join('');
@@ -545,7 +827,10 @@ canvas:focus:not(:focus-visible) { outline: none; }
       plaster: v('--plaster'), grout: v('--grout'), slot: v('--slot'), card: v('--card'),
       ink: v('--ink'), inkSoft: v('--ink-soft'), accent: v('--accent'),
       glazes: [1, 2, 3, 4, 5, 6].map(i => v('--g' + i)), stone: v('--stone'),
+      lead: v('--lead'), bisque: v('--bisque'), gold: v('--gold'), kiln: v('--kiln'),
+      dark: parseHex(v('--plaster')).reduce((a, x) => a + x, 0) < 300,
     };
+    themeGen++;
   }
 
   /* ---------- drawing helpers ---------- */
@@ -567,8 +852,33 @@ canvas:focus:not(:focus-visible) { outline: none; }
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
+  // Paints a glaze motif centred on (x, y) with half-size u, using the current fill and stroke styles.
+  function paintMotif(g, kind, x, y, u) {
+    g.save();
+    g.translate(x, y);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.lineWidth = u * 0.44;
+    g.beginPath();
+    if (kind === 'dot') { g.arc(0, 0, u * 0.58, 0, Math.PI * 2); g.fill(); }
+    else if (kind === 'ring') { g.arc(0, 0, u * 0.8, 0, Math.PI * 2); g.stroke(); }
+    else if (kind === 'cross') { g.moveTo(-u * 0.82, 0); g.lineTo(u * 0.82, 0); g.moveTo(0, -u * 0.82); g.lineTo(0, u * 0.82); g.stroke(); }
+    else if (kind === 'bar') { g.moveTo(-u * 0.92, 0); g.lineTo(u * 0.92, 0); g.stroke(); }
+    else if (kind === 'diamond') { g.moveTo(0, -u * 0.98); g.lineTo(u * 0.76, 0); g.lineTo(0, u * 0.98); g.lineTo(-u * 0.76, 0); g.closePath(); g.fill(); }
+    else if (kind === 'chevron') { g.moveTo(-u * 0.86, u * 0.42); g.lineTo(0, -u * 0.44); g.lineTo(u * 0.86, u * 0.42); g.stroke(); }
+    g.restore();
+  }
+  // The motif pressed into wet glaze: a dark incision with a light lower lip.
+  function incise(g, kind, x, y, u, base, depth = 1) {
+    if (!kind) return;
+    const lip = rgb(mix(base, WHITE, 0.5), 0.5 * depth), cut = rgb(mix(base, BLACK, 0.42), 0.62 * depth);
+    g.fillStyle = g.strokeStyle = lip;
+    paintMotif(g, kind, x, y + u * 0.16, u);
+    g.fillStyle = g.strokeStyle = cut;
+    paintMotif(g, kind, x, y, u);
+  }
   // A glazed ceramic tile: bevelled body, pillowed glaze face, a glint. Each variant shifts tone and glint a little, like handmade tiles.
-  function makeTile(hex, v, size) {
+  function makeTile(hex, v, size, motif) {
     const px = Math.max(2, Math.round(size * dpr));
     const c = document.createElement('canvas');
     c.width = c.height = px;
@@ -594,6 +904,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
     g.fillStyle = gr;
     rrect(g, fx, fy, fw, fw, rad * 0.72);
     g.fill();
+    incise(g, motif, fx + fw * 0.5, fy + fw * 0.53, fw * 0.19, base);
     g.save();
     g.translate(hx, hy - fw * 0.05);
     g.rotate(-0.6);
@@ -607,6 +918,343 @@ canvas:focus:not(:focus-visible) { outline: none; }
     g.arc(hx + fw * 0.21, hy - fw * 0.13, fw * 0.03, 0, Math.PI * 2);
     g.fill();
     return c;
+  }
+
+  /* ---------- rose window ----------
+     Strip i becomes wedge i: ring 1 holds wedges 0-15, ring 2 16-47, ring 3 48-111. Each wedge
+     runs from the inner edge of its ring to the outer edge, one band per tile of the line. */
+  const RING_R = [[0.175, 0.43], [0.448, 0.68], [0.697, 0.922]]; // fractions of the window radius
+  const RIM_IN = 0.94;
+  const TAU = Math.PI * 2;
+  function wedgeGeom(idx) {
+    const ring = idx < 16 ? 0 : idx < 48 ? 1 : 2;
+    const k = idx - (ring === 0 ? 0 : ring === 1 ? 16 : 48);
+    const span = TAU / RING_SIZES[ring];
+    const a0 = -Math.PI / 2 - span / 2 + k * span;
+    return { ring, a0, a1: a0 + span, r0: RING_R[ring][0], r1: RING_R[ring][1] };
+  }
+  const stripGlazes = s => [0, 1, 2, 3, 4, 5, 6, 7].map(k => +s[k]);
+  const stripCombo = s => parseInt(s[8], 36) || 0;
+  const isLeaf = s => /^(\d)\1{7}/.test(s);
+  function hash01(n) {
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  }
+  function sector(g, cx, cy, ra, rb, a0, a1) {
+    g.beginPath();
+    g.arc(cx, cy, rb, a0, a1);
+    g.arc(cx, cy, ra, a1, a0, true);
+    g.closePath();
+  }
+  let WP = null, wpGen = -1; // window colours, parsed once per theme
+  function winColors() {
+    if (wpGen !== themeGen) {
+      wpGen = themeGen;
+      WP = {
+        glz: T.glazes.map(parseHex), bisque: parseHex(T.bisque), lead: parseHex(T.lead), gold: parseHex(T.gold),
+        card: parseHex(T.card), plaster: parseHex(T.plaster), ink: parseHex(T.ink), kiln: parseHex(T.kiln),
+      };
+    }
+    return WP;
+  }
+  function glazeBase(rgbBase, n) {
+    const j = (hash01(n) - 0.5) * 0.13;
+    return j > 0 ? mix(rgbBase, WHITE, j) : mix(rgbBase, BLACK, -j);
+  }
+  // One wedge. strip null draws matte bisque. motifMin: smallest band (in canvas px) that gets its motif.
+  function drawWedge(g, cx, cy, R, idx, strip, motifMin = 1e9) {
+    const P = winColors();
+    const w = wedgeGeom(idx);
+    const ra = w.r0 * R, rb = w.r1 * R, bh = (rb - ra) / 8;
+    const seam = Math.max(0.35, R * 0.0035);
+    if (!strip) {
+      sector(g, cx, cy, ra, rb, w.a0, w.a1);
+      g.fillStyle = rgb(glazeBase(P.bisque, idx * 31 + 7));
+      g.fill();
+      if (bh > 2) {
+        g.strokeStyle = rgb(P.lead, 0.13);
+        g.lineWidth = seam;
+        for (let j = 1; j < 8; j++) { g.beginPath(); g.arc(cx, cy, ra + j * bh, w.a0, w.a1); g.stroke(); }
+      }
+      return;
+    }
+    const leaf = isLeaf(strip), cols = stripGlazes(strip);
+    const midArc = (w.a1 - w.a0) * (ra + rb) * 0.5;
+    for (let j = 0; j < 8; j++) {
+      const r0 = ra + j * bh, r1 = r0 + bh;
+      const base = leaf ? mix(P.gold, j % 2 ? WHITE : BLACK, 0.04 + hash01(idx * 8 + j) * 0.1) : glazeBase(P.glz[cols[j]], idx * 8 + j);
+      const gr = g.createRadialGradient(cx, cy, r0, cx, cy, r1);
+      gr.addColorStop(0, rgb(mix(base, WHITE, leaf ? 0.5 : 0.28)));
+      gr.addColorStop(0.42, rgb(base));
+      gr.addColorStop(1, rgb(mix(base, BLACK, leaf ? 0.32 : 0.26)));
+      g.fillStyle = gr;
+      sector(g, cx, cy, r0, r1, w.a0, w.a1);
+      g.fill();
+    }
+    if (bh > 1.6) {
+      g.strokeStyle = rgb(P.lead, 0.5);
+      g.lineWidth = seam;
+      for (let j = 1; j < 8; j++) { g.beginPath(); g.arc(cx, cy, ra + j * bh, w.a0, w.a1); g.stroke(); }
+    }
+    const bigBands = bh >= motifMin * 0.55;
+    if (bigBands || leaf) {
+      // a glint per band, like the board tiles
+      for (let j = 0; j < 8; j++) {
+        const rm = ra + (j + 0.38) * bh, arc = (w.a1 - w.a0) * rm;
+        const size = Math.min(bh * 0.5, arc * 0.2);
+        if (size < 1.2) continue;
+        const a = w.a0 + (w.a1 - w.a0) * 0.3;
+        g.save();
+        g.translate(cx + Math.cos(a) * rm, cy + Math.sin(a) * rm);
+        g.rotate(a + Math.PI / 2);
+        g.fillStyle = `rgba(255,255,255,${leaf ? 0.6 : 0.42})`;
+        g.beginPath();
+        g.ellipse(0, 0, size, size * 0.36, 0, 0, TAU);
+        g.fill();
+        g.restore();
+      }
+    }
+    if (!leaf && bh >= motifMin && midArc >= motifMin * 1.3) {
+      for (let j = 0; j < 8; j++) {
+        const rm = ra + (j + 0.5) * bh, a = (w.a0 + w.a1) / 2;
+        const u = Math.min(bh, (w.a1 - w.a0) * rm) * 0.24;
+        incise(g, MOTIFS[cols[j]], cx + Math.cos(a) * rm, cy + Math.sin(a) * rm, u, glazeBase(P.glz[cols[j]], idx * 8 + j), 0.85);
+      }
+    }
+    if (leaf) {
+      // gold leaf: a few bright flakes
+      g.fillStyle = 'rgba(255,250,225,0.8)';
+      for (let k = 0; k < 6; k++) {
+        const rr = ra + (rb - ra) * hash01(idx * 13 + k), a = w.a0 + (w.a1 - w.a0) * hash01(idx * 17 + k * 3);
+        g.beginPath();
+        g.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, Math.max(0.4, R * 0.006), 0, TAU);
+        g.fill();
+      }
+    } else if (stripCombo(strip) >= 3) {
+      // gold lustre: a gilded hairline just inside the leading (which is drawn over the wedge edges)
+      const lw = Math.max(0.7, R * 0.0085), ins = Math.max(0.5, R * 0.0055) + lw / 2;
+      const ia = ins / ((ra + rb) / 2);
+      const lg = g.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+      lg.addColorStop(0, rgb(mix(P.gold, WHITE, 0.62)));
+      lg.addColorStop(0.5, rgb(mix(P.gold, WHITE, 0.22)));
+      lg.addColorStop(1, rgb(mix(P.gold, BLACK, 0.05)));
+      g.lineWidth = lw;
+      g.lineJoin = 'round';
+      g.strokeStyle = lg;
+      sector(g, cx, cy, ra + ins, rb - ins, w.a0 + ia, w.a1 - ia);
+      g.stroke();
+    }
+  }
+  // The centre boss: this run's four glazes as petals around a gold bead.
+  function drawBoss(g, cx, cy, R, palette) {
+    const P = winColors();
+    const ro = RING_R[0][0] * R * 0.93, ri = ro * 0.3;
+    g.fillStyle = rgb(P.lead);
+    g.beginPath(); g.arc(cx, cy, ro + R * 0.012, 0, TAU); g.fill();
+    palette.forEach((gz, k) => {
+      const a0 = -Math.PI / 2 + (k * TAU) / 4 + 0.07, a1 = a0 + TAU / 4 - 0.14;
+      const base = P.glz[gz] || P.bisque;
+      const gr = g.createRadialGradient(cx, cy, ri, cx, cy, ro);
+      gr.addColorStop(0, rgb(mix(base, WHITE, 0.3)));
+      gr.addColorStop(1, rgb(mix(base, BLACK, 0.22)));
+      g.fillStyle = gr;
+      sector(g, cx, cy, ri, ro, a0, a1);
+      g.fill();
+    });
+    const gr = g.createRadialGradient(cx - ri * 0.3, cy - ri * 0.3, 0, cx, cy, ri);
+    gr.addColorStop(0, rgb(mix(P.gold, WHITE, 0.5)));
+    gr.addColorStop(1, rgb(mix(P.gold, BLACK, 0.2)));
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(cx, cy, ri * 0.82, 0, TAU); g.fill();
+  }
+  // Lead lines, ring bands, the ceramic rim and a glassy sheen: everything that does not change.
+  function drawLead(g, cx, cy, R) {
+    const P = winColors();
+    const lead = rgb(P.lead);
+    const lw = Math.max(0.6, R * 0.011);
+    g.strokeStyle = lead;
+    g.lineCap = 'butt';
+    for (let ring = 0; ring < 3; ring++) {
+      const [f0, f1] = RING_R[ring];
+      g.lineWidth = lw;
+      g.beginPath();
+      for (let k = 0; k < RING_SIZES[ring]; k++) {
+        const a = wedgeGeom((ring === 0 ? 0 : ring === 1 ? 16 : 48) + k).a0;
+        g.moveTo(cx + Math.cos(a) * f0 * R, cy + Math.sin(a) * f0 * R);
+        g.lineTo(cx + Math.cos(a) * f1 * R, cy + Math.sin(a) * f1 * R);
+      }
+      g.stroke();
+    }
+    // bands between rings, and the inner edge of ring 1
+    const bands = [[RING_R[0][0] - 0.012, RING_R[0][0]], [RING_R[0][1], RING_R[1][0]], [RING_R[1][1], RING_R[2][0]], [RING_R[2][1], RIM_IN]];
+    for (const [a, b] of bands) {
+      g.lineWidth = Math.max(lw, (b - a) * R);
+      g.beginPath(); g.arc(cx, cy, ((a + b) / 2) * R, 0, TAU); g.stroke();
+    }
+    // the rim: a ring of unglazed stoneware with a bevel
+    const rim = g.createRadialGradient(cx, cy, RIM_IN * R, cx, cy, R);
+    rim.addColorStop(0, rgb(mix(P.card, BLACK, 0.16)));
+    rim.addColorStop(0.35, rgb(mix(P.card, P.bisque, 0.5)));
+    rim.addColorStop(1, rgb(mix(P.card, BLACK, 0.08)));
+    g.fillStyle = rim;
+    g.beginPath();
+    g.arc(cx, cy, R, 0, TAU);
+    g.arc(cx, cy, RIM_IN * R, 0, TAU, true);
+    g.fill();
+    g.lineWidth = Math.max(0.5, R * 0.006);
+    g.strokeStyle = rgb(P.lead, 0.55);
+    g.beginPath(); g.arc(cx, cy, R - g.lineWidth / 2, 0, TAU); g.stroke();
+    // glassy sheen across the glazes
+    g.save();
+    g.beginPath(); g.arc(cx, cy, RIM_IN * R, 0, TAU); g.clip();
+    const sh = g.createRadialGradient(cx - R * 0.42, cy - R * 0.5, 0, cx - R * 0.42, cy - R * 0.5, R * 1.05);
+    sh.addColorStop(0, 'rgba(255,255,255,0.2)');
+    sh.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+    sh.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sh;
+    g.fillRect(cx - R, cy - R, R * 2, R * 2);
+    g.restore();
+  }
+  // A cached, incrementally glazed rendering of one window at one pixel size.
+  function makeView() { return { c: document.createElement('canvas'), lead: document.createElement('canvas'), px: 0, key: '', src: null, drawn: 0 }; }
+  function viewSync(view, px, strips, palette, upto, motifMin) {
+    px = Math.max(8, Math.round(px));
+    const key = themeGen + ':' + px + ':' + palette.join('') + ':' + motifMin;
+    const R = px / 2 - 0.5;
+    if (view.key !== key || view.src !== strips || upto < view.drawn) {
+      view.key = key; view.src = strips; view.drawn = 0; view.px = px;
+      view.c.width = view.c.height = px;
+      view.lead.width = view.lead.height = px;
+      const g = view.c.getContext('2d');
+      for (let i = 0; i < WINDOW_MAX; i++) drawWedge(g, px / 2, px / 2, R, i, null);
+      drawBoss(g, px / 2, px / 2, R, palette);
+      drawLead(view.lead.getContext('2d'), px / 2, px / 2, R);
+    }
+    const end = Math.min(upto, strips.length, WINDOW_MAX);
+    if (end > view.drawn) {
+      const g = view.c.getContext('2d');
+      for (let i = view.drawn; i < end; i++) drawWedge(g, px / 2, px / 2, R, i, strips[i], motifMin);
+      view.drawn = end;
+    }
+    return view;
+  }
+  function paintView(g, view, x, y, size) {
+    g.drawImage(view.c, x, y, size, size);
+    g.drawImage(view.lead, x, y, size, size);
+  }
+  function wedgePath(g, cx, cy, R, idx) {
+    const w = wedgeGeom(idx);
+    sector(g, cx, cy, w.r0 * R, w.r1 * R, w.a0, w.a1);
+  }
+  // Text set around a circle: centred on angle a (top reads clockwise, bottom reads left to right).
+  function arcText(g, text, cx, cy, r, a, bottom) {
+    const chars = [...text];
+    const widths = chars.map(ch => g.measureText(ch).width);
+    const total = widths.reduce((s, w) => s + w, 0) / r;
+    let ang = bottom ? a + total / 2 : a - total / 2;
+    chars.forEach((ch, k) => {
+      const half = widths[k] / 2 / r;
+      ang += bottom ? -half : half;
+      g.save();
+      g.translate(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+      g.rotate(bottom ? ang - Math.PI / 2 : ang + Math.PI / 2);
+      g.fillText(ch, 0, 0);
+      g.restore();
+      ang += bottom ? -half : half;
+    });
+  }
+  const dateFmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  function showDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    return m ? dateFmt.format(new Date(+m[1], +m[2] - 1, +m[3])) : '';
+  }
+  function todayIso() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  // The maker's mark: a round seal stamped in cobalt over the rim.
+  function drawStamp(g, x, y, r, win, alpha = 1, scale = 1) {
+    if (alpha <= 0) return;
+    const ink = T.accent, paper = T.card;
+    g.save();
+    g.translate(x, y);
+    g.rotate(-0.16);
+    g.scale(scale, scale);
+    g.globalAlpha = alpha;
+    g.shadowColor = 'rgba(0,0,0,0.25)';
+    g.shadowBlur = r * 0.18;
+    g.shadowOffsetY = r * 0.06;
+    g.fillStyle = paper;
+    g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+    g.shadowColor = 'transparent';
+    g.strokeStyle = ink;
+    g.fillStyle = ink;
+    g.lineWidth = r * 0.055;
+    g.beginPath(); g.arc(0, 0, r * 0.9, 0, TAU); g.stroke();
+    g.lineWidth = r * 0.02;
+    g.beginPath(); g.arc(0, 0, r * 0.66, 0, TAU); g.stroke();
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const ring = r * 0.78;
+    g.font = `700 ${r * 0.15}px ${FONT_B}`;
+    if ('letterSpacing' in g) g.letterSpacing = `${(r * 0.02).toFixed(1)}px`;
+    arcText(g, win.no ? `TESSERA · No. ${win.no}` : 'TESSERA', 0, 0, ring, -Math.PI / 2, false);
+    arcText(g, showDate(win.date).toUpperCase(), 0, 0, ring, Math.PI / 2, true);
+    if ('letterSpacing' in g) g.letterSpacing = '0px';
+    const sc = fmt(win.score);
+    g.font = `800 ${r * (sc.length > 6 ? 0.25 : 0.3)}px ${FONT_D}`;
+    g.fillText(sc, 0, -r * 0.07);
+    g.font = `700 ${r * 0.118}px ${FONT_B}`;
+    g.fillText(`${win.lines} ${win.lines === 1 ? 'LINE' : 'LINES'}${win.combo >= 2 ? ' · ×' + win.combo : ''}`, 0, r * 0.25);
+    // ink that did not take: a few knocked-out specks
+    g.globalCompositeOperation = 'destination-out';
+    const rng = mulberry32(win.no * 977 + 3);
+    for (let k = 0; k < 26; k++) {
+      const a = rng() * TAU, d = r * (0.2 + rng() * 0.75);
+      g.globalAlpha = alpha * (0.15 + rng() * 0.35);
+      g.beginPath(); g.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.01 + rng() * 0.025), 0, TAU); g.fill();
+    }
+    g.restore();
+  }
+  function windowName(win) {
+    const cnt = [0, 0, 0, 0, 0, 0];
+    for (const s of win.strips) for (let k = 0; k < 8; k++) cnt[+s[k]]++;
+    const rank = [0, 1, 2, 3, 4, 5].sort((a, b) => cnt[b] - cnt[a] || (win.palette.indexOf(b) >= 0) - (win.palette.indexOf(a) >= 0) || a - b);
+    const [a, b] = cnt[rank[0]] ? rank : win.palette;
+    return `${GLAZE_NAMES[a]} & ${GLAZE_NAMES[b]}, No. ${win.no}`;
+  }
+  function ringOf(n) { return n >= 112 ? 3 : n >= 48 ? 2 : n >= 16 ? 1 : 0; }
+
+  /* ---------- studio wall: the last 30 fired windows (strips only) ---------- */
+  const WALL_MAX = 30;
+  function packWin(w) { return { s: w.strips.join(''), p: w.palette.join(''), n: w.no, sc: w.score, l: w.lines, c: w.combo, d: w.date }; }
+  function unpackWin(o) {
+    if (!o || typeof o.s !== 'string' || typeof o.p !== 'string' || !/^[0-5]{4}$/.test(o.p)) return null;
+    const strips = (o.s.match(/.{9}/g) || []).filter(x => STRIP_RE.test(x)).slice(0, WINDOW_MAX);
+    if (!strips.length) return null;
+    return { strips, palette: [...o.p].map(Number), no: Math.max(1, o.n | 0), score: Math.max(0, o.sc | 0), lines: Math.max(0, o.l | 0), combo: Math.max(0, o.c | 0), date: typeof o.d === 'string' ? o.d : '' };
+  }
+  function loadWall() {
+    const raw = store.get('wall', []);
+    return (Array.isArray(raw) ? raw : []).map(unpackWin).filter(Boolean);
+  }
+  let persistAsked = false;
+  function hangWindow(win) {
+    const wall = loadWall();
+    wall.unshift(win);
+    // Keep the newest 30, but never let the best-score window fall off the wall.
+    while (wall.length > WALL_MAX) {
+      const top = Math.max(...wall.map(w => w.score));
+      let k = wall.length - 1;
+      while (k > 0 && wall[k].score === top) k--;
+      wall.splice(k, 1);
+    }
+    store.set('wall', wall.map(packWin));
+    if (!persistAsked) {
+      persistAsked = true;
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* not available */ }
+    }
   }
 
   /* ---------- layout ---------- */
@@ -651,13 +1299,23 @@ canvas:focus:not(:focus-visible) { outline: none; }
     const s0 = L.slots[0];
     L.tcs = Math.min(L.cs * 0.62, s0.w * 0.3, s0.h * 0.3);
     buildArt();
+    sizeFx();
+    fitScore(true);
     if (drag) drag.ts = drag.kbd ? L.cs : drag.ts;
     pvKey = '';
     requestRender();
   }
+  function sizeFx() {
+    const vw = document.documentElement.clientWidth || window.innerWidth, vh = document.documentElement.clientHeight || window.innerHeight;
+    const fw = Math.round(vw * dpr), fh = Math.round(vh * dpr);
+    if (fxCv.width !== fw || fxCv.height !== fh) { fxCv.width = fw; fxCv.height = fh; fxDirty = true; }
+    const mp = Math.round((medalCv.getBoundingClientRect().width || 40) * dpr);
+    if (medalCv.width !== mp) { medalCv.width = medalCv.height = mp; }
+    medalDirty = true;
+  }
   function buildArt() {
     if (!T) readTheme();
-    const set = size => T.glazes.concat([T.stone]).map(hex => Array.from({ length: VARIANTS }, (_, v) => makeTile(hex, v, size)));
+    const set = size => T.glazes.concat([T.stone]).map((hex, k) => Array.from({ length: VARIANTS }, (_, v) => makeTile(hex, v, size, MOTIFS[k])));
     sprites = { board: set(L.cs), tray: set(L.tcs) };
     const c = document.createElement('canvas');
     c.width = c.height = Math.max(2, Math.ceil(L.B * dpr));
@@ -785,6 +1443,45 @@ canvas:focus:not(:focus-visible) { outline: none; }
     },
     over() { if (this.ok()) [659.25, 523.25, 392, 329.63].forEach((f, k) => this.bell(f, k * 0.2, 0.13)); },
     best() { if (this.ok()) [523.25, 659.25, 783.99, 1046.5].forEach((f, k) => this.bell(f, k * 0.09, 0.13)); },
+    // A wedge clicking into the window: a small ceramic tick that climbs as the window fills.
+    tick(i, vol = 1) {
+      if (!this.ok()) return;
+      const f = 1500 + (i % 16) * 55 + Math.floor(i / 16) * 110;
+      this.tone(f, 0.045, { type: 'triangle', vol: 0.05 * vol, slide: 0.82 });
+      this.hiss(0.025, { freq: 5200, q: 3, vol: 0.07 * vol });
+    },
+    ring(k) {
+      if (!this.ok()) return;
+      const chords = [[783.99, 987.77, 1174.66], [659.25, 830.61, 987.77, 1318.51], [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98]];
+      chords[k].forEach((f, j) => this.bell(f, j * 0.06, 0.12));
+      this.bell(chords[k][0] / 2, 0, 0.1);
+    },
+    // The kiln coming up to heat: a low, filtered roar that swells and settles.
+    kiln() {
+      if (!this.ok()) return;
+      const c = this.ctx, t = c.currentTime;
+      const src = c.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(220, t);
+      lp.frequency.linearRampToValueAtTime(520, t + 0.6);
+      lp.frequency.linearRampToValueAtTime(160, t + 2.2);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.45);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
+      src.connect(lp); lp.connect(g); g.connect(this.master);
+      src.start(t); src.stop(t + 2.5);
+      this.tone(58, 1.8, { vol: 0.12, attack: 0.4, slide: 1.2 });
+    },
+    stamp() {
+      if (!this.ok()) return;
+      this.tone(150, 0.2, { vol: 0.32, slide: 0.45 });
+      this.hiss(0.06, { freq: 900, q: 0.9, vol: 0.3 });
+    },
+    chime() { if (this.ok()) [1046.5, 1318.51, 1567.98].forEach((f, k) => this.bell(f, k * 0.05, 0.09)); },
   };
   function buzz(ms) {
     if (settings.vib) Arcade.haptic(ms);
@@ -805,6 +1502,124 @@ canvas:focus:not(:focus-visible) { outline: none; }
   let ret = null;    // piece flying back to the tray
   let pvKey = '', pv = null;
 
+  // The medallion: a wedge lights once the shards of its line have flown in (in clearing order).
+  let medalLit = 0;                 // wedges shown in the medallion
+  const pending = new Map();        // strip index -> { left: shards still flying, deadline }
+  const medalFlash = [];            // { idx, t0 }
+  const medalView = makeView();
+  let medalDirty = true, fxDirty = false, lastTick = 0;
+  let fired = store.get('fired', 0) | 0; // windows fired so far: the next one is No. fired + 1
+  let lastWin = null;               // the window fired at the last game over
+  let windowTip = !!store.get('windowTip', false);
+
+  function medalBox() {
+    const r = medalCv.getBoundingClientRect();
+    return r.width > 4 ? { x: r.left + r.width / 2, y: r.top + r.height / 2, R: r.width / 2 } : null;
+  }
+  function wedgeTarget(idx) {
+    const m = medalBox();
+    if (!m) return null;
+    const w = wedgeGeom(idx), a = (w.a0 + w.a1) / 2, rr = ((w.r0 + w.r1) / 2) * m.R;
+    return { x: m.x + Math.cos(a) * rr, y: m.y + Math.sin(a) * rr };
+  }
+  const HOMERS = 3; // shards per line that fly into the medallion
+  function queueWedges(fresh, now) {
+    const fly = !reduceMotion.matches && !document.hidden && !!medalBox();
+    for (const f of fresh) pending.set(f.idx, { left: fly ? HOMERS : 0, deadline: now + (fly ? 1700 : 140) });
+    return fly;
+  }
+  function lightWedges(now) {
+    let any = false;
+    while (medalLit < Math.min(G.strips.length, WINDOW_MAX)) {
+      const p = pending.get(medalLit);
+      if (p && p.left > 0 && now < p.deadline) break;
+      pending.delete(medalLit);
+      const idx = medalLit++;
+      medalFlash.push({ idx, t0: now });
+      any = true;
+      if (now - lastTick > 45) { Sound.tick(idx); lastTick = now; }
+      const ring = RING_ENDS.indexOf(idx + 1);
+      if (ring >= 0) ringComplete(ring, now);
+    }
+    if (any) {
+      medalDirty = true;
+      if (!reduceMotion.matches) { medalBtn.classList.remove('hit'); void medalBtn.offsetWidth; medalBtn.classList.add('hit'); }
+      updateMedalLabel();
+    }
+  }
+  function ringComplete(k, now) {
+    Sound.ring(k);
+    buzz(k === 2 ? [30, 60, 30, 60, 90] : [20, 50, 34]);
+    texts.push({
+      kind: 'word', ring: true, t0: now + 60, dur: 1800,
+      text: k === 2 ? 'Window complete!' : 'Ring complete',
+      sub: k === 2 ? 'All 112 lines fired' : `Ring ${k + 1} of 3 · ${RING_ENDS[k]} lines`,
+    });
+    medalBtn.classList.remove('ring'); void medalBtn.offsetWidth; medalBtn.classList.add('ring');
+    Arcade.track('level_complete', { ring: k + 1, lines: G.lines });
+  }
+  function updateMedalLabel() {
+    const n = Math.min(G.strips.length, WINDOW_MAX);
+    medalBtn.setAttribute('aria-label', `Your rose window: ${n} of ${WINDOW_MAX} lines fired. Show the window.`);
+  }
+  function drawMedal(now) {
+    const px = medalCv.width;
+    if (!px || !T) return false;
+    for (let i = medalFlash.length - 1; i >= 0; i--) if (now - medalFlash[i].t0 > 420) { medalFlash.splice(i, 1); medalDirty = true; }
+    if (!medalDirty && !medalFlash.length) return false;
+    medalDirty = false;
+    viewSync(medalView, px, G.strips, G.palette, medalLit, 1e9);
+    const g = medalCv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, px, px);
+    paintView(g, medalView, 0, 0, px);
+    for (const f of medalFlash) {
+      const a = 1 - (now - f.t0) / 420;
+      g.fillStyle = `rgba(255,248,230,${(0.9 * a * a).toFixed(3)})`;
+      wedgePath(g, px / 2, px / 2, px / 2 - 0.5, f.idx);
+      g.fill();
+    }
+    return medalFlash.length > 0;
+  }
+  // Shards live on a page-sized layer so they can fly out of the board and into the medallion.
+  function renderFx() {
+    if (!parts.length && !fxDirty) return;
+    fxDirty = parts.length > 0;
+    const g = fxCtx;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, fxCv.width / dpr, fxCv.height / dpr);
+    for (const q of parts) {
+      const t = q.age / q.life;
+      if (q.home !== undefined && q.trail.length) {
+        // a fading streak behind each shard on its way to the window
+        g.fillStyle = q.color;
+        for (let k = 0; k < q.trail.length; k += 2) {
+          const a = 0.34 * (1 - k / q.trail.length), sz = q.size * (0.7 - k * 0.05) * (1 - 0.5 * t);
+          g.globalAlpha = a;
+          g.beginPath();
+          g.arc(q.trail[k], q.trail[k + 1], Math.max(0.5, sz / 2), 0, TAU);
+          g.fill();
+        }
+        g.globalAlpha = 1;
+      }
+      g.save();
+      g.translate(q.x, q.y);
+      g.rotate(q.rot);
+      if (q.home !== undefined) {
+        const s = q.size * (1 - 0.62 * t * t);
+        g.fillStyle = q.color;
+        g.fillRect(-s / 2, -s * 0.42, s, s * 0.84);
+        g.fillStyle = 'rgba(255,255,255,0.55)';
+        g.fillRect(-s / 2, -s * 0.42, s, s * 0.2);
+      } else {
+        g.globalAlpha = 1 - Math.pow(t, 3);
+        g.fillStyle = q.color;
+        g.fillRect(-q.size / 2, -q.size * 0.4, q.size, q.size * 0.8);
+      }
+      g.restore();
+    }
+  }
+
   function preview() {
     if (!drag || !drag.cell) return null;
     const key = drag.slot + ':' + drag.cell.r + ':' + drag.cell.c;
@@ -821,6 +1636,20 @@ canvas:focus:not(:focus-visible) { outline: none; }
   }
 
   /* ---------- moves ---------- */
+  // Store one strip per cleared line (while the glazes are still on the board). Returns
+  // [{ idx, cells }] for the strips that became new wedges.
+  function recordStrips(lines) {
+    const out = [];
+    const combo = Math.min(G.combo, 35).toString(36);
+    const add = cells => {
+      if (G.strips.length >= WINDOW_MAX) return;
+      G.strips.push(cells.map(i => clamp(G.board[i] - 1, 0, 5)).join('') + combo);
+      out.push({ idx: G.strips.length - 1, cells });
+    };
+    for (const r of lines.rows) add(Array.from({ length: N }, (_, c) => r * N + c));
+    for (const c of lines.cols) add(Array.from({ length: N }, (_, r) => r * N + c));
+    return out;
+  }
   function placePiece(slot, r, c) {
     const t = G.tray[slot];
     if (!t || G.over || !fits(G.board, t.s, r, c)) return false;
@@ -850,11 +1679,21 @@ canvas:focus:not(:focus-visible) { outline: none; }
       G.maxCombo = Math.max(G.maxCombo, G.combo);
       const linePts = (10 * lines.count * (lines.count + 1)) / 2;
       gained += linePts * G.combo;
+      // Fire each cleared line into the window: rows read left to right, columns top to bottom.
+      const fresh = recordStrips(lines);
+      const homes = new Map(); // cell -> strip indices whose shards leave from it
+      if (queueWedges(fresh, now)) {
+        for (const f of fresh) for (const pos of [1, 4, 6]) {
+          const i = f.cells[pos];
+          if (!homes.has(i)) homes.set(i, []);
+          homes.get(i).push(f.idx);
+        }
+      }
       const cells = lineCells(lines);
       for (const i of cells) {
         const rr = (i / N) | 0, cc2 = i % N;
         const d = Math.hypot(rr - cr, cc2 - cc);
-        clearing.push({ r: rr, c: cc2, col: G.board[i] - 1, v: G.vari[i], t0: now + 40 + d * 24, spawned: false });
+        clearing.push({ r: rr, c: cc2, col: G.board[i] - 1, v: G.vari[i], t0: now + 40 + d * 24, spawned: false, homes: homes.get(i) || null });
         G.board[i] = 0;
       }
       const spotless = G.board.every(v => !v);
@@ -868,6 +1707,13 @@ canvas:focus:not(:focus-visible) { outline: none; }
       Sound.clear(lines.count, G.combo);
       buzz(lines.count > 1 ? [18, 40, 28] : 22);
       if (tutorial < 2) { tutorial = 2; store.set('tutorial', 2); Arcade.track('tutorial_complete'); }
+      if (!windowTip) {
+        // First clear ever: point at the medallion once.
+        windowTip = true;
+        store.set('windowTip', true);
+        tipUntil = now + 4200;
+        setTimeout(updateHud, 4300);
+      }
     } else {
       G.since++;
       if (G.since >= 3) G.combo = 0;
@@ -899,28 +1745,407 @@ canvas:focus:not(:focus-visible) { outline: none; }
 
   function gameOver(now) {
     G.over = true;
-    Arcade.runEnd({ score: G.score, reason: 'no_room', lines: G.lines, moves: G.moves, top_combo: G.maxCombo, new_best: G.score > G.startBest && G.score > 0 });
-    overStart = now + 520;
+    Arcade.runEnd({ score: G.score, reason: 'no_room', lines: G.lines, moves: G.moves, top_combo: G.maxCombo, new_best: G.score > G.startBest && G.score > 0, wedges: Math.min(G.strips.length, WINDOW_MAX) });
+    overStart = now + 380;
+    // The window is fired and hung now, so it is kept even if the player leaves mid-sequence.
+    const win = { strips: G.strips.slice(0, WINDOW_MAX), palette: G.palette.slice(), no: 0, score: G.score, lines: G.lines, combo: G.maxCombo, date: todayIso(), best: G.score > G.startBest && G.score > 0 };
+    if (win.strips.length) {
+      fired = (store.get('fired', fired) | 0) + 1;
+      store.set('fired', fired);
+      win.no = fired;
+      hangWindow(win);
+    }
+    lastWin = win;
     const id = gameId;
     setTimeout(() => {
       if (id !== gameId) return;
       Sound.over();
       buzz([30, 60, 30]);
-    }, 520);
-    setTimeout(() => { if (id === gameId) showOver(); }, 520 + N * N * 14 + 520);
+    }, 380);
+    setTimeout(() => { if (id === gameId) showOver(); }, 380 + N * N * CRUMBLE_MS + 260);
   }
   function showOver() {
-    if (!G.over) return;
-    const isBest = G.score > G.startBest && G.score > 0;
+    if (!G.over || !lastWin) return;
+    const win = lastWin;
+    const has = win.strips.length > 0;
     $('overScore').textContent = fmt(G.score);
     $('overBest').textContent = fmt(best);
     $('overLines').textContent = fmt(G.lines);
     $('overCombo').textContent = G.maxCombo >= 2 ? '×' + G.maxCombo : '–';
-    $('newBest').hidden = !isBest;
-    $('overTitle').textContent = isBest ? 'Your best yet' : 'No room left';
+    $('newBest').hidden = !win.best;
+    $('overEyebrow').textContent = 'No room left';
+    $('overTitle').textContent = has ? windowName(win) : 'An unglazed window';
+    $('saveBtn').hidden = !has;
+    $('fire').setAttribute('aria-label', has
+      ? `${windowName(win)}: a rose window of ${win.strips.length} glazed ${win.strips.length === 1 ? 'wedge' : 'wedges'}, stamped with ${fmt(win.score)} points.`
+      : 'An unglazed rose window. Clear lines to glaze it.');
     overEl.hidden = false;
-    if (isBest) setTimeout(() => Sound.best(), 250);
+    startFiring(win, performance.now());
     $('againBtn').focus({ preventScroll: true });
+  }
+
+  /* ---------- the firing: game over turns the run into a fired window ---------- */
+  const fireCv = $('fireCv'), fireWrap = $('fire'), skipHint = $('skipHint');
+  const fireCtx = fireCv.getContext('2d');
+  const FIRE_GLOW = 380;
+  let firing = null, fireDirty = false;
+  function startFiring(win, now) {
+    const n = Math.min(win.strips.length, WINDOW_MAX);
+    const dtw = n ? clamp(1900 / n, 16, 75) : 0;
+    const glazeEnd = FIRE_GLOW + n * dtw;
+    const stampAt = glazeEnd + (n ? 260 : 60);
+    firing = { win, t0: now, view: makeView(), n, dtw, stampAt, end: stampAt + 760, shown: 0, sweeps: [], stamped: false, skipped: false, done: false };
+    sizeFire();
+    if (reduceMotion.matches) skipFiring(true);
+    else if (n) Sound.kiln();
+    skipHint.style.opacity = firing.skipped || !n ? '0' : '1';
+    requestRender();
+  }
+  // Jump to the finished window. A tap does this; reduced motion starts here.
+  function skipFiring(still) {
+    const f = firing;
+    if (!f || f.done || f.skipped) return;
+    const now = performance.now();
+    f.skipped = true;
+    f.shown = f.n;
+    f.sweeps.length = 0;
+    f.t0 = now - (still ? f.end : f.stampAt);
+    if (still && !f.stamped && f.n) { f.stamped = true; Sound.stamp(); if (f.win.best) setTimeout(() => Sound.best(), 200); }
+    skipHint.style.opacity = '0';
+    fireDirty = true;
+    requestRender();
+  }
+  function sizeFire() {
+    const r = fireWrap.getBoundingClientRect();
+    const px = Math.max(8, Math.round(r.width * dpr));
+    if (fireCv.width !== px) { fireCv.width = fireCv.height = px; }
+    fireDirty = true;
+  }
+  function renderFiring(now) {
+    const f = firing;
+    if (!f || overEl.hidden || (f.done && !fireDirty)) return false;
+    fireDirty = false;
+    const px = fireCv.width;
+    const g = fireCtx;
+    const t = now - f.t0;
+    const cx = px * 0.5, cy = px * 0.48, R = px * 0.415;
+    const due = f.n ? clamp(Math.floor((t - FIRE_GLOW) / f.dtw) + 1, 0, f.n) : 0;
+    if (due > f.shown) {
+      for (let i = f.shown; i < due; i++) {
+        const ring = RING_ENDS.indexOf(i + 1);
+        if (ring >= 0) { Sound.ring(ring); buzz(18); f.sweeps.push({ ring, t0: now }); }
+      }
+      if (now - lastTick > 38) { Sound.tick(due - 1, 0.8); lastTick = now; }
+      f.shown = due;
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, px, px);
+    // kiln glow: comes up to heat, flickers while glazing, then cools to a warm halo
+    const heat = (f.n ? 1 : 0.35) * (t < FIRE_GLOW ? t / FIRE_GLOW : t < f.stampAt ? 1 : Math.max(0.3, 1 - ((t - f.stampAt) / 900) * 0.7));
+    const flick = t < f.stampAt && !f.skipped ? 0.05 * Math.sin(now / 67) + 0.03 * Math.sin(now / 23) : 0;
+    const P = winColors();
+    const glow = g.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 1.2);
+    glow.addColorStop(0, rgb(P.kiln, clamp(0.85 * heat + flick, 0, 1)));
+    glow.addColorStop(0.45, rgb(P.kiln, clamp(0.3 * heat + flick * 0.5, 0, 1)));
+    glow.addColorStop(1, rgb(P.kiln, 0));
+    g.fillStyle = glow;
+    g.fillRect(0, 0, px, px);
+    viewSync(f.view, R * 2, f.win.strips, f.win.palette, f.shown, 9 * dpr);
+    paintView(g, f.view, cx - R, cy - R, R * 2);
+    // heat on the glaze while it fires
+    if (heat > 0.32 && t < f.stampAt + 900) {
+      g.save();
+      g.globalCompositeOperation = 'soft-light';
+      g.fillStyle = rgb(P.kiln, 0.5 * (heat - 0.3));
+      g.beginPath(); g.arc(cx, cy, R * RIM_IN, 0, TAU); g.fill();
+      g.restore();
+    }
+    // each new wedge flashes white-hot as it glazes
+    if (!f.skipped) {
+      for (let i = Math.max(0, f.shown - 10); i < f.shown; i++) {
+        const age = t - (FIRE_GLOW + i * f.dtw);
+        if (age < 0 || age > 240) continue;
+        g.fillStyle = `rgba(255,240,214,${(0.92 * (1 - age / 240)).toFixed(3)})`;
+        wedgePath(g, cx, cy, R, i);
+        g.fill();
+      }
+    }
+    // a glint runs round each ring as it completes
+    for (let k = f.sweeps.length - 1; k >= 0; k--) {
+      const s = f.sweeps[k], a = (now - s.t0) / 560;
+      if (a >= 1) { f.sweeps.splice(k, 1); continue; }
+      const [f0, f1] = RING_R[s.ring];
+      const head = -Math.PI / 2 + easeOutCubic(a) * TAU;
+      for (let j = 0; j < 8; j++) {
+        g.fillStyle = `rgba(255,255,255,${(0.07 * (j + 1) * (1 - a)).toFixed(3)})`;
+        sector(g, cx, cy, f0 * R, f1 * R, head - 0.7 + j * 0.0875, head);
+        g.fill();
+      }
+    }
+    if (t >= f.stampAt && !f.n && !f.stamped) { f.stamped = true; if (f.win.best) Sound.best(); }
+    // the maker's mark lands (an unglazed window is not fired, so it gets none)
+    if (t >= f.stampAt && f.n) {
+      if (!f.stamped) {
+        f.stamped = true;
+        Sound.stamp();
+        buzz(26);
+        if (f.win.best) setTimeout(() => { if (firing === f) Sound.best(); }, 260);
+      }
+      const st = clamp((t - f.stampAt) / 240, 0, 1);
+      drawStamp(g, px * 0.8, px * 0.8, px * 0.165, f.win, Math.min(1, st * 2.5), 1 + 0.55 * (1 - easeOutCubic(st)));
+    }
+    if (t >= f.end && !f.done) {
+      f.done = true;
+      skipHint.style.opacity = '0';
+      // render the share image in a quiet moment, so Save can open the share sheet at once
+      if (f.n) (window.requestIdleCallback || setTimeout)(() => prepareShare(f.win), { timeout: 1500 });
+    }
+    return !f.done;
+  }
+
+  /* ---------- keep and share ---------- */
+  function fitFont(g, text, weight, size, family, maxW) {
+    g.font = `${weight} ${size}px ${family}`;
+    const w = g.measureText(text).width;
+    if (w > maxW) g.font = `${weight} ${Math.floor((size * maxW) / w)}px ${family}`;
+  }
+  // A 1080x1350 portrait card: the window, its maker's mark and its name, on limewashed plaster.
+  function renderShare(win) {
+    const Wd = 1080, Ht = 1350;
+    const c = document.createElement('canvas');
+    c.width = Wd; c.height = Ht;
+    const g = c.getContext('2d');
+    const P = winColors();
+    g.fillStyle = T.plaster;
+    g.fillRect(0, 0, Wd, Ht);
+    const rng = mulberry32(win.no * 131 + 9);
+    g.fillStyle = T.ink;
+    for (let k = 0; k < 2600; k++) {
+      g.globalAlpha = 0.012 + rng() * 0.03;
+      const sz = 1 + rng() * 2.2;
+      g.fillRect(rng() * Wd, rng() * Ht, sz, sz);
+    }
+    g.globalAlpha = 1;
+    const cx = Wd / 2, cy = 600, R = 420;
+    const glow = g.createRadialGradient(cx, cy, R * 0.55, cx, cy, R * 1.34);
+    glow.addColorStop(0, rgb(P.kiln, 0.36));
+    glow.addColorStop(1, rgb(P.kiln, 0));
+    g.fillStyle = glow;
+    g.fillRect(0, 0, Wd, Ht);
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,0.32)';
+    g.shadowBlur = 44;
+    g.shadowOffsetY = 18;
+    g.fillStyle = T.card;
+    g.beginPath(); g.arc(cx, cy, R - 3, 0, TAU); g.fill();
+    g.restore();
+    const v = viewSync(makeView(), R * 2, win.strips, win.palette, WINDOW_MAX, 11);
+    paintView(g, v, cx - R, cy - R, R * 2);
+    drawStamp(g, cx + R * 0.8, cy + R * 0.74, 150, win);
+    // wordmark: TESSERA in glazed tiles of this window's palette
+    const ts = 54, gap = 6, word = 'TESSERA', x0 = cx - (word.length * ts + (word.length - 1) * gap) / 2;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    [...word].forEach((ch, k) => {
+      const tile = makeTile(T.glazes[win.palette[k % 4]], k % VARIANTS, ts / (dpr || 1));
+      g.drawImage(tile, x0 + k * (ts + gap), 62, ts, ts);
+      g.font = `800 ${ts * 0.46}px ${FONT_D}`;
+      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.fillText(ch, x0 + k * (ts + gap) + ts / 2, 62 + ts / 2 + 2);
+      g.fillStyle = '#FFFFFF';
+      g.fillText(ch, x0 + k * (ts + gap) + ts / 2, 62 + ts / 2);
+    });
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = T.ink;
+    fitFont(g, windowName(win), 800, 50, FONT_D, 960);
+    g.fillText(windowName(win), cx, 1176);
+    g.fillStyle = T.inkSoft;
+    g.font = `600 30px ${FONT_B}`;
+    g.fillText('Every line I cleared, fired into one window.', cx, 1234);
+    g.font = `700 22px ${FONT_B}`;
+    if ('letterSpacing' in g) g.letterSpacing = '3px';
+    g.fillText('A KILN GAME', cx, 1300);
+    if ('letterSpacing' in g) g.letterSpacing = '0px';
+    return c;
+  }
+  function prepareShare(win) {
+    if (!win || win.blob || !win.strips.length) return win && win.blob;
+    win.blob = new Promise(res => {
+      try { renderShare(win).toBlob(b => res(b), 'image/png'); } catch (e) { res(null); }
+    });
+    return win.blob;
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
+  }
+  // Share sheet with the image when the device supports it; otherwise download the PNG.
+  async function shareWindow(win, btn) {
+    if (!win || !win.strips.length) return;
+    Sound.unlock();
+    if (btn) btn.disabled = true;
+    try {
+      const blob = await prepareShare(win);
+      if (!blob) { toast('Could not make the image'); return; }
+      const name = `tessera-window-${win.no}.png`;
+      const title = windowName(win);
+      let file = null;
+      try { file = new File([blob], name, { type: 'image/png' }); } catch (e) { file = null; }
+      if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title, text: `${title}: ${fmt(win.score)} points and ${win.lines} lines, fired in Tessera.` });
+          Arcade.track('share', { kind: 'window', via: 'share' });
+          return;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      Sound.chime();
+      toast('Image saved');
+      Arcade.track('share', { kind: 'window', via: 'download' });
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /* ---------- studio wall and viewer ---------- */
+  let wallFrom = null, viewerWin = null, viewerFrom = null, wallJob = 0;
+  function openWall(from) {
+    wallFrom = from;
+    (from === 'over' ? overEl : pauseEl).hidden = true;
+    wallEl.hidden = false;
+    buildWall();
+    $('wallClose').focus({ preventScroll: true });
+  }
+  function closeWall() {
+    wallEl.hidden = true;
+    wallJob++;
+    if (wallFrom === 'over' && G.over) { overEl.hidden = false; fireDirty = true; $('overWallBtn').focus({ preventScroll: true }); }
+    else if (wallFrom === 'pause') { pauseEl.hidden = false; $('wallBtn').focus({ preventScroll: true }); }
+    wallFrom = null;
+    requestRender();
+  }
+  function buildWall() {
+    const grid = $('wallGrid');
+    grid.replaceChildren();
+    const wall = loadWall();
+    $('wallSub').textContent = wall.length ? `${wall.length === 1 ? 'Your first window' : `Your last ${wall.length} windows`}. The cobalt frame marks your best score.` : 'Your fired windows hang here.';
+    const job = ++wallJob;
+    if (!wall.length) {
+      const box = document.createElement('div');
+      box.className = 'empty';
+      const c = document.createElement('canvas');
+      const px = Math.round(120 * dpr);
+      c.width = c.height = px;
+      paintView(c.getContext('2d'), viewSync(makeView(), px, [], [0, 1, 2, 3], 0, 1e9), 0, 0, px);
+      const p = document.createElement('p');
+      p.textContent = 'Clear lines and every one is glazed into a rose window. When a run ends, the window is fired and hung here.';
+      box.append(c, p);
+      grid.append(box);
+      return;
+    }
+    const top = Math.max(...wall.map(w => w.score));
+    const hangSize = window.matchMedia('(min-width: 720px) and (min-height: 560px)').matches ? 116 : 84;
+    const jobs = [];
+    wall.forEach(win => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'hang' + (win.score === top ? ' top' : '');
+      const c = document.createElement('canvas');
+      const px = Math.round(hangSize * dpr);
+      c.width = c.height = px;
+      const cap = document.createElement('span');
+      const sc = document.createElement('b');
+      sc.textContent = fmt(win.score);
+      cap.append(sc, document.createElement('br'), `No. ${win.no}`);
+      b.append(c, cap);
+      b.setAttribute('aria-label', `${windowName(win)}. ${fmt(win.score)} points, ${win.lines} lines, ${showDate(win.date)}${win.score === top ? '. Your best score' : ''}.`);
+      b.addEventListener('click', () => openViewer(win, 'wall'));
+      grid.append(b);
+      jobs.push(() => paintView(c.getContext('2d'), viewSync(makeView(), px, win.strips, win.palette, WINDOW_MAX, 1e9), 0, 0, px));
+    });
+    // Paint a few windows per frame so the wall opens at once.
+    const run = () => {
+      if (job !== wallJob) return;
+      const t0 = performance.now();
+      while (jobs.length && performance.now() - t0 < 10) jobs.shift()();
+      if (jobs.length) requestAnimationFrame(run);
+    };
+    run();
+  }
+  function liveWin() {
+    return { strips: G.strips, palette: G.palette, no: fired + 1, score: G.score, lines: G.lines, combo: G.maxCombo, date: todayIso() };
+  }
+  function openViewer(win, from) {
+    viewerWin = win;
+    viewerFrom = from;
+    const live = from === 'run';
+    const n = Math.min(win.strips.length, WINDOW_MAX);
+    $('viewEyebrow').textContent = live ? 'In the kiln' : 'Studio wall';
+    $('viewTitle').textContent = n ? windowName(win) : `No. ${win.no}, still bisque`;
+    if (live) {
+      const ring = ringOf(n);
+      $('viewMeta').textContent = ring >= 3 ? 'All 112 lines fired. Every line now is a bonus.'
+        : `${n} of ${RING_ENDS[ring]} lines to finish ring ${ring + 1}. It is fired when the run ends.`;
+    } else {
+      $('viewMeta').textContent = `${fmt(win.score)} points · ${win.lines} lines${win.combo >= 2 ? ' · combo ×' + win.combo : ''}`;
+      if (win.date) $('viewMeta').append(document.createElement('br'), `Fired ${showDate(win.date)}`);
+    }
+    $('viewSave').hidden = live;
+    $('viewWin').setAttribute('aria-label', `${$('viewTitle').textContent}: ${n} of ${WINDOW_MAX} wedges glazed.`);
+    if (from === 'wall') wallEl.hidden = true;
+    viewerEl.hidden = false;
+    drawViewer();
+    $('viewBack').focus({ preventScroll: true });
+  }
+  function drawViewer() {
+    if (viewerEl.hidden || !viewerWin) return;
+    const c = $('viewCv');
+    const px = Math.max(8, Math.round(c.getBoundingClientRect().width * dpr));
+    c.width = c.height = px;
+    const g = c.getContext('2d');
+    const live = viewerFrom === 'run';
+    const R = px * (live ? 0.47 : 0.43), cx = px * 0.5, cy = live ? px * 0.5 : px * 0.48;
+    const glow = g.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.12);
+    glow.addColorStop(0, rgb(winColors().kiln, 0.22));
+    glow.addColorStop(1, rgb(winColors().kiln, 0));
+    g.fillStyle = glow;
+    g.fillRect(0, 0, px, px);
+    paintView(g, viewSync(makeView(), R * 2, viewerWin.strips, viewerWin.palette, live ? medalLit : WINDOW_MAX, 9 * dpr), cx - R, cy - R, R * 2);
+    if (!live) drawStamp(g, px * 0.8, px * 0.8, px * 0.165, viewerWin);
+  }
+  function closeViewer() {
+    viewerEl.hidden = true;
+    if (viewerFrom === 'wall') { wallEl.hidden = false; $('wallClose').focus({ preventScroll: true }); }
+    else cv.focus({ preventScroll: true });
+    viewerWin = null;
+    viewerFrom = null;
+    requestRender();
+  }
+  // Pause-menu key to the glaze motifs, for colour-blind players.
+  function buildLegend() {
+    const box = $('legend');
+    box.replaceChildren();
+    GLAZE_NAMES.forEach((name, k) => {
+      const item = document.createElement('span');
+      item.setAttribute('role', 'listitem');
+      item.setAttribute('aria-label', `${name}: ${MOTIFS[k]}`);
+      const c = makeTile(T.glazes[k], 0, 26, MOTIFS[k]);
+      item.append(c, name);
+      box.append(item);
+    });
   }
 
   function newGame(withTutorial) {
@@ -931,17 +2156,22 @@ canvas:focus:not(:focus-visible) { outline: none; }
     Object.assign(G, {
       board: new Array(N * N).fill(0), vari: new Array(N * N).fill(0), tray: [null, null, null],
       score: 0, combo: 0, since: 9, lines: 0, maxCombo: 0, moves: 0, startBest: best, over: false,
+      palette: withTutorial ? [0, 1, 2, 3] : pickPalette(), strips: [],
     });
+    lastDeal = null;
     overStart = 0;
     clearing.length = 0; parts.length = 0; texts.length = 0;
     drag = null; ret = null; pvKey = '';
     popAt.fill(0);
+    firing = null; lastWin = null;
+    medalLit = 0; pending.clear(); medalFlash.length = 0; medalDirty = true; fxDirty = true;
+    updateMedalLabel();
     if (withTutorial) {
       // The bottom row and right column are each two tiles short; the first two pieces finish them in either order.
       const seed = [[7, 0, 0], [7, 1, 2], [7, 2, 3], [7, 3, 5], [7, 4, 1], [7, 5, 2],
         [0, 7, 4], [1, 7, 1], [2, 7, 3], [3, 7, 0], [4, 7, 5], [5, 7, 3],
         [6, 0, 4], [6, 1, 3], [5, 0, 1], [0, 6, 2], [1, 6, 5]];
-      for (const [r, c, col] of seed) { G.board[r * N + c] = col + 1; G.vari[r * N + c] = (r + c) % VARIANTS; }
+      for (const [r, c, col] of seed) { G.board[r * N + c] = G.palette[col % 4] + 1; G.vari[r * N + c] = (r + c) % VARIANTS; }
       G.tray = [{ s: shapeByKey('##'), color: 3 }, { s: shapeByKey('#/#'), color: 2 }, { s: shapeByKey('##/##'), color: 0 }];
     } else {
       G.tray = dealTray();
@@ -955,10 +2185,33 @@ canvas:focus:not(:focus-visible) { outline: none; }
   }
 
   /* ---------- HUD ---------- */
+  // The score keeps its size unless the row is too narrow for it (long scores on small phones).
+  const hudEnd = medalBtn.parentElement;
+  let fitLen = -1;
+  function fitScore(force) {
+    const len = scoreEl.textContent.length + bestEl.textContent.length * 100;
+    if (!force && len === fitLen) return;
+    fitLen = len;
+    scoreEl.style.fontSize = '';
+    const hud = scoreEl.parentElement;
+    const gap = parseFloat(getComputedStyle(hud).columnGap) || 0;
+    const avail = hud.clientWidth - 2 * Math.max(bestPill.offsetWidth, hudEnd.offsetWidth) - 2 * gap;
+    const nat = scoreEl.scrollWidth;
+    if (avail > 0 && nat > avail) {
+      const f = parseFloat(getComputedStyle(scoreEl).fontSize);
+      scoreEl.style.fontSize = Math.max(18, Math.floor((f * avail) / nat)) + 'px';
+    }
+  }
+  let tipUntil = 0;
   function updateHud() {
     bestEl.textContent = fmt(best);
+    fitScore();
     sub.replaceChildren();
     if (G.over) return;
+    if (performance.now() < tipUntil && G.combo < 2) {
+      sub.textContent = 'Each line you clear is fired into your window ↗';
+      return;
+    }
     if (tutorial < 2) {
       sub.textContent = tutorial === 0 ? 'Drag a piece onto the grid' : 'Fill a row or column to clear it';
       return;
@@ -984,8 +2237,8 @@ canvas:focus:not(:focus-visible) { outline: none; }
     raf = 0;
     const dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 1 / 60;
     lastT = now;
-    const busy = step(now, dt);
-    render(now);
+    let busy = step(now, dt);
+    busy = render(now) || busy;
     if (busy) raf = requestAnimationFrame(frame);
     else lastT = 0;
   }
@@ -1033,24 +2286,44 @@ canvas:focus:not(:focus-visible) { outline: none; }
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
       p.age += dt;
+      if (p.home !== undefined) {
+        // a shard on its way into the medallion: a curve out of the board, then in to its wedge
+        const t = clamp(p.age / p.life, 0, 1), u = t * t * (3 - 2 * t) * 0.4 + t * 0.6, v = 1 - u;
+        if (t > 0) { p.trail.unshift(p.x, p.y); if (p.trail.length > 10) p.trail.length = 10; }
+        p.x = v * v * v * p.x0 + 3 * v * v * u * p.x1 + 3 * v * u * u * p.x2 + u * u * u * p.tx;
+        p.y = v * v * v * p.y0 + 3 * v * v * u * p.y1 + 3 * v * u * u * p.y2 + u * u * u * p.ty;
+        p.rot += p.vr * dt;
+        if (t >= 1) {
+          parts.splice(i, 1);
+          const pd = pending.get(p.home);
+          if (pd) pd.left--;
+          for (let n = 0; n < 2; n++) {
+            parts.push({ x: p.tx, y: p.ty, vx: (fxr() - 0.5) * 120, vy: -40 - fxr() * 80, rot: fxr() * 6, vr: 8, size: 2.5 + fxr() * 2, color: T.gold, age: 0, life: 0.35 + fxr() * 0.2, light: true });
+          }
+        }
+        continue;
+      }
       if (p.age >= p.life) { parts.splice(i, 1); continue; }
-      p.vy += grav * dt;
+      p.vy += (p.light ? 300 : grav) * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
     }
     if (parts.length) busy = true;
+    lightWedges(now);
+    if (pending.size || medalFlash.length) busy = true;
+    if (firing && !firing.done) busy = true;
     for (let i = texts.length - 1; i >= 0; i--) if (now - texts[i].t0 > texts[i].dur) texts.splice(i, 1);
     if (texts.length) busy = true;
     if (now - lastPop < 260) busy = true;
     if (now - Math.max(...spawnAt) < 420) busy = true;
     if (shake.amp && now - shake.t0 < shake.dur) busy = true; else shake.amp = 0;
-    if (overStart && now < overStart + N * N * 14 + 300) busy = true;
+    if (overStart && now < overStart + N * N * CRUMBLE_MS + 300) busy = true;
     if (dispScore !== G.score) {
       dispScore += (G.score - dispScore) * (1 - Math.exp(-dt * 9));
       if (Math.abs(G.score - dispScore) < 0.6) dispScore = G.score;
       const shown = fmt(Math.round(dispScore));
-      if (scoreEl.textContent !== shown) scoreEl.textContent = shown;
+      if (scoreEl.textContent !== shown) { scoreEl.textContent = shown; fitScore(); }
       busy = true;
     }
     return busy;
@@ -1058,15 +2331,28 @@ canvas:focus:not(:focus-visible) { outline: none; }
 
   function spawnShards(k) {
     if (reduceMotion.matches) return;
-    const cx = L.gx + (k.c + 0.5) * L.cs, cy = L.gy + (k.r + 0.5) * L.cs;
+    const so = cv.getBoundingClientRect();
+    const cx = so.left + L.gx + (k.c + 0.5) * L.cs, cy = so.top + L.gy + (k.r + 0.5) * L.cs;
     const color = T.glazes[k.col] || T.stone;
-    for (let n = 0; n < 4; n++) {
-      if (parts.length > 420) parts.shift();
+    for (const idx of k.homes || []) {
+      const tgt = wedgeTarget(idx);
+      if (!tgt) continue;
+      const side = fxr() - 0.5;
       parts.push({
-        x: cx + (rand() - 0.5) * L.cs * 0.6, y: cy + (rand() - 0.5) * L.cs * 0.6,
-        vx: (rand() - 0.5) * L.cs * 9, vy: -L.cs * (3 + rand() * 7),
-        rot: rand() * 6, vr: (rand() - 0.5) * 14,
-        size: L.cs * (0.12 + rand() * 0.16), color, age: 0, life: 0.6 + rand() * 0.45,
+        home: idx, x: cx, y: cy, x0: cx, y0: cy, trail: [],
+        x1: cx + side * L.cs * 4, y1: cy - L.cs * (1.5 + fxr() * 2),
+        x2: tgt.x + side * 50, y2: tgt.y + 70 + fxr() * 60, tx: tgt.x, ty: tgt.y,
+        rot: fxr() * 6, vr: (fxr() - 0.5) * 16, size: L.cs * (0.24 + fxr() * 0.08), color,
+        age: -fxr() * 0.06, life: 0.6 + fxr() * 0.22,
+      });
+    }
+    for (let n = 0; n < 3; n++) {
+      if (parts.length > 420) { const j = parts.findIndex(q => q.home === undefined); if (j >= 0) parts.splice(j, 1); }
+      parts.push({
+        x: cx + (fxr() - 0.5) * L.cs * 0.6, y: cy + (fxr() - 0.5) * L.cs * 0.6,
+        vx: (fxr() - 0.5) * L.cs * 9, vy: -L.cs * (3 + fxr() * 7),
+        rot: fxr() * 6, vr: (fxr() - 0.5) * 14,
+        size: L.cs * (0.12 + fxr() * 0.16), color, age: 0, life: 0.6 + fxr() * 0.45,
       });
     }
   }
@@ -1091,7 +2377,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
       const t = (now - shake.t0) / shake.dur;
       if (t < 1) {
         const a = shake.amp * (1 - t) * (1 - t);
-        ctx.translate((rand() * 2 - 1) * a, (rand() * 2 - 1) * a);
+        ctx.translate((fxr() * 2 - 1) * a, (fxr() * 2 - 1) * a);
       }
     }
     ctx.drawImage(boardBg, L.bx, L.by, L.B, L.B);
@@ -1107,7 +2393,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
       const pt = now - popAt[i];
       if (pt < 220) scale = 1 + 0.14 * (1 - easeOutCubic(pt / 220));
       if (overStart) {
-        const ot = now - overStart - i * 14;
+        const ot = now - overStart - i * CRUMBLE_MS;
         if (ot > 0) { col = STONE; if (ot < 160) scale = 1 + 0.08 * (1 - ot / 160); }
       }
       drawTile(sprites.board[col][G.vari[i]], L.gx + c * L.cs, L.gy + r * L.cs, L.cs, scale);
@@ -1188,22 +2474,16 @@ canvas:focus:not(:focus-visible) { outline: none; }
       }
     }
 
-    for (const q of parts) {
-      ctx.save();
-      ctx.globalAlpha = 1 - Math.pow(q.age / q.life, 3);
-      ctx.translate(q.x, q.y);
-      ctx.rotate(q.rot);
-      ctx.fillStyle = q.color;
-      ctx.fillRect(-q.size / 2, -q.size * 0.4, q.size, q.size * 0.8);
-      ctx.restore();
-    }
-
     for (const tx of texts) {
       const t = (now - tx.t0) / tx.dur;
       if (t < 0) continue;
       if (tx.kind === 'pts') drawPoints(tx, t);
       else drawWord(tx, t);
     }
+    renderFx();
+    let busy = drawMedal(now);
+    busy = renderFiring(now) || busy;
+    return busy;
   }
 
   function drawPoints(tx, t) {
@@ -1229,7 +2509,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
     const pad = fs * 0.32;
     ctx.save();
     ctx.globalAlpha = Math.max(0, a);
-    ctx.translate(L.bx + L.B / 2, L.by + L.B * 0.44 - (t > 0.78 ? (t - 0.78) * L.cs * 2 : 0));
+    ctx.translate(L.bx + L.B / 2, L.by + L.B * (tx.ring ? 0.68 : 0.44) - (t > 0.78 ? (t - 0.78) * L.cs * 2 : 0));
     ctx.scale(sc, sc);
     ctx.font = `800 ${fs}px ${FONT_D}`;
     const w1 = ctx.measureText(tx.text).width;
@@ -1244,9 +2524,15 @@ canvas:focus:not(:focus-visible) { outline: none; }
     ctx.fillStyle = T.card;
     rrect(ctx, -pw / 2, top, pw, ph, Math.min(ph / 2, fs * 0.7));
     ctx.fill();
+    if (tx.ring) {
+      ctx.lineWidth = Math.max(2, fs * 0.1);
+      ctx.strokeStyle = T.gold;
+      rrect(ctx, -pw / 2, top, pw, ph, Math.min(ph / 2, fs * 0.7));
+      ctx.stroke();
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = T.accent;
+    ctx.fillStyle = tx.ring ? T.ink : T.accent;
     ctx.font = `800 ${fs}px ${FONT_D}`;
     const mainY = top + pad + fs / 2;
     ctx.fillText(tx.text, 0, mainY);
@@ -1259,7 +2545,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
   }
 
   /* ---------- input ---------- */
-  const paused = () => !pauseEl.hidden || !overEl.hidden;
+  const paused = () => !pauseEl.hidden || !overEl.hidden || !wallEl.hidden || !viewerEl.hidden;
   function local(e) {
     const r = cv.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -1337,7 +2623,12 @@ canvas:focus:not(:focus-visible) { outline: none; }
     drag.cell = fits(G.board, s, kcell.r, kcell.c) ? kcell : null;
   }
   document.addEventListener('keydown', e => {
-    if (!overEl.hidden) return;
+    if (!viewerEl.hidden) { if (e.key === 'Escape') { e.preventDefault(); closeViewer(); } return; }
+    if (!wallEl.hidden) { if (e.key === 'Escape') { e.preventDefault(); closeWall(); } return; }
+    if (!overEl.hidden) {
+      if (e.key === 'Escape' && firing && !firing.done) { e.preventDefault(); skipFiring(); }
+      return;
+    }
     if (!pauseEl.hidden) {
       if (e.key === 'Escape') { e.preventDefault(); closePause(); }
       return;
@@ -1383,6 +2674,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
     $('pauseMain').hidden = false;
     $('pauseConfirm').hidden = true;
     syncSwitches();
+    buildLegend();
     pauseEl.hidden = false;
     $('resumeBtn').focus({ preventScroll: true });
   }
@@ -1421,17 +2713,42 @@ canvas:focus:not(:focus-visible) { outline: none; }
   }
   Arcade.on('pause', () => { if (drag && !drag.kbd) cancelDrag(); save(); });
   $('againBtn').addEventListener('click', () => { Sound.unlock(); newGame(tutorial < 2); cv.focus({ preventScroll: true }); });
+  // Any tap on the game-over card that is not a button skips the firing.
+  overEl.querySelector('.card').addEventListener('click', e => { if (!e.target.closest('button')) { Sound.unlock(); skipFiring(); } });
+  $('saveBtn').addEventListener('click', e => shareWindow(lastWin, e.currentTarget));
+  $('overWallBtn').addEventListener('click', () => { skipFiring(true); openWall('over'); });
+  $('wallBtn').addEventListener('click', () => openWall('pause'));
+  $('wallClose').addEventListener('click', closeWall);
+  wallEl.addEventListener('click', e => { if (e.target === wallEl) closeWall(); });
+  $('viewBack').addEventListener('click', closeViewer);
+  $('viewSave').addEventListener('click', e => shareWindow(viewerWin, e.currentTarget));
+  viewerEl.addEventListener('click', e => { if (e.target === viewerEl) closeViewer(); });
+  medalBtn.addEventListener('click', () => {
+    Sound.unlock();
+    if (paused()) return;
+    if (G.over) { if (lastWin && lastWin.strips.length) openViewer(lastWin, 'over'); return; }
+    if (drag && !drag.kbd) cancelDrag(); else drag = null;
+    openViewer(liveWin(), 'run');
+  });
 
   /* ---------- lifecycle ---------- */
   function onTheme() {
     readTheme();
+    medalDirty = true;
+    fireDirty = true;
+    if (!wallEl.hidden) buildWall();
+    if (!pauseEl.hidden) buildLegend();
+    drawViewer();
     if (L.B) { buildArt(); pvKey = ''; requestRender(); }
   }
   const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
   if (darkQuery.addEventListener) darkQuery.addEventListener('change', onTheme);
   new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  if (window.ResizeObserver) new ResizeObserver(layout).observe(stage);
-  else window.addEventListener('resize', layout);
+  if (window.ResizeObserver) {
+    new ResizeObserver(layout).observe(stage);
+    new ResizeObserver(() => { if (firing) { sizeFire(); requestRender(); } }).observe(fireWrap);
+  } else window.addEventListener('resize', layout);
+  window.addEventListener('resize', () => { sizeFx(); drawViewer(); requestRender(); });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) return;
     if (drag && !drag.kbd) cancelDrag();
@@ -1439,7 +2756,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
     try { if (Sound.ctx) Sound.ctx.suspend(); } catch (e) { /* ignore */ }
   });
   window.addEventListener('pagehide', save);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(requestRender);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitScore(true); requestRender(); });
 
   function boot(data) {
     readTheme();
@@ -1447,8 +2764,12 @@ canvas:focus:not(:focus-visible) { outline: none; }
     const restored = (data && data.state && restore(data.state)) || restore(store.get('game', null));
     if (restored) {
       Arcade.runStart({ resumed: true });
+      medalLit = Math.min(G.strips.length, WINDOW_MAX);
+      medalDirty = true;
+      updateMedalLabel();
       dispScore = G.score;
       scoreEl.textContent = fmt(G.score);
+      fitScore(true);
       const now = performance.now();
       for (let k = 0; k < 3; k++) spawnAt[k] = now + k * 70;
     } else {
@@ -1460,7 +2781,23 @@ canvas:focus:not(:focus-visible) { outline: none; }
   }
 
   if (/[?&]debug\b/.test(location.search)) {
-    window.__tessera = { G, SHAPES, fits, fitsAnywhere, placePiece, newGame, gameOver: () => gameOver(performance.now()), layout: () => L };
+    window.__tessera = {
+      G, SHAPES, N, TUNE, fits, fitsAnywhere, simulate, solve, placePiece, newGame,
+      gameOver: () => gameOver(performance.now()), layout: () => L,
+      lastDeal: () => lastDeal,
+      seed: n => { rand = n == null ? Math.random : mulberry32(n); },
+      setDealer: fn => { debugDealer = fn || null; },
+      heatOf, shapeWeights, restore, serialize,
+      medalLit: () => medalLit,
+      firing: () => firing && { n: firing.n, shown: firing.shown, done: firing.done, skipped: firing.skipped, stamped: firing.stamped },
+      skipFiring: () => skipFiring(),
+      lastWin: () => lastWin,
+      wall: () => loadWall(),
+      windowName,
+      shareImage: win => renderShare(win || lastWin).toDataURL('image/png'),
+      openWall: () => openWall(G.over ? 'over' : 'pause'),
+      hangWindow, packWin,
+    };
   }
   try {
     const hot = window.claude && window.claude.hot;
