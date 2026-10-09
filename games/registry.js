@@ -10,6 +10,7 @@ window.KILN_GAMES = [
     accent: '--g1',
     status: 'live',
     path: 'games/tessera/index.html',
+    cover: 'games/tessera/cover.jpg',
   },
   {
     id: 'goldmend',
@@ -19,6 +20,7 @@ window.KILN_GAMES = [
     accent: '--g2',
     status: 'beta',
     path: 'games/goldmend/index.html',
+    cover: 'games/goldmend/cover.jpg',
   },
   {
     id: 'lariat',

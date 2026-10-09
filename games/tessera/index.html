@@ -687,7 +687,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
      Every tray is proven placeable in some order before it is dealt (the guaranteed path),
      so a loss is always the player's own placement. Difficulty rises with the score through
      the shape weights instead: more 5-cell, 2x3 and 3x3 pieces, fewer singles and dominoes. */
-  const TUNE = { heatAt: 4000, big: 1.1, six: 0.5, nine: 1.6, small: 0.55, mercy: 0.8, trials: 40 };
+  const TUNE = { heatAt: 3000, big: 1.4, six: 0.5, nine: 2.0, small: 0.7, mercy: 0.8, trials: 40 };
   const smooth = x => x * x * (3 - 2 * x);
   const heatOf = score => smooth(clamp(score / TUNE.heatAt, 0, 1));
   function shapeWeights(fill, score) {
