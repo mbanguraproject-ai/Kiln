@@ -18,7 +18,11 @@ Everything is plain HTML, CSS and JavaScript with no build step and no dependenc
 | `tools/smoke.cjs` | Headless test: hub plus every game, inside and outside the hub |
 | `tools/bundle.cjs` | Packs hub and games into one HTML file (`dist/kiln.html`) |
 | `tools/make-covers.cjs` | Screenshots each game's first frame for the hub cards |
-| `tools/make-icons.cjs` | Renders the app icons |
+| `tools/make-icons.cjs` | Renders the app icons, Android launcher icons and splash screens |
+| `tools/build-web.cjs` | Copies the web app into `www/` for Capacitor |
+| `tools/setup-android.sh` | Installs the Android SDK in a Codespace or on Linux |
+| `android/`, `capacitor.config.json`, `package.json` | The Android app (Capacitor) |
+| `.github/workflows/android.yml` | Builds the APK on every push |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA install and offline support |
 
 ## Run it
@@ -29,6 +33,23 @@ npx http-server -p 8080 .
 ```
 
 Add `?debug` to expose `window.__kiln` (and each game's own debug hook) for automated tests.
+
+## Android app
+
+The hub is packaged for Android with Capacitor (`android/`, `capacitor.config.json`).
+
+- **Automatic:** every push runs `.github/workflows/android.yml`, which builds a debug APK and attaches it to the
+  `android-preview` release: `https://github.com/mbanguraproject-ai/Kiln/releases/download/android-preview/kiln-debug.apk`.
+- **By hand (Codespace or Linux with Java 21 and Node 22):**
+
+  ```sh
+  bash tools/setup-android.sh && source ~/.bashrc   # once: installs the Android SDK
+  npm ci
+  npm run android:apk
+  # -> android/app/build/outputs/apk/debug/app-debug.apk
+  ```
+
+After changing any game or the hub, `npm run android:sync` copies the web files into the Android project.
 
 ## Test
 
