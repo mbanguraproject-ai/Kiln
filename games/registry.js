@@ -28,8 +28,9 @@ window.KILN_GAMES = [
     pitch: 'Draw loops to catch the stars. Every loop you close keeps circling.',
     genre: 'Arcade',
     accent: '--g5',
-    status: 'soon',
+    status: 'beta',
     path: 'games/lariat/index.html',
+    cover: 'games/lariat/cover.jpg',
   },
   {
     id: 'crosswake',
