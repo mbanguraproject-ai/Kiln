@@ -530,7 +530,7 @@ h1, h2, h3 { text-wrap: balance; }
   $('sndSw').addEventListener('click', () => setSetting('sound', !settings.sound));
   $('vibSw').addEventListener('click', () => {
     setSetting('vibration', !settings.vibration);
-    if (settings.vibration && navigator.vibrate) try { navigator.vibrate(20); } catch (e) { /* ignore */ }
+    if (settings.vibration) A._buzz(20);
   });
   $('shareSw').addEventListener('click', () => setSetting('shareStats', !settings.shareStats));
   document.querySelectorAll('[data-theme-opt]').forEach(b => b.addEventListener('click', () => setSetting('theme', b.dataset.themeOpt)));
@@ -880,7 +880,8 @@ h1, h2, h3 { text-wrap: balance; }
   }
   if (/[?&]debug\b/.test(location.search)) window.__kiln = { GAMES, openGame, closeGame: () => closeGame(false), computeStats, Log, settings: () => settings };
 
-  if ('serviceWorker' in navigator && window.top === window.self && /^https?:$/.test(location.protocol)) {
+  // The Android app ships its files inside the APK, so it never registers the offline cache.
+  if ('serviceWorker' in navigator && !window.Capacitor && window.top === window.self && /^https?:$/.test(location.protocol)) {
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   }
 })();

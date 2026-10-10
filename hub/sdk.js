@@ -36,6 +36,28 @@
     },
   };
 
+  // The Capacitor bridge lives in the hub's window; games in the hub's iframe reach it through the parent.
+  function nativeHaptics() {
+    var cap = window.Capacitor || safe(function () { return window.parent.Capacitor; }, null);
+    return cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.Haptics || null;
+  }
+
+  function buzz(pattern) {
+    var native = nativeHaptics();
+    if (native) {
+      var ms = Array.isArray(pattern)
+        ? pattern.reduce(function (sum, v, i) { return i % 2 === 0 ? sum + (v | 0) : sum; }, 0)
+        : pattern | 0;
+      safe(function () {
+        if (ms <= 12) native.impact({ style: 'LIGHT' });
+        else if (ms <= 30) native.impact({ style: 'MEDIUM' });
+        else native.vibrate({ duration: Math.min(ms, 600) });
+      });
+      return;
+    }
+    if (navigator.vibrate) safe(function () { navigator.vibrate(pattern); });
+  }
+
   function rid() {
     return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   }
@@ -184,10 +206,10 @@
       del: function (k) { ls.del(state.id + ':' + k); },
     },
 
-    // Vibration that respects the player's setting.
+    // Vibration that respects the player's setting. Inside the Android app it goes through the
+    // native Haptics plugin (Android's WebView ignores navigator.vibrate).
     haptic: function (pattern) {
-      if (!state.settings.vibration || !navigator.vibrate) return;
-      safe(function () { navigator.vibrate(pattern); });
+      if (state.settings.vibration) buzz(pattern);
     },
 
     // Ask the hub to close this game (no-op when standalone).
@@ -200,6 +222,7 @@
     _log: Log,
     _ls: ls,
     _rid: rid,
+    _buzz: buzz,
     _defaults: DEFAULT_SETTINGS,
   };
 
