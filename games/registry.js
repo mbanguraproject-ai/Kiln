@@ -7,13 +7,17 @@
  * Detail page (blueprint section 6), all of it checked against the game itself:
  * about: two to four sentences on the real loop and what makes it different.
  * controls: how it is played. saves: 'run' (keeps a run between visits) or 'best' (keeps only the best score).
- * shots: phone screenshots rendered from the real game by tools/make-shots.cjs. */
+ * shots: phone screenshots rendered from the real game by tools/make-shots.cjs.
+ * Search (blueprint section 7): mechanics (what you do) and moods (how it feels), two or three short tags each,
+ * true of the game as it plays now. Discover shows them on result rows and search matches them. */
 window.KILN_GAMES = [
   {
     id: 'tessera',
     title: 'Tessera',
     pitch: 'Lay glazed tiles on the grid. Fill a row or column to clear it.',
     genre: 'Puzzle',
+    mechanics: ['Block puzzle', 'Line clearing', 'Tiles'],
+    moods: ['No clock', 'Relaxed'],
     accent: '--g1',
     status: 'live',
     path: 'games/tessera/index.html',
@@ -30,6 +34,8 @@ window.KILN_GAMES = [
     title: 'Goldmend',
     pitch: 'Cracks race across a glazed bowl. Trace them in gold before they reach the rim.',
     genre: 'Arcade',
+    mechanics: ['Tracing', 'Drawing'],
+    moods: ['Fast', 'Tense'],
     accent: '--g2',
     status: 'beta',
     path: 'games/goldmend/index.html',
@@ -46,6 +52,8 @@ window.KILN_GAMES = [
     title: 'Lariat',
     pitch: 'Draw loops to catch the stars. Every loop you close keeps circling.',
     genre: 'Arcade',
+    mechanics: ['Loops', 'Drawing', 'Dodging'],
+    moods: ['Fast', 'Intense'],
     accent: '--g5',
     status: 'beta',
     path: 'games/lariat/index.html',
@@ -62,6 +70,8 @@ window.KILN_GAMES = [
     title: 'Crosswake',
     pitch: 'Drop stones in a pond. Where two ripples cross, lanterns light.',
     genre: 'Puzzle',
+    mechanics: ['Ripples', 'Timing', 'Geometry'],
+    moods: ['Calm', 'No clock'],
     accent: '--g6',
     status: 'beta',
     path: 'games/crosswake/index.html',
@@ -79,6 +89,7 @@ window.KILN_GAMES = [
     title: 'Span',
     pitch: 'One canyon a day. Build the cheapest bridge that gets the truck across.',
     genre: 'Builder',
+    mechanics: ['Bridge building', 'Physics', 'Daily challenge'],
     accent: '--g4',
     status: 'soon',
     path: 'games/span/index.html',
