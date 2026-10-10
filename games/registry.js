@@ -38,8 +38,9 @@ window.KILN_GAMES = [
     pitch: 'Drop stones in a pond. Where two ripples cross, lanterns light.',
     genre: 'Puzzle',
     accent: '--g6',
-    status: 'soon',
+    status: 'beta',
     path: 'games/crosswake/index.html',
+    cover: 'games/crosswake/cover.jpg',
   },
   {
     id: 'span',
