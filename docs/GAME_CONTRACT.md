@@ -36,6 +36,7 @@ Then, in your script:
 | `Arcade.runEnd({ score, reason, ...props })` | When the attempt ends. `reason`: `'lose'`, `'win'`, `'restart'`, `'quit'`, or a game-specific word. Include the numbers that describe the run (level, lines, accuracy...). |
 | `Arcade.track(name, props?)` | Key moments only: `tutorial_complete`, `level_complete`, `daily_complete`, `share`. Never per frame or per tap. |
 | `Arcade.store.get(key, fallback)` / `.set(key, value)` | All saved data (best score, progress, tutorial seen). Never touch `localStorage` directly. |
+| `Arcade.progress({ label } \| null)` | Only for games that save a run between visits. Call it whenever the save changes: `{ label: 'Pond 6' }` (short, true, shown on Home's Continue card with a Resume button) while a run is saved and worth resuming, `null` once it is over or restarted. Games that never call it show "Played today" and Play. |
 | `Arcade.haptic(pattern)` | All vibration. It respects the player's setting. |
 | `Arcade.settings` | `{ sound, vibration, theme, shareStats }`. Read `sound` before playing audio. |
 | `Arcade.on('settings', fn)` | Settings changed in the hub. Update sound and vibration at once. |
@@ -90,3 +91,4 @@ Use the Playwright install at `/opt/node22/lib/node_modules` (`NODE_PATH=/opt/no
 ## Registry
 
 Games are listed in `games/registry.js` (id, title, pitch, genre, accent, status, path). The hub maintainer edits it.
+The same file holds `KILN_COLLECTIONS`, the editorial shelves on Home. Each has a one-line `why` that must stay true of every game in it; check it whenever a game in the collection changes.

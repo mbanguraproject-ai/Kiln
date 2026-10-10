@@ -64,3 +64,21 @@ window.KILN_GAMES = [
     path: 'games/span/index.html',
   },
 ];
+
+/* Editorial collections, in priority order. Home shows the first one that still has two playable games
+ * once the featured game is left out, so no title is shown twice near the top.
+ * why: one line that says why these games belong together. It must stay true of every game listed. */
+window.KILN_COLLECTIONS = [
+  {
+    id: 'one-more-run',
+    title: 'One more run',
+    why: 'Fast arcade runs. When one ends, go again in a tap.',
+    games: ['goldmend', 'lariat'],
+  },
+  {
+    id: 'think-it-through',
+    title: 'Think it through',
+    why: 'No clock. Every move waits until you are ready.',
+    games: ['tessera', 'crosswake'],
+  },
+];

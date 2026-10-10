@@ -801,7 +801,11 @@ canvas:focus:not(:focus-visible) { outline: none; }
       return false;
     }
   }
-  function save() { store.set('game', serialize()); }
+  function save() {
+    const d = serialize();
+    store.set('game', d);
+    Arcade.progress(!d.over && d.moves > 0 ? { label: 'Score ' + fmt(d.score) } : null);
+  }
 
   /* ---------- DOM ---------- */
   const $ = id => document.getElementById(id);

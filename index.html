@@ -218,9 +218,11 @@ h1, h2, h3 { text-wrap: balance; }
 
 /* ---------- home ---------- */
 .wrap {
+  --gl: max(var(--s4), env(safe-area-inset-left, 0px));
+  --gr: max(var(--s4), env(safe-area-inset-right, 0px));
   max-width: 1080px;
   margin-inline: auto;
-  padding-inline: max(var(--s4), env(safe-area-inset-left, 0px)) max(var(--s4), env(safe-area-inset-right, 0px));
+  padding-inline: var(--gl) var(--gr);
 }
 .top {
   display: flex;
@@ -298,7 +300,7 @@ h1, h2, h3 { text-wrap: balance; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.feature-cta, .lib-play {
+.feature-cta, .lib-play, .cont-cta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -310,7 +312,8 @@ h1, h2, h3 { text-wrap: balance; }
   font: 700 14px/1 var(--font-body);
 }
 .feature-cta { margin-top: var(--s1); }
-.feature-cta svg, .lib-play svg { width: 16px; height: 16px; fill: currentColor; }
+.feature-cta svg, .lib-play svg, .cont-cta svg { width: 16px; height: 16px; fill: currentColor; }
+.cont-cta { min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
 
 /* Compact portrait card: tall art, title and genre; one optional label on the art. */
 .card {
@@ -355,6 +358,51 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .card-title { font: 700 var(--t-card)/1.2 var(--font-body); letter-spacing: -0.01em; }
 .card-genre { font-size: var(--t-meta); color: var(--text-2); }
 
+/* Continue card: art, title, the true saved state or when it was last played, and Resume or Play. */
+.cont {
+  width: 272px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  background-clip: padding-box;
+  padding: var(--s2);
+  display: flex;
+  align-items: stretch;
+  gap: var(--s3);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+}
+.cont:active { transform: scale(0.98); border-color: var(--line-strong); }
+.cont-art { flex: none; width: 72px; aspect-ratio: 4 / 5; border-radius: var(--r-chip); overflow: hidden; background: var(--c); }
+.cont-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cont-text { flex: 1 1 auto; min-width: 0; display: grid; align-content: center; justify-items: start; gap: 3px; }
+.cont-text .card-genre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cont-cta { margin-top: var(--s1); }
+
+/* Editorial landscape card: a wide crop of the key art, a fixed title zone and one metadata line. */
+.land {
+  width: clamp(236px, 74%, 340px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  background-clip: padding-box;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+}
+.land:active { transform: scale(0.98); border-color: var(--line-strong); }
+.land-art { position: relative; display: block; aspect-ratio: 16 / 9; background: var(--c); overflow: hidden; }
+.land-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
 /* Coming soon: a distinct unavailable state with no play action. */
 .card.soon { border-style: dashed; border-color: var(--line-strong); background: transparent; }
 .card.soon .cover {
@@ -364,7 +412,56 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 }
 .card.soon .card-title { color: var(--text-2); }
 
-.foot { padding-block: var(--s2) var(--s6); color: var(--text-2); font-size: 12px; }
+/* Quick categories: one row of chips under the feature card; the chosen one filters the feed below. */
+.chips {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--gl)) calc(-1 * var(--gr));
+  padding: var(--s1) var(--gr) var(--s1) var(--gl);
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  position: relative;
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--s4);
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--text-2);
+  font: 700 14px/1 var(--font-body);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.chip::after { content: ""; position: absolute; inset: -4px 0; } /* 48dp touch target */
+.chip[aria-pressed="true"] { background: rgba(101, 87, 255, 0.26); box-shadow: inset 0 0 0 1px rgba(101, 87, 255, 0.7); color: var(--text); }
+.chip:active { background: var(--raised); }
+.chip span { margin-left: 6px; font-weight: 600; color: var(--text-2); }
+
+/* Feed: titled shelves. A shelf scrolls sideways and bleeds to the screen edge; the last block is a grid. */
+.block { margin-top: var(--s5); }
+.block-head { margin-bottom: var(--s3); display: grid; gap: 2px; }
+.block-head h2 { margin: 0; font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.block-head p { margin: 0; color: var(--text-2); font-size: 14px; text-wrap: pretty; }
+.shelf {
+  display: flex;
+  gap: var(--s3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  margin-inline: calc(-1 * var(--gl)) calc(-1 * var(--gr));
+  padding-inline: var(--gl) var(--gr);
+  scroll-padding-inline: var(--gl) var(--gr);
+  scrollbar-width: none;
+}
+.shelf::-webkit-scrollbar { display: none; }
+.shelf > * { flex: none; scroll-snap-align: start; }
+.block .grid { padding-bottom: 0; }
+
+.foot { padding-block: var(--s6); color: var(--text-2); font-size: 12px; }
 
 /* ---------- player ---------- */
 .player {
@@ -536,7 +633,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 @media (prefers-reduced-motion: reduce) {
   .overlay, .sheet, .view, .player { animation: none; }
   .tab .pill { transition: none; }
-  .card, .feature, .lib-row, .icon-btn, .btn, .switch, .switch::after { transition: none; }
+  .card, .feature, .cont, .land, .chip, .lib-row, .icon-btn, .btn, .switch, .switch::after { transition: none; }
 }
 </style>
 </head>
@@ -549,8 +646,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
         <div class="brand"><span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="word">Kiln</span></div>
       </header>
       <div id="featured"></div>
-      <h2 class="section-title" id="allTitle">All games</h2>
-      <section class="grid" id="grid" aria-labelledby="allTitle"></section>
+      <div class="chips" id="chips" role="group" aria-label="Categories"></div>
+      <div id="feed"></div>
       <footer class="foot" id="foot">Kiln</footer>
     </div>
   </section>
@@ -824,16 +921,31 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   }
   // Card families (blueprint section 5). Art leads; metadata supports; the action is obvious.
   const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
-  function launchedGames() {
-    const seen = new Set();
-    for (const e of Log.all()) if (e && e.game && (e.ev === 'game_launch' || (e.ev === 'game_open' && e.src === 'standalone'))) seen.add(e.game);
-    return seen;
+  const COLLECTIONS = (window.KILN_COLLECTIONS || []).filter(c => c && c.id && Array.isArray(c.games));
+  const playableGames = () => GAMES.filter(g => g.status !== 'soon');
+  // When each game was last launched and how long it has been played, from the event log.
+  function playHistory() {
+    const last = {}, time = {};
+    for (const e of Log.all()) {
+      if (!e || !e.game || typeof e.ts !== 'number') continue;
+      if (e.ev === 'game_launch' || (e.ev === 'game_open' && e.src === 'standalone')) last[e.game] = Math.max(last[e.game] || 0, e.ts);
+      else if (e.ev === 'play_time' && typeof e.s === 'number') time[e.game] = (time[e.game] || 0) + e.s;
+    }
+    return { last, time };
   }
-  // "New" only for games added in the last 14 days that this player has not opened yet.
-  function isNew(g, launched) {
-    if (!g.added || launched.has(g.id)) return false;
-    const t = Date.parse(g.added);
-    return isFinite(t) && Date.now() - t < 14 * 864e5;
+  // A saved run the game reported through Arcade.progress, or null. Games without saves never report one.
+  const progressMem = {};
+  function progressOf(id) {
+    const p = Object.prototype.hasOwnProperty.call(progressMem, id) ? progressMem[id] : ls.get(id + ':progress', null);
+    return p && typeof p.label === 'string' && p.label ? p : null;
+  }
+  // "New" means new next to the rest of the catalogue: a game added in the last 14 days that this player
+  // has not opened. While every game is that recent (as at launch), nothing is labelled new.
+  const addedRecently = g => { const t = Date.parse(g.added || ''); return isFinite(t) && Date.now() - t < 14 * 864e5; };
+  function newIds(last) {
+    const playable = playableGames();
+    if (playable.every(addedRecently)) return new Set();
+    return new Set(playable.filter(g => addedRecently(g) && !last[g.id]).map(g => g.id));
   }
   function artImg(src, w, h) {
     const img = document.createElement('img');
@@ -851,56 +963,190 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (text != null) n.textContent = text;
     return n;
   }
-  function featureCard(g) {
-    const card = el('button', 'feature game-card');
+  function playPill(cls, label) {
+    const p = el('span', cls);
+    p.innerHTML = PLAY_ICON;
+    p.append(label);
+    return p;
+  }
+  // Every card records which shelf it sits on and where, for impressions and launches.
+  function gameButton(cls, g, shelf, pos) {
+    const card = el('button', cls + ' game-card');
     card.type = 'button';
     card.dataset.id = g.id;
+    card.dataset.shelf = shelf;
+    card.dataset.pos = pos;
     card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+    card.addEventListener('click', () => openGame(g.id, shelf));
+    watch(card);
+    return card;
+  }
+  function featureCard(g) {
+    const card = gameButton('feature', g, 'featured', 0);
     card.setAttribute('aria-label', `${g.title}. ${g.genre || 'Game'}. ${g.pitch || ''} Play`);
     const art = el('span', 'feature-art');
     if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
     const body = el('span', 'feature-body');
-    const cta = el('span', 'feature-cta');
-    cta.innerHTML = PLAY_ICON;
-    cta.append('Play');
-    body.append(el('span', 'feature-eyebrow', `Featured · ${g.genre || 'Game'}`), el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''), cta);
+    body.append(el('span', 'feature-eyebrow', `Featured · ${g.genre || 'Game'}`), el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''), playPill('feature-cta', 'Play'));
     card.append(art, el('span', 'feature-shade'), body);
-    card.addEventListener('click', () => openGame(g.id));
     return card;
   }
-  function portraitCard(g, launched) {
+  function continueCard(g, ts, pos) {
+    const p = progressOf(g.id);
+    const when = playedLabel(ts);
+    const meta = p ? `${p.label} · ${when.replace(/^Played /, '')}` : when;
+    const action = p ? 'Resume' : 'Play';
+    const card = gameButton('cont', g, 'continue', pos);
+    card.setAttribute('aria-label', `${g.title}. ${meta}. ${action}`);
+    const art = el('span', 'cont-art');
+    if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
+    const text = el('span', 'cont-text');
+    text.append(el('span', 'card-title', g.title), el('span', 'card-genre', meta), playPill('cont-cta', action));
+    card.append(art, text);
+    return card;
+  }
+  function landscapeCard(g, shelf, pos, fresh) {
+    const card = gameButton('land', g, shelf, pos);
+    const art = el('span', 'land-art');
+    if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
+    if (fresh.has(g.id)) art.append(el('span', 'status', 'New'));
+    const body = el('span', 'card-body');
+    body.append(el('span', 'card-title', g.title), el('span', 'card-genre', g.genre || 'Game'));
+    card.append(art, body);
+    return card;
+  }
+  function portraitCard(g, shelf, pos, fresh) {
     const soon = g.status === 'soon';
-    const card = el(soon ? 'div' : 'button', soon ? 'card soon' : 'card game-card');
-    card.dataset.id = g.id;
-    card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+    let card;
+    if (soon) {
+      card = el('div', 'card soon');
+      card.dataset.id = g.id;
+      card.dataset.shelf = shelf;
+      card.dataset.pos = pos;
+      card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+      card.setAttribute('role', 'group');
+      card.setAttribute('aria-label', `${g.title}, coming soon`);
+      watch(card);
+    } else {
+      card = gameButton('card', g, shelf, pos);
+    }
     const cover = el('span', 'cover');
     if (!soon && g.artTall) cover.append(artImg(g.artTall, 800, 1000));
-    const label = soon ? 'Coming soon' : isNew(g, launched) ? 'New' : '';
+    const label = soon ? 'Coming soon' : fresh.has(g.id) ? 'New' : '';
     if (label) cover.append(el('span', 'status', label));
     const body = el('span', 'card-body');
     body.append(el('span', 'card-title', g.title), el('span', 'card-genre', soon ? 'In development' : g.genre || 'Game'));
     card.append(cover, body);
-    if (soon) {
-      card.setAttribute('role', 'group');
-      card.setAttribute('aria-label', `${g.title}, coming soon`);
-    } else {
-      card.type = 'button';
-      card.addEventListener('click', () => openGame(g.id));
-    }
     return card;
   }
-  function renderHome() {
-    const launched = launchedGames();
-    const playable = GAMES.filter(g => g.status !== 'soon');
+  function block(id, title, why, kind, cards) {
+    const sec = el('section', 'block');
+    sec.dataset.block = id;
+    const h = el('h2', null, title);
+    h.id = 'block-' + id;
+    sec.setAttribute('aria-labelledby', h.id);
+    const head = el('header', 'block-head');
+    head.append(h);
+    if (why) head.append(el('p', null, why));
+    const box = el('div', kind);
+    box.append(...cards);
+    sec.append(head, box);
+    return sec;
+  }
+
+  // Impressions: a card counts once per visit to Home when at least 60% of it is on screen.
+  let seen = new Set();
+  const impressions = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+    if (current) return; // a game covers Home; closing it re-renders Home and observes the new cards
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      const c = en.target;
+      impressions.unobserve(c);
+      const key = c.dataset.shelf + ':' + c.dataset.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      log('game_impression', { game: c.dataset.id, shelf: c.dataset.shelf, pos: Number(c.dataset.pos) || 0 });
+    }
+  }, { threshold: 0.6 }) : null;
+  function watch(card) { if (impressions) impressions.observe(card); }
+
+  // Quick categories come from the genres of playable games, in catalogue order.
+  let category = 'all';
+  function genres() {
+    const out = [];
+    for (const g of playableGames()) if (g.genre && !out.includes(g.genre)) out.push(g.genre);
+    return out;
+  }
+  function renderChips() {
+    const box = $('chips');
+    const list = genres();
+    box.hidden = list.length < 2;
+    if (!list.includes(category)) category = 'all';
+    box.replaceChildren();
+    for (const c of ['all', ...list]) {
+      const b = el('button', 'chip', c === 'all' ? 'All' : c);
+      b.type = 'button';
+      b.dataset.cat = c;
+      b.setAttribute('aria-pressed', String(c === category));
+      b.addEventListener('click', () => {
+        if (c === category) return;
+        category = c;
+        log('category_select', { category: c });
+        renderHome(false);
+      });
+      box.append(b);
+    }
+  }
+
+  // Home (blueprint section 4): feature, categories, Continue playing, one editorial collection,
+  // New on Kiln, then a grid of whatever is left. Each game appears once outside Continue playing,
+  // and a shelf without enough games is left out rather than padded.
+  function renderHome(newVisit = true) {
+    if (newVisit) { seen = new Set(); if (impressions) impressions.disconnect(); }
+    const { last } = playHistory();
+    const fresh = newIds(last);
+    const playable = playableGames();
     const featured = playable.find(g => g.featured) || playable[0];
-    const slot = $('featured');
-    slot.replaceChildren();
-    if (featured) slot.append(featureCard(featured));
-    const grid = $('grid');
-    grid.replaceChildren();
-    // The featured game is not repeated in the grid; coming-soon games go last.
-    const rest = GAMES.filter(g => g !== featured).sort((a, b) => (a.status === 'soon') - (b.status === 'soon'));
-    for (const g of rest) grid.append(portraitCard(g, launched));
+    $('featured').replaceChildren(...(featured ? [featureCard(featured)] : []));
+    renderChips();
+    const feed = $('feed');
+    feed.replaceChildren();
+    const bySoonLast = (a, b) => (a.status === 'soon') - (b.status === 'soon');
+
+    if (category !== 'all') {
+      const games = GAMES.filter(g => g.genre === category).sort(bySoonLast);
+      const n = games.filter(g => g.status !== 'soon').length;
+      const shelf = 'genre:' + category.toLowerCase();
+      feed.append(block('genre', category, `${n} ${n === 1 ? 'game' : 'games'}`, 'grid', games.map((g, i) => portraitCard(g, shelf, i, fresh))));
+      $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
+      return;
+    }
+
+    const used = new Set(featured ? [featured.id] : []);
+    const recent = playable.filter(g => last[g.id]).sort((a, b) => last[b.id] - last[a.id]).slice(0, 8);
+    if (recent.length) feed.append(block('continue', 'Continue playing', '', 'shelf', recent.map((g, i) => continueCard(g, last[g.id], i))));
+
+    const pick = COLLECTIONS
+      .map(c => ({ c, games: c.games.map(id => playable.find(g => g.id === id)).filter(g => g && !used.has(g.id)) }))
+      .find(x => x.games.length >= 2);
+    if (pick) {
+      const shelf = 'collection:' + pick.c.id;
+      feed.append(block(pick.c.id, pick.c.title, pick.c.why || '', 'shelf', pick.games.map((g, i) => landscapeCard(g, shelf, i, fresh))));
+      pick.games.forEach(g => used.add(g.id));
+    }
+
+    const newOnes = playable.filter(g => fresh.has(g.id) && !used.has(g.id));
+    if (newOnes.length >= 2) {
+      feed.append(block('new', 'New on Kiln', 'Added in the last two weeks.', 'shelf', newOnes.map((g, i) => portraitCard(g, 'new', i, fresh))));
+      newOnes.forEach(g => used.add(g.id));
+    }
+
+    // Whatever is left, minus games already in Continue playing; coming-soon games go last.
+    const rest = GAMES.filter(g => !used.has(g.id) && !(g.status !== 'soon' && last[g.id])).sort(bySoonLast);
+    if (rest.length) {
+      const onlySoon = rest.every(g => g.status === 'soon');
+      feed.append(block('more', onlySoon ? 'Coming to Kiln' : 'More to explore', '', 'grid', rest.map((g, i) => portraitCard(g, 'more', i, fresh))));
+    }
     $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
   }
 
@@ -916,7 +1162,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     current.since = 0;
     if (s > 0) log('play_time', { game: current.game.id, s });
   }
-  function openGame(id) {
+  function openGame(id, shelf) {
     const g = GAMES.find(x => x.id === id && x.status !== 'soon');
     if (!g) return;
     if (current) hideGame();
@@ -933,7 +1179,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     $('app').setAttribute('aria-hidden', 'true');
     current.timer = setTimeout(() => { $('loading').hidden = true; }, 6000);
     current.pushed = hist.push({ kiln: 'game', tab, game: g.id }, '#' + g.id);
-    log('game_launch', { game: g.id, from: tab });
+    log('game_launch', { game: g.id, from: tab, shelf: shelf || tab });
     frame.addEventListener('load', () => setTimeout(() => frame.focus(), 50));
   }
   function hideGame() {
@@ -975,6 +1221,9 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
           queueSend();
         }
         break;
+      case 'progress':
+        progressMem[current.game.id] = m.progress && typeof m.progress.label === 'string' ? { label: m.progress.label.slice(0, 40) } : null;
+        break;
       case 'score':
         if (typeof m.score === 'number' && isFinite(m.score)) bestMem[current.game.id] = Math.max(bestMem[current.game.id] || 0, m.score);
         break;
@@ -1008,12 +1257,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     return 'Played ' + new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   }
   function renderLibrary() {
-    const last = {}, time = {};
-    for (const e of Log.all()) {
-      if (!e || !e.game || typeof e.ts !== 'number') continue;
-      if (e.ev === 'game_launch' || (e.ev === 'game_open' && e.src === 'standalone')) last[e.game] = Math.max(last[e.game] || 0, e.ts);
-      else if (e.ev === 'play_time' && typeof e.s === 'number') time[e.game] = (time[e.game] || 0) + e.s;
-    }
+    const { last, time } = playHistory();
     // Only games that were actually launched, newest first (blueprint section 8).
     const played = GAMES.filter(g => g.status !== 'soon' && last[g.id]).sort((a, b) => last[b.id] - last[a.id]);
     const list = $('recent');
@@ -1046,7 +1290,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
       play.innerHTML = PLAY_ICON;
       play.append('Play');
       row.append(play);
-      row.addEventListener('click', () => openGame(g.id));
+      row.addEventListener('click', () => openGame(g.id, 'library'));
       list.append(row);
     }
   }
@@ -1234,11 +1478,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   log('app_open', { games: GAMES.length });
   if (start === 'library' || start === 'settings') goTab(start);
   else if (start === 'insights') { goTab('settings'); openInsights(); }
-  else if (GAMES.some(g => g.id === start && g.status !== 'soon')) openGame(start);
+  else if (GAMES.some(g => g.id === start && g.status !== 'soon')) openGame(start, 'link');
   if (/[?&]debug\b/.test(location.search)) {
     window.__kiln = {
       GAMES, Log, computeStats, openGame, leaveGame, closeGame: leaveGame, goTab, openSheet, closeSheet, openInsights, closeInsights,
-      get tab() { return tab; }, get game() { return current && current.game.id; }, settings: () => settings,
+      get tab() { return tab; }, get game() { return current && current.game.id; }, get category() { return category; }, settings: () => settings,
     };
   }
 
