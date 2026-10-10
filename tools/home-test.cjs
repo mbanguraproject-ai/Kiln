@@ -28,10 +28,10 @@ const readHome = page => page.evaluate(() => ({
   blocks: [...document.querySelectorAll('#feed .block')].map(b => ({
     id: b.dataset.block,
     title: b.querySelector('h2').textContent,
-    cards: [...b.querySelectorAll('[data-id]')].map(c => c.dataset.id),
+    cards: [...b.querySelectorAll('.game-card')].map(c => c.dataset.id),
   })),
-  labels: Object.fromEntries([...document.querySelectorAll('#view-home [data-id]')].map(c => [c.dataset.id, (c.querySelector('.status') || {}).textContent || ''])),
-  cont: [...document.querySelectorAll('.cont')].map(c => c.getAttribute('aria-label')),
+  labels: Object.fromEntries([...document.querySelectorAll('#view-home .game-card')].map(c => [c.dataset.id, (c.querySelector('.status') || {}).textContent || ''])),
+  cont: [...document.querySelectorAll('.cont')].map(c => c.querySelector('.cont-open').getAttribute('aria-label') + '. ' + c.querySelector('.cont-cta').textContent),
 }));
 
 (async () => {
@@ -65,7 +65,7 @@ const readHome = page => page.evaluate(() => ({
   check(shown.length === playable.length && new Set(shown).size === playable.length, 'each playable game appears exactly once', shown.join());
   const more = h.blocks.find(b => b.id === 'more');
   check(more && more.cards[more.cards.length - 1] === 'span' && h.labels.span === 'Coming soon', 'coming-soon games come last, labelled as such', more && more.cards.join());
-  const firstShelfTop = await page.evaluate(() => document.querySelector('#feed .block [data-id]').getBoundingClientRect().top);
+  const firstShelfTop = await page.evaluate(() => document.querySelector('#feed .block .game-card').getBoundingClientRect().top);
   check(firstShelfTop < 844, 'the first shelf starts on the first screen of a phone', Math.round(firstShelfTop) + 'px');
 
   // Impressions
@@ -90,11 +90,17 @@ const readHome = page => page.evaluate(() => ({
 
   // Continue playing: a game without saves, then a game with a saved run
   await page.click('.game-card[data-shelf="collection:one-more-run"][data-id="lariat"]');
+  await page.waitForTimeout(200);
+  await page.click('#detail [data-play="lariat"]');
   await page.waitForTimeout(900);
   evs = await page.evaluate(() => window.__kiln.Log.all());
+  const opened = evs.filter(e => e.ev === 'game_detail_open').pop();
   const launch = evs.filter(e => e.ev === 'game_launch').pop();
-  check(launch && launch.game === 'lariat' && launch.shelf === 'collection:one-more-run', 'a launch records the shelf it came from', launch && launch.shelf);
+  check(opened && opened.game === 'lariat' && opened.source === 'collection:one-more-run', 'opening a game\'s page records the shelf it came from', opened && opened.source);
+  check(launch && launch.game === 'lariat' && launch.shelf === 'detail' && launch.origin === 'collection:one-more-run', 'a launch from the page keeps the shelf that led there', launch && `${launch.shelf} / ${launch.origin}`);
   await page.click('#backBtn');
+  await page.waitForTimeout(300);
+  await page.click('#detailBack');
   await page.waitForTimeout(300);
   h = await readHome(page);
   check(h.blocks[0].id === 'continue' && h.cont.length === 1 && /^Lariat\. Played today\. Play$/.test(h.cont[0]), 'Continue playing lists the game just played, with Play (it has no saves)', h.cont.join(' / '));

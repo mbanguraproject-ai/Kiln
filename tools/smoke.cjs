@@ -49,7 +49,9 @@ function serve() {
   for (const id of games) {
     if (ONLY && id !== ONLY) continue;
     const before = await page.evaluate(() => window.__kiln.Log.all().length);
+    // The real path: a card opens the game's page, and Play on the page launches it.
     await page.click(`.game-card[data-id="${id}"]`);
+    await page.click(`#detail [data-play="${id}"]`);
     let ready = true;
     try { await page.waitForSelector('#loading', { state: 'hidden', timeout: 6500 }); } catch (e) { ready = false; }
     await page.waitForTimeout(600);
@@ -67,8 +69,10 @@ function serve() {
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `hub-${id}.png`) });
     await page.click('#backBtn');
     await page.waitForTimeout(300);
+    await page.click('#detailBack');
+    await page.waitForTimeout(300);
     const evs = await page.evaluate(n => window.__kiln.Log.all().slice(n).map(e => e.ev + (e.game ? ':' + e.game : '')), before);
-    const need = [`game_launch:${id}`, `game_open:${id}`, `game_close:${id}`];
+    const need = [`game_detail_open:${id}`, `game_launch:${id}`, `launch_result:${id}`, `game_open:${id}`, `game_close:${id}`];
     const missing = need.filter(x => !evs.includes(x));
     if (!ready) problems.push(`${id}: never sent Arcade.ready() within 6.5s`);
     if (missing.length) problems.push(`${id}: missing events ${missing.join(', ')}`);

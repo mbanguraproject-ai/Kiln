@@ -91,4 +91,5 @@ Use the Playwright install at `/opt/node22/lib/node_modules` (`NODE_PATH=/opt/no
 ## Registry
 
 Games are listed in `games/registry.js` (id, title, pitch, genre, accent, status, path). The hub maintainer edits it.
+Each playable game also carries what its page in Kiln shows (blueprint section 6): `about` (two to four sentences on the real loop), `controls` ('Touch' or 'Touch or keyboard'), `saves` ('run' if it calls `Arcade.progress`, else 'best') and `shots` (phone screenshots rendered from the real game by `tools/make-shots.cjs`; add a scene there for a new game). `tools/detail-test.cjs` checks these against the game's code, so keep them true when the game changes.
 The same file holds `KILN_COLLECTIONS`, the editorial shelves on Home. Each has a one-line `why` that must stay true of every game in it; check it whenever a game in the collection changes.

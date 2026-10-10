@@ -32,12 +32,17 @@ for (const g of games) {
   if (!html.includes(tag)) throw new Error(`${g.id}: SDK script tag not found (${tag})`);
   html = html.replace(tag, () => inlineScript(sdk));
   g.srcdoc = html;
+  const dataUri = rel => {
+    const c = path.join(ROOT, rel);
+    return fs.existsSync(c) ? `data:${MIME[path.extname(c)] || 'image/jpeg'};base64,` + fs.readFileSync(c).toString('base64') : null;
+  };
   for (const key of ['artWide', 'artTall']) {
     if (!g[key]) continue;
-    const c = path.join(ROOT, g[key]);
-    if (fs.existsSync(c)) g[key] = `data:${MIME[path.extname(c)] || 'image/jpeg'};base64,` + fs.readFileSync(c).toString('base64');
+    const uri = dataUri(g[key]);
+    if (uri) g[key] = uri;
     else delete g[key];
   }
+  if (Array.isArray(g.shots)) g.shots = g.shots.map(dataUri).filter(Boolean);
 }
 
 // JSON with every "<" escaped, so nothing inside can close the surrounding <script>.

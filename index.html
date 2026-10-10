@@ -174,21 +174,32 @@ h1, h2, h3 { text-wrap: balance; }
 .list { display: grid; gap: var(--s2); }
 .lib-row {
   width: 100%;
-  color: inherit;
-  font: inherit;
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: var(--r-card);
-  padding: var(--s2);
   padding-right: var(--s3);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+}
+.lib-row:has(> .lib-open:active) { transform: scale(0.99); border-color: var(--line-strong); }
+/* The row opens the game's page; its Play button launches the game. */
+.lib-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: var(--s2);
+  border-radius: inherit;
   display: flex;
   align-items: center;
   gap: var(--s3);
   text-align: left;
   cursor: pointer;
-  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
 }
-.lib-row:active { transform: scale(0.99); border-color: var(--line-strong); }
 .lib-art {
   flex: none;
   width: 64px;
@@ -198,7 +209,8 @@ h1, h2, h3 { text-wrap: balance; }
   background: var(--c);
 }
 .lib-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.lib-play { flex: none; min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
+.lib-play { flex: none; position: relative; border: 0; cursor: pointer; min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
+.lib-play::after, .cont-cta::after { content: ""; position: absolute; inset: -6px; } /* 48dp touch target */
 .lib-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
 .lib-title { font: 700 var(--t-card)/1.2 var(--font-body); }
 .lib-meta { font-size: var(--t-meta); color: var(--text-2); }
@@ -260,18 +272,31 @@ h1, h2, h3 { text-wrap: balance; }
   aspect-ratio: 16 / 10;
   max-height: 440px;
   margin: var(--s2) 0 var(--s4);
-  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--r-hero);
   overflow: hidden;
   background: var(--c);
   background-clip: padding-box;
-  text-align: left;
-  cursor: pointer;
   transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
 }
 @media (min-width: 700px) { .feature { aspect-ratio: 16 / 9; } }
-.feature:active { transform: scale(0.99); border-color: var(--line-strong); }
+.feature:has(> .feature-open:active) { transform: scale(0.99); border-color: var(--line-strong); }
+/* The card opens the game's page; the Play button on it launches the game. */
+.feature-open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.feature-open:focus-visible { outline-offset: -4px; border-radius: var(--r-hero); }
+.feature > .feature-cta { position: absolute; z-index: 1; left: var(--s4); bottom: var(--s4); border: 0; cursor: pointer; }
 .feature-art, .feature-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .feature-shade {
   position: absolute;
@@ -283,7 +308,7 @@ h1, h2, h3 { text-wrap: balance; }
   left: 0;
   right: 0;
   bottom: 0;
-  padding: var(--s4);
+  padding: var(--s4) var(--s4) calc(var(--s4) + 50px);
   display: grid;
   gap: 6px;
   justify-items: start;
@@ -311,7 +336,6 @@ h1, h2, h3 { text-wrap: balance; }
   color: var(--primary-ink);
   font: 700 14px/1 var(--font-body);
 }
-.feature-cta { margin-top: var(--s1); }
 .feature-cta svg, .lib-play svg, .cont-cta svg { width: 16px; height: 16px; fill: currentColor; }
 .cont-cta { min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
 
@@ -360,11 +384,20 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
 /* Continue card: art, title, the true saved state or when it was last played, and Resume or Play. */
 .cont {
+  position: relative;
   width: 272px;
   border: 1px solid var(--line);
   border-radius: var(--r-card);
   background: var(--surface);
   background-clip: padding-box;
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+}
+.cont:has(> .cont-open:active) { transform: scale(0.98); border-color: var(--line-strong); }
+.cont-open {
+  width: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
   padding: var(--s2);
   display: flex;
   align-items: stretch;
@@ -373,14 +406,12 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
 }
-.cont:active { transform: scale(0.98); border-color: var(--line-strong); }
 .cont-art { flex: none; width: 72px; aspect-ratio: 4 / 5; border-radius: var(--r-chip); overflow: hidden; background: var(--c); }
 .cont-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cont-text { flex: 1 1 auto; min-width: 0; display: grid; align-content: center; justify-items: start; gap: 3px; }
+.cont-text { flex: 1 1 auto; min-width: 0; display: grid; align-content: start; justify-items: start; gap: 3px; padding-top: var(--s1); }
 .cont-text .card-genre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.cont-cta { margin-top: var(--s1); }
+.cont > .cont-cta { position: absolute; left: calc(var(--s2) + 72px + var(--s3)); bottom: var(--s3); border: 0; cursor: pointer; }
 
 /* Editorial landscape card: a wide crop of the key art, a fixed title zone and one metadata line. */
 .land {
@@ -591,7 +622,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .btn:active { transform: translateY(1px); filter: brightness(0.92); }
 .btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .btn.small { min-height: var(--tap); padding: 0 var(--s4); font-size: 14px; }
-.note { margin: 0; font-size: var(--t-meta); color: var(--text-2); }
+.note { margin: 0; font-size: var(--t-meta); color: var(--text-2); text-wrap: pretty; }
 
 /* ---------- insights ---------- */
 .page {
@@ -626,14 +657,136 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .data-actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin-block: var(--s5) var(--s6); }
 .data-out { width: 100%; height: 120px; font: 12px/1.4 ui-monospace, Menlo, monospace; border-radius: var(--r-chip); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); padding: 10px; }
 
+/* ---------- game detail (blueprint section 6): art, title, the one action, facts, how it plays, screenshots ---------- */
+.detail { z-index: 8; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--s6)); animation: playerIn 0.2s var(--ease); }
+.float-back {
+  position: fixed;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top, 0px) + var(--s3));
+  left: max(var(--s3), env(safe-area-inset-left, 0px));
+  width: var(--tap);
+  height: var(--tap);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(7, 16, 30, 0.72);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.float-back:active { background: var(--raised); }
+.float-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.detail-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: 440px;
+  margin-inline: calc(-1 * var(--gl)) calc(-1 * var(--gr));
+  background: var(--c);
+  overflow: hidden;
+}
+.detail-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-media.soon {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+@media (min-width: 700px) {
+  .detail-media { width: 100%; margin: var(--s4) 0 0; border-radius: var(--r-hero); border: 1px solid var(--line); background-clip: padding-box; }
+}
+/* Once the art scrolls away, a solid bar with the title fades in behind the back button. */
+.detail-bar {
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 72px);
+  padding: env(safe-area-inset-top, 0px) 76px 0;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font: 700 16px/1.2 var(--font-body);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+}
+.detail-bar span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.detail.scrolled .detail-bar { opacity: 1; transform: none; }
+.detail.scrolled .float-back { background: transparent; border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); margin-top: var(--s4); }
+.detail-title { margin: 0; font: 800 var(--t-hero)/1.08 var(--font-display); letter-spacing: -0.03em; }
+.detail-meta { margin: var(--s2) 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.detail-meta .beta { color: var(--secondary); }
+.fav svg { fill: none; }
+.fav[aria-pressed="true"] { color: var(--g4); border-color: rgba(236, 102, 80, 0.5); }
+.fav[aria-pressed="true"] svg { fill: currentColor; }
+.detail-pitch { margin: var(--s3) 0 0; font-size: 17px; line-height: 1.4; max-width: 46ch; text-wrap: pretty; }
+.detail-action { margin-top: var(--s4); display: grid; gap: var(--s2); justify-items: stretch; max-width: 420px; }
+.detail-action .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); }
+.detail-action .btn svg { width: 18px; height: 18px; fill: currentColor; }
+.detail-action .btn:disabled { background: var(--surface); color: var(--text-2); box-shadow: inset 0 0 0 1px var(--line-strong); cursor: default; }
+.detail-action .note { text-align: center; text-wrap: balance; }
+.facts {
+  list-style: none;
+  margin: var(--s5) 0 0;
+  padding: var(--s2) var(--s4);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+  column-gap: var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+.facts li { display: flex; align-items: center; gap: var(--s2); min-height: 44px; font-size: 14px; font-weight: 600; }
+.facts svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--secondary); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.detail-sec { margin-top: var(--s5); }
+.detail-sec > h2 { margin: 0 0 var(--s2); font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.detail-sec > p { margin: 0 0 var(--s3); color: var(--text-2); max-width: 60ch; text-wrap: pretty; }
+.detail-sec > p.about { color: var(--text); }
+.shots > img {
+  width: 150px;
+  height: auto;
+  aspect-ratio: 540 / 1140;
+  border-radius: var(--r-card);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  object-fit: cover;
+}
+@media (min-width: 700px) { .shots > img { width: 200px; } }
+.detail .cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+
+/* ---------- launch failure: the player stays in context with Try again and Back ---------- */
+.launch-fail {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s3);
+  padding: var(--s5);
+  text-align: center;
+  background: var(--bg);
+}
+.launch-fail h3 { margin: 0; font: 700 var(--t-section)/1.2 var(--font-body); }
+.launch-fail p { margin: 0; color: var(--text-2); max-width: 34ch; }
+.launch-fail-actions { display: flex; gap: var(--s3); margin-top: var(--s2); }
+
 @keyframes fade { from { opacity: 0; } }
 @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } }
 @keyframes playerIn { from { opacity: 0; transform: translateY(14px); } }
 @keyframes up { from { transform: translateY(24px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .overlay, .sheet, .view, .player { animation: none; }
+  .overlay, .sheet, .view, .player, .detail { animation: none; }
+  .detail-bar { transition: none; }
   .tab .pill { transition: none; }
   .card, .feature, .cont, .land, .chip, .lib-row, .icon-btn, .btn, .switch, .switch::after { transition: none; }
+  .feature:has(> .feature-open:active), .cont:has(> .cont-open:active), .lib-row:has(> .lib-open:active) { transform: none; }
 }
 </style>
 </head>
@@ -655,10 +808,12 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   <section class="view" id="view-library" data-tab="library" aria-label="Library" hidden>
     <div class="wrap">
       <header class="top"><h1 class="title">Library</h1></header>
-      <h2 class="section-title">Recently played</h2>
+      <h2 class="section-title" id="favTitle" hidden>Favourites</h2>
+      <div class="list" id="favs" hidden></div>
+      <h2 class="section-title" id="recentTitle">Recently played</h2>
       <div class="list" id="recent"></div>
       <div class="empty-state" id="libraryEmpty" hidden>
-        <p>Games you play show up here, most recent first.</p>
+        <p>Games you play show up here, most recent first. Tap the heart on a game's page to keep it here as a favourite.</p>
         <button class="btn" id="browseBtn" type="button">Browse games</button>
       </div>
       <p class="note local-note">Your progress is saved on this phone. Uninstalling Kiln or clearing its data removes it.</p>
@@ -698,7 +853,25 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
   </header>
-  <div class="frame" id="frame"><div class="loading" id="loading">Loading</div></div>
+  <div class="frame" id="frame">
+    <div class="loading" id="loading">Loading</div>
+    <div class="launch-fail" id="launchFail" role="alert" hidden>
+      <h3 id="launchFailTitle">This game didn't start</h3>
+      <p>It may still be loading on a slow phone. Try again, or go back and pick another game.</p>
+      <div class="launch-fail-actions">
+        <button class="btn small" id="retryBtn" type="button">Try again</button>
+        <button class="btn small ghost" id="failBackBtn" type="button">Back</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page detail" id="detail" hidden aria-labelledby="detailTitle">
+  <div class="detail-bar" aria-hidden="true"><span id="detailBarTitle"></span></div>
+  <button class="float-back" id="detailBack" type="button" aria-label="Back">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <div class="wrap" id="detailBody"></div>
 </div>
 
 <div class="page" id="insights" hidden>
@@ -885,6 +1058,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (kind !== 'sheet') hideSheet();
     if (kind !== 'game' && kind !== 'sheet') hideGame();
     if (kind !== 'insights') hideInsights();
+    // A game's page stays open under a game launched from it.
+    const page = kind === 'detail' ? st.game : (kind === 'game' || kind === 'sheet') && st.detail;
+    if (page) showDetail(page, st.source);
+    else hideDetail();
     const t = (st && st.tab) || 'home';
     if (t === 'home') tabPushed = false;
     if (t !== tab) showTab(t);
@@ -896,7 +1073,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     syncSettingsUi();
     $('sheet').hidden = false;
     sendToGame({ type: 'pause' });
-    sheetPushed = hist.push({ kiln: 'sheet', tab, game: current.game.id }, location.hash);
+    sheetPushed = hist.push({ kiln: 'sheet', tab, game: current.game.id, detail: current.detail, source: current.source }, location.hash);
     $('sheetDone').focus({ preventScroll: true });
   }
   function hideSheet() {
@@ -969,7 +1146,9 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     p.append(label);
     return p;
   }
-  // Every card records which shelf it sits on and where, for impressions and launches.
+  // Card interaction (blueprint section 5): the card opens the game's page. A separate Play or Resume button
+  // launches directly, and only where its meaning is plain (the feature, Continue and Library cards).
+  // Every card records which shelf it sits on and where, for impressions, detail opens and launches.
   function gameButton(cls, g, shelf, pos) {
     const card = el('button', cls + ' game-card');
     card.type = 'button';
@@ -977,33 +1156,48 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     card.dataset.shelf = shelf;
     card.dataset.pos = pos;
     card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
-    card.addEventListener('click', () => openGame(g.id, shelf));
+    card.addEventListener('click', () => openDetail(g.id, shelf));
     watch(card);
     return card;
   }
+  function playButton(cls, g, shelf, label) {
+    const b = el('button', cls + ' play-btn');
+    b.type = 'button';
+    b.dataset.play = g.id;
+    b.innerHTML = PLAY_ICON;
+    b.append(label);
+    b.setAttribute('aria-label', `${label} ${g.title}`);
+    b.addEventListener('click', () => openGame(g.id, shelf));
+    return b;
+  }
   function featureCard(g) {
-    const card = gameButton('feature', g, 'featured', 0);
-    card.setAttribute('aria-label', `${g.title}. ${g.genre || 'Game'}. ${g.pitch || ''} Play`);
+    const box = el('div', 'feature');
+    box.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+    const open = gameButton('feature-open', g, 'featured', 0);
+    open.setAttribute('aria-label', `${g.title}. ${g.genre || 'Game'}. ${g.pitch || ''}`);
     const art = el('span', 'feature-art');
     if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
     const body = el('span', 'feature-body');
-    body.append(el('span', 'feature-eyebrow', `Featured · ${g.genre || 'Game'}`), el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''), playPill('feature-cta', 'Play'));
-    card.append(art, el('span', 'feature-shade'), body);
-    return card;
+    body.append(el('span', 'feature-eyebrow', `Featured · ${g.genre || 'Game'}`), el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''));
+    open.append(art, el('span', 'feature-shade'), body);
+    box.append(open, playButton('feature-cta', g, 'featured', 'Play'));
+    return box;
   }
   function continueCard(g, ts, pos) {
     const p = progressOf(g.id);
     const when = playedLabel(ts);
     const meta = p ? `${p.label} · ${when.replace(/^Played /, '')}` : when;
-    const action = p ? 'Resume' : 'Play';
-    const card = gameButton('cont', g, 'continue', pos);
-    card.setAttribute('aria-label', `${g.title}. ${meta}. ${action}`);
+    const box = el('div', 'cont');
+    box.dataset.id = g.id;
+    const open = gameButton('cont-open', g, 'continue', pos);
+    open.setAttribute('aria-label', `${g.title}. ${meta}`);
     const art = el('span', 'cont-art');
     if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
     const text = el('span', 'cont-text');
-    text.append(el('span', 'card-title', g.title), el('span', 'card-genre', meta), playPill('cont-cta', action));
-    card.append(art, text);
-    return card;
+    text.append(el('span', 'card-title', g.title), el('span', 'card-genre', meta));
+    open.append(art, text);
+    box.append(open, playButton('cont-cta', g, 'continue', p ? 'Resume' : 'Play'));
+    return box;
   }
   function landscapeCard(g, shelf, pos, fresh) {
     const card = gameButton('land', g, shelf, pos);
@@ -1017,19 +1211,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   }
   function portraitCard(g, shelf, pos, fresh) {
     const soon = g.status === 'soon';
-    let card;
-    if (soon) {
-      card = el('div', 'card soon');
-      card.dataset.id = g.id;
-      card.dataset.shelf = shelf;
-      card.dataset.pos = pos;
-      card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
-      card.setAttribute('role', 'group');
-      card.setAttribute('aria-label', `${g.title}, coming soon`);
-      watch(card);
-    } else {
-      card = gameButton('card', g, shelf, pos);
-    }
+    const card = gameButton(soon ? 'card soon' : 'card', g, shelf, pos);
+    if (soon) card.setAttribute('aria-label', `${g.title}, coming soon`);
     const cover = el('span', 'cover');
     if (!soon && g.artTall) cover.append(artImg(g.artTall, 800, 1000));
     const label = soon ? 'Coming soon' : fresh.has(g.id) ? 'New' : '';
@@ -1056,11 +1239,14 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
   // Impressions: a card counts once per visit to Home when at least 60% of it is on screen.
   let seen = new Set();
+  const deferred = new Set(); // on screen but covered by a game or a game's page; counted once uncovered
+  const covered = c => !!current || (!$('detail').hidden && !c.closest('#detail'));
   const impressions = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
-    if (current) return; // a game covers Home; closing it re-renders Home and observes the new cards
     for (const en of entries) {
       if (!en.isIntersecting) continue;
       const c = en.target;
+      if (covered(c)) { deferred.add(c); continue; }
+      deferred.delete(c);
       impressions.unobserve(c);
       const key = c.dataset.shelf + ':' + c.dataset.id;
       if (seen.has(key)) continue;
@@ -1069,6 +1255,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     }
   }, { threshold: 0.6 }) : null;
   function watch(card) { if (impressions) impressions.observe(card); }
+  function flushDeferred() {
+    if (!impressions) return;
+    for (const c of deferred) { impressions.unobserve(c); if (c.isConnected) impressions.observe(c); }
+    deferred.clear();
+  }
 
   // Quick categories come from the genres of playable games, in catalogue order.
   let category = 'all';
@@ -1102,7 +1293,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   // New on Kiln, then a grid of whatever is left. Each game appears once outside Continue playing,
   // and a shelf without enough games is left out rather than padded.
   function renderHome(newVisit = true) {
-    if (newVisit) { seen = new Set(); if (impressions) impressions.disconnect(); }
+    if (newVisit) { seen = new Set(); deferred.clear(); if (impressions) impressions.disconnect(); }
     const { last } = playHistory();
     const fresh = newIds(last);
     const playable = playableGames();
@@ -1150,6 +1341,188 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
   }
 
+  /* ---------- game detail (blueprint section 6) ----------
+     What the game is, how it plays and what it needs, before the player commits. Every fact comes from the
+     registry, which is checked against the game itself; nothing here is estimated or invented. */
+  let detailGame = null;
+  let detailSource = '';
+  const ICON = {
+    offline: '<path d="M2 8.8a15 15 0 0 1 5-3M10.6 4.6A15 15 0 0 1 22 8.8M5.5 12.3a10 10 0 0 1 3.6-2.2M14.6 9.8a10 10 0 0 1 3.9 2.5M9 15.8a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="0.6"/><path d="M3 3l18 18"/>',
+    included: '<path d="M21 8 12 3 3 8l9 5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/>',
+    portrait: '<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>',
+    touch: '<path d="M9 11.5V5a2 2 0 0 1 4 0v6"/><path d="M13 10.5a2 2 0 0 1 4 0v1.5"/><path d="M17 12a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7h-1.2a7 7 0 0 1-5.6-2.8L4.5 15.6a2 2 0 0 1 3-2.6L9 14.5"/>',
+    noads: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+    save: '<path d="M6 3h12v18l-6-4.2L6 21z"/>',
+  };
+  const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.4a4.3 4.3 0 0 1 7.5 2.7c0 5.8-7.5 10.4-7.5 10.4z"/></svg>';
+  function favourites() {
+    const f = ls.get('favs', []);
+    return Array.isArray(f) ? f.filter(id => typeof id === 'string' && GAMES.some(g => g.id === id)) : [];
+  }
+  function setFavourite(id, on) {
+    const f = favourites().filter(x => x !== id);
+    if (on) f.unshift(id);
+    ls.set('favs', f);
+    log('favourite_change', { game: id, action: on ? 'add' : 'remove' });
+  }
+  function fact(icon, text) {
+    const li = el('li');
+    li.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[icon]}</svg>`;
+    li.append(text);
+    return li;
+  }
+  // Related games: the games that share a collection with this one (the collection says why), else the same genre.
+  function relatedFor(g) {
+    const others = playableGames().filter(x => x.id !== g.id);
+    for (const c of COLLECTIONS) {
+      if (!c.games.includes(g.id)) continue;
+      const games = c.games.map(id => others.find(x => x.id === id)).filter(Boolean);
+      if (games.length) return { title: 'Also in ' + c.title, why: c.why || '', games, shelf: 'related:' + c.id };
+    }
+    const same = others.filter(x => x.genre && x.genre === g.genre);
+    return same.length ? { title: `More ${g.genre.toLowerCase()} games`, why: '', games: same, shelf: 'related:genre' } : null;
+  }
+  function section(title, ...children) {
+    const sec = el('section', 'detail-sec');
+    sec.append(el('h2', null, title), ...children);
+    return sec;
+  }
+  function renderDetail() {
+    const g = detailGame;
+    const box = $('detailBody');
+    box.replaceChildren();
+    if (!g) return;
+    $('detailBarTitle').textContent = g.title;
+    const soon = g.status === 'soon';
+    const { last, time } = playHistory();
+    box.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+
+    const media = el('div', soon ? 'detail-media soon' : 'detail-media');
+    if (!soon && g.artWide) { const img = artImg(g.artWide, 1280, 720); img.loading = 'eager'; media.append(img); }
+
+    const head = el('header', 'detail-head');
+    const names = el('div');
+    const h = el('h1', 'detail-title', g.title);
+    h.id = 'detailTitle';
+    const meta = el('p', 'detail-meta', soon ? 'In development' : g.genre || 'Game');
+    if (g.status === 'beta') meta.append(' · ', el('span', 'beta', 'Beta'));
+    names.append(h, meta);
+    head.append(names);
+    if (!soon) {
+      const fav = el('button', 'icon-btn fav');
+      fav.type = 'button';
+      fav.innerHTML = HEART;
+      const sync = () => {
+        const on = favourites().includes(g.id);
+        fav.setAttribute('aria-pressed', String(on));
+        fav.setAttribute('aria-label', on ? `Remove ${g.title} from favourites` : `Add ${g.title} to favourites`);
+      };
+      fav.addEventListener('click', () => { setFavourite(g.id, !favourites().includes(g.id)); sync(); });
+      sync();
+      head.append(fav);
+    }
+
+    const action = el('div', 'detail-action');
+    if (soon) {
+      const b = el('button', 'btn', 'Not playable yet');
+      b.type = 'button';
+      b.disabled = true;
+      action.append(b, el('p', 'note', `${g.title} is still being made. This page will change when you can play it.`));
+    } else {
+      const p = progressOf(g.id);
+      const b = el('button', 'btn play-btn');
+      b.type = 'button';
+      b.dataset.play = g.id;
+      b.innerHTML = PLAY_ICON;
+      b.append(p ? 'Resume' : 'Play');
+      b.addEventListener('click', () => openGame(g.id, 'detail', { detail: true, origin: detailSource }));
+      action.append(b);
+      if (p) action.append(el('p', 'note', `${p.label} · saved on this phone`));
+    }
+    box.append(media, head, el('p', 'detail-pitch', g.pitch || ''), action);
+    if (soon) return;
+
+    const facts = el('ul', 'facts');
+    facts.setAttribute('aria-label', 'Quick facts');
+    facts.append(
+      fact('offline', 'Plays offline'),
+      fact('included', 'Included in Kiln, no download'),
+      fact('portrait', 'Portrait'),
+      fact('touch', g.controls || 'Touch'),
+      fact('noads', 'No ads or purchases'),
+      fact('save', g.saves === 'run' ? 'Keeps your run between visits' : 'Keeps your best score'),
+    );
+    box.append(facts);
+    if (g.about) {
+      const about = el('p', 'about', g.about);
+      box.append(section('How it plays', about));
+    }
+    if (g.shots && g.shots.length) {
+      const strip = el('div', 'shelf shots');
+      g.shots.forEach((src, i) => {
+        const img = artImg(src, 540, 1140);
+        img.alt = `${g.title}, screenshot ${i + 1} of ${g.shots.length}`;
+        strip.append(img);
+      });
+      const parts = [];
+      if (g.status === 'beta') parts.push(el('p', null, `From the beta. ${g.title} is still being tuned, so details may change.`));
+      box.append(section('Screenshots', ...parts, strip));
+    }
+    if (last[g.id]) {
+      const cells = el('div', 'cells');
+      const best = bestOf(g.id);
+      cells.append(cell('Best', best > 0 ? fmt(best) : '–'), cell('Played', time[g.id] ? dur(time[g.id]) : 'Under a minute'), cell('Last played', playedLabel(last[g.id]).replace(/^Played (.)/, (m, c) => c.toUpperCase())));
+      box.append(section('Your record', cells));
+    }
+    const rel = relatedFor(g);
+    if (rel) {
+      const fresh = newIds(last);
+      const shelf = el('div', 'shelf');
+      shelf.append(...rel.games.map((x, i) => landscapeCard(x, rel.shelf, i, fresh)));
+      box.append(section(rel.title, ...(rel.why ? [el('p', null, rel.why)] : []), shelf));
+    }
+  }
+  function openDetail(id, source) {
+    const g = GAMES.find(x => x.id === id);
+    if (!g || (detailGame && detailGame.id === id && !$('detail').hidden)) return;
+    hist.push({ kiln: 'detail', tab, game: id, source: source || '' }, '#details/' + id);
+    showDetail(id, source);
+    log('game_detail_open', { game: id, source: source || '' });
+  }
+  function showDetail(id, source) {
+    const g = GAMES.find(x => x.id === id);
+    if (!g) { hideDetail(); return; }
+    const changed = !detailGame || detailGame.id !== id || $('detail').hidden;
+    detailGame = g;
+    detailSource = source || '';
+    renderDetail();
+    $('detail').hidden = false;
+    $('app').setAttribute('aria-hidden', 'true');
+    if (changed) {
+      $('detail').scrollTop = 0;
+      $('detail').classList.remove('scrolled');
+      if (!current && source !== 'link') $('detailBack').focus({ preventScroll: true }); // move focus into the page it opened
+    }
+  }
+  function hideDetail() {
+    if ($('detail').hidden) return;
+    $('detail').hidden = true;
+    detailGame = null;
+    $('detailBody').replaceChildren();
+    if (!current) {
+      $('app').removeAttribute('aria-hidden');
+      if (tab === 'library') renderLibrary(); // a favourite may have changed
+      flushDeferred();
+    }
+  }
+  function closeDetail() {
+    if ($('detail').hidden) return;
+    if (history.state && history.state.kiln === 'detail' && hist.back()) return; // popstate hides it
+    hideDetail();
+  }
+  $('detailBack').addEventListener('click', closeDetail);
+  $('detail').addEventListener('scroll', () => $('detail').classList.toggle('scrolled', $('detail').scrollTop > 140), { passive: true });
+
   /* ---------- player ---------- */
   function sendToGame(msg) {
     if (!current || !current.frame.contentWindow) return;
@@ -1162,26 +1535,54 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     current.since = 0;
     if (s > 0) log('play_time', { game: current.game.id, s });
   }
-  function openGame(id, shelf) {
-    const g = GAMES.find(x => x.id === id && x.status !== 'soon');
-    if (!g) return;
-    if (current) hideGame();
+  // A game that has not said it is ready by then gets the failure panel (blueprint section 6: Try again, Back).
+  const LAUNCH_TIMEOUT = (/[?&]debug\b/.test(location.search) && +((location.search.match(/[?&]launchTimeout=(\d+)/) || [])[1])) || 10000;
+  function mountFrame() {
+    const g = current.game;
+    if (current.frame) current.frame.remove();
     const frame = document.createElement('iframe');
     frame.title = g.title;
     if (g.srcdoc) frame.srcdoc = g.srcdoc;
     else frame.src = g.path;
-    current = { game: g, frame, since: Date.now(), ready: false, pushed: false, timer: 0 };
+    current.frame = frame;
+    current.ready = false;
+    current.t0 = performance.now();
     $('loading').hidden = false;
+    $('launchFail').hidden = true;
     $('frame').append(frame);
-    $('playerTitle').textContent = g.title;
-    $('backLabel').textContent = tab === 'library' ? 'Library' : 'Games';
-    $('player').hidden = false;
-    $('app').setAttribute('aria-hidden', 'true');
-    current.timer = setTimeout(() => { $('loading').hidden = true; }, 6000);
-    current.pushed = hist.push({ kiln: 'game', tab, game: g.id }, '#' + g.id);
-    log('game_launch', { game: g.id, from: tab, shelf: shelf || tab });
+    clearTimeout(current.timer);
+    current.timer = setTimeout(launchFailed, LAUNCH_TIMEOUT);
     frame.addEventListener('load', () => setTimeout(() => frame.focus(), 50));
   }
+  function launchFailed() {
+    if (!current || current.ready) return;
+    $('loading').hidden = true;
+    $('launchFailTitle').textContent = `${current.game.title} didn't start`;
+    $('launchFail').hidden = false;
+    log('launch_result', { game: current.game.id, ok: false, reason: 'timeout' });
+    $('retryBtn').focus({ preventScroll: true });
+  }
+  // shelf: where the launch came from. A launch from a game's page keeps that page under the game,
+  // so Back returns to it; origin is the shelf that opened the page.
+  function openGame(id, shelf, opts = {}) {
+    const g = GAMES.find(x => x.id === id && x.status !== 'soon');
+    if (!g) return;
+    if (current) hideGame();
+    current = { game: g, frame: null, since: Date.now(), ready: false, pushed: false, timer: 0, t0: 0, detail: opts.detail ? g.id : null, source: opts.origin || '' };
+    mountFrame();
+    $('playerTitle').textContent = g.title;
+    $('backLabel').textContent = current.detail ? 'Details' : tab === 'library' ? 'Library' : 'Games';
+    $('player').hidden = false;
+    $('app').setAttribute('aria-hidden', 'true');
+    current.pushed = hist.push({ kiln: 'game', tab, game: g.id, detail: current.detail, source: current.source }, '#' + g.id);
+    log('game_launch', Object.assign({ game: g.id, from: tab, shelf: shelf || tab }, opts.origin ? { origin: opts.origin } : {}));
+  }
+  $('retryBtn').addEventListener('click', () => {
+    if (!current) return;
+    log('launch_retry', { game: current.game.id });
+    mountFrame();
+  });
+  $('failBackBtn').addEventListener('click', () => leaveGame());
   function hideGame() {
     if (!current) return;
     playSegment();
@@ -1190,9 +1591,12 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     current.frame.remove();
     current = null;
     $('player').hidden = true;
-    $('app').removeAttribute('aria-hidden');
+    $('launchFail').hidden = true;
+    if ($('detail').hidden) $('app').removeAttribute('aria-hidden');
     if (tab === 'home') renderHome();
     else if (tab === 'library') renderLibrary();
+    if (detailGame) renderDetail();
+    flushDeferred();
   }
   function leaveGame() {
     if (!current) return;
@@ -1210,9 +1614,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
         sendToGame({ type: 'settings', settings });
         break;
       case 'ready':
+        if (!current.ready) log('launch_result', { game: current.game.id, ok: true, ms: Math.round(performance.now() - current.t0) });
         current.ready = true;
         clearTimeout(current.timer);
         $('loading').hidden = true;
+        $('launchFail').hidden = true;
         break;
       case 'event':
         if (m.event && typeof m.event.ev === 'string') {
@@ -1256,43 +1662,38 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (days < 7) return `Played ${days} days ago`;
     return 'Played ' + new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   }
+  function libRow(g, shelf, last, time) {
+    const row = el('div', 'lib-row');
+    row.dataset.id = g.id;
+    row.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+    const open = el('button', 'lib-open');
+    open.type = 'button';
+    open.dataset.id = g.id;
+    const art = el('span', 'lib-art');
+    if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
+    const text = el('span', 'lib-text');
+    const p = progressOf(g.id);
+    const when = last[g.id] ? playedLabel(last[g.id]) : 'Not played yet';
+    const stats = el('span', 'lib-stats');
+    const b = bestOf(g.id);
+    if (b > 0) stats.append(el('b', null, 'Best ' + fmt(b)));
+    if (time[g.id]) stats.append(document.createTextNode((b > 0 ? ' · ' : '') + dur(time[g.id]) + ' played'));
+    text.append(el('span', 'lib-title', g.title), el('span', 'lib-meta', `${g.genre || 'Game'} · ${p ? p.label + ' · ' : ''}${when}`), stats);
+    open.append(art, text);
+    open.addEventListener('click', () => openDetail(g.id, shelf));
+    row.append(open, playButton('lib-play', g, shelf, p ? 'Resume' : 'Play'));
+    return row;
+  }
   function renderLibrary() {
     const { last, time } = playHistory();
-    // Only games that were actually launched, newest first (blueprint section 8).
+    // Favourites the player chose, then only games that were actually launched, newest first (blueprint section 8).
+    const favList = favourites().map(id => GAMES.find(g => g.id === id && g.status !== 'soon')).filter(Boolean);
     const played = GAMES.filter(g => g.status !== 'soon' && last[g.id]).sort((a, b) => last[b.id] - last[a.id]);
-    const list = $('recent');
-    list.replaceChildren();
-    $('libraryEmpty').hidden = played.length > 0;
-    for (const g of played) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'lib-row';
-      row.style.setProperty('--c', `var(${g.accent || '--g1'})`);
-      const art = document.createElement('span');
-      art.className = 'lib-art';
-      if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
-      const text = document.createElement('span');
-      text.className = 'lib-text';
-      const h = document.createElement('span');
-      h.className = 'lib-title';
-      h.textContent = g.title;
-      const meta = document.createElement('span');
-      meta.className = 'lib-meta';
-      meta.textContent = `${g.genre || 'Game'} · ${playedLabel(last[g.id])}`;
-      const stats = document.createElement('span');
-      stats.className = 'lib-stats';
-      const b = bestOf(g.id);
-      if (b > 0) { const bb = document.createElement('b'); bb.textContent = 'Best ' + fmt(b); stats.append(bb); }
-      if (time[g.id]) stats.append(document.createTextNode((b > 0 ? ' · ' : '') + dur(time[g.id]) + ' played'));
-      text.append(h, meta, stats);
-      row.append(art, text);
-      const play = el('span', 'lib-play');
-      play.innerHTML = PLAY_ICON;
-      play.append('Play');
-      row.append(play);
-      row.addEventListener('click', () => openGame(g.id, 'library'));
-      list.append(row);
-    }
+    $('favs').replaceChildren(...favList.map(g => libRow(g, 'favourites', last, time)));
+    $('favs').hidden = $('favTitle').hidden = favList.length === 0;
+    $('recent').replaceChildren(...played.map(g => libRow(g, 'library', last, time)));
+    $('recent').hidden = $('recentTitle').hidden = played.length === 0;
+    $('libraryEmpty').hidden = played.length > 0 || favList.length > 0;
   }
   $('browseBtn').addEventListener('click', () => goTab('home'));
 
@@ -1466,6 +1867,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (!$('sheet').hidden) closeSheet();
     else if (!$('insights').hidden) closeInsights();
     else if (current) leaveGame();
+    else if (!$('detail').hidden) closeDetail();
     else if (tab !== 'home') goTab('home');
   });
 
@@ -1478,10 +1880,12 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   log('app_open', { games: GAMES.length });
   if (start === 'library' || start === 'settings') goTab(start);
   else if (start === 'insights') { goTab('settings'); openInsights(); }
+  else if (start.startsWith('details/')) openDetail(start.slice(8), 'link');
   else if (GAMES.some(g => g.id === start && g.status !== 'soon')) openGame(start, 'link');
   if (/[?&]debug\b/.test(location.search)) {
     window.__kiln = {
-      GAMES, Log, computeStats, openGame, leaveGame, closeGame: leaveGame, goTab, openSheet, closeSheet, openInsights, closeInsights,
+      GAMES, Log, computeStats, openGame, leaveGame, closeGame: leaveGame, goTab, openSheet, closeSheet, openInsights, closeInsights, openDetail, closeDetail, favourites,
+      get detail() { return detailGame && detailGame.id; },
       get tab() { return tab; }, get game() { return current && current.game.id; }, get category() { return category; }, settings: () => settings,
     };
   }
