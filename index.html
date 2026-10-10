@@ -13,14 +13,20 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Unbounded:wght@600;800&display=swap">
 <style>
-/* Layout: one dark column; a compact brand header, then shelves of art-led game cards. A game opens full screen under a slim bar; settings and insights are sheets and pages over it.
-   Visual system: Kiln blueprint v2.0, section 10. One committed dark look; game art supplies the colour. */
+/* Layout: one dark column; a brand header, a featured carousel, category tiles, then shelves of art-led game cards,
+   over a bottom bar with a raised Play button. A game opens full screen under a slim bar; settings and insights
+   are sheets and pages over it.
+   Visual system: Kiln blueprint v2.0, section 10. One committed dark look; game art supplies the colour, violet marks
+   the one main action and the selected state, and cards carry a faint lit edge. */
 :root {
   /* colour */
   --bg: #07101E;          /* main canvas */
-  --surface: #101C31;     /* cards and navigation */
+  --surface: #101C31;     /* navigation and panels */
   --raised: #192841;      /* sheets and focused panels */
+  --card: #0D1830;        /* game cards: a shade deeper than surface, so the art reads brighter */
   --primary: #6557FF;     /* main action and selected state */
+  --primary-2: #8A5CFF;   /* the far end of the violet gradient on main actions */
+  --primary-text: #A69DFF; /* violet that stays readable as text and thin icons on the dark ground */
   --primary-ink: #FFFFFF;
   --secondary: #45C4D7;   /* supporting emphasis, focus */
   --reward: #F0C75E;      /* rare highlights only: best scores, new bests */
@@ -30,13 +36,16 @@
   --text-on-art: #D3DCE8; /* hook text over a feature card's shade */
   --line: rgba(170, 184, 204, 0.14);
   --line-strong: rgba(170, 184, 204, 0.26);
+  --edge: rgba(156, 150, 255, 0.17); /* the lit edge on cards, tiles and buttons */
   --scrim: rgba(3, 7, 15, 0.66);
+  --violet: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  --violet-glow: 0 10px 24px -10px rgba(101, 87, 255, 0.9);
   /* game accents for card grounds (from the games' glazes) */
   --g1: #4C76E8; --g2: #EFAE36; --g3: #22AC89; --g4: #EC6650; --g5: #A262CE; --g6: #31B4D3;
   /* shape and rhythm */
   --r-chip: 12px;
-  --r-card: 18px;
-  --r-hero: 26px;
+  --r-card: 16px;
+  --r-hero: 22px;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --tap: 48px;
   --tabbar: 68px;
@@ -44,8 +53,8 @@
   --font-display: "Unbounded", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --t-hero: clamp(28px, 7.6vw, 34px);
-  --t-section: 21px;
-  --t-card: 16px;
+  --t-section: 20px;
+  --t-card: 15px;
   --t-body: 15px;
   --t-meta: 13px;
   --ease: cubic-bezier(.2, .8, .2, 1);
@@ -71,14 +80,16 @@ body {
 button { font: inherit; color: inherit; }
 button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 3px solid var(--secondary); outline-offset: 3px; }
 h1, h2, h3 { text-wrap: balance; }
+.ico { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico .f { fill: currentColor; stroke: none; }
 
 .icon-btn {
   width: var(--tap);
   height: var(--tap);
   flex: none;
-  border: 1px solid var(--line);
-  border-radius: var(--r-chip);
-  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-card);
+  background: linear-gradient(180deg, rgba(25, 40, 65, 0.85), rgba(13, 24, 48, 0.85));
   color: var(--text);
   display: grid;
   place-items: center;
@@ -89,15 +100,24 @@ h1, h2, h3 { text-wrap: balance; }
 .icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- app shell: one scroll view per tab, so each keeps its scroll position ---------- */
-.app { position: relative; height: 100%; }
+.app {
+  position: relative;
+  height: 100%;
+  background:
+    radial-gradient(110% 46% at 0% 0%, rgba(101, 87, 255, 0.13), transparent 62%),
+    radial-gradient(90% 40% at 100% 4%, rgba(69, 196, 215, 0.06), transparent 60%),
+    var(--bg);
+}
 .view {
   position: absolute;
   inset: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px) + var(--s4));
+  padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px) + var(--s5));
   animation: viewIn 0.18s var(--ease);
 }
+/* Bottom bar: Home and Library, the raised Play button in the middle, then Discover. Settings opens from the
+   profile button in each header. */
 .tabbar {
   position: absolute;
   left: 0;
@@ -106,41 +126,61 @@ h1, h2, h3 { text-wrap: balance; }
   z-index: 5;
   height: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px));
   padding: 0 max(var(--s2), env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(var(--s2), env(safe-area-inset-left, 0px));
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr 92px 1fr 1fr;
   justify-content: center;
-  background: var(--surface);
-  box-shadow: 0 -12px 24px -16px rgba(0, 0, 0, 0.7);
+  background: rgba(12, 21, 40, 0.94);
+  border-top: 1px solid var(--edge);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -16px 32px -18px rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
 }
-.tab {
-  flex: 1 1 0;
-  max-width: 160px;
+@media (min-width: 600px) { .tabbar { grid-template-columns: repeat(2, minmax(0, 120px)) 104px repeat(2, minmax(0, 120px)); } }
+.tab, .play-fab {
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--text-2);
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: var(--s1);
+  gap: 5px;
   cursor: pointer;
   font: 600 12px/1 var(--font-body);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
-.tab .pill {
-  width: 60px;
-  height: 32px;
-  border-radius: 999px;
+.tab[data-tab="discover"] { grid-column: span 2; }
+.tab .pill { width: 56px; height: 30px; border-radius: 999px; display: grid; place-items: center; transition: background 0.18s var(--ease); }
+.tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* Selected: violet icon filled in, a lit pill behind it and a bold white label, so it never rests on colour alone. */
+.tab.on { color: var(--text); font-weight: 800; }
+.tab.on svg { color: var(--primary-text); fill: currentColor; fill-opacity: 0.22; }
+.tab.on .pill { background: rgba(101, 87, 255, 0.18); }
+.tab:active .pill { background: var(--raised); }
+.tab:focus-visible, .play-fab:focus-visible { outline: none; }
+.tab:focus-visible .pill, .play-fab:focus-visible .fab { outline: 3px solid var(--secondary); outline-offset: 2px; }
+.play-fab { color: var(--text); font-weight: 700; align-content: end; padding-bottom: 11px; gap: 4px; }
+.play-fab .fab {
+  width: 62px;
+  height: 62px;
+  margin-top: -30px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  transition: background 0.18s var(--ease);
+  background: var(--violet);
+  border: 4px solid #0C1528;
+  box-shadow: 0 0 0 1px rgba(166, 157, 255, 0.35), 0 10px 26px -6px rgba(101, 87, 255, 0.85);
+  transition: transform 0.12s var(--ease);
 }
-.tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.tab.on { color: var(--text); font-weight: 700; }
-.tab.on .pill { background: rgba(101, 87, 255, 0.26); box-shadow: inset 0 0 0 1px rgba(101, 87, 255, 0.55); }
-.tab:active .pill { background: var(--raised); }
-.tab:focus-visible { outline: none; }
-.tab:focus-visible .pill { outline: 3px solid var(--secondary); outline-offset: 2px; }
+.play-fab:active .fab { transform: scale(0.94); }
+.play-fab svg { width: 30px; height: 30px; fill: none; stroke: #fff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.play-fab svg .f { fill: #fff; stroke: none; }
+.play-fab svg .k { stroke: var(--primary); stroke-width: 1.8; }
+.play-fab svg .kf { fill: var(--primary); stroke: none; }
+
 .title { margin: 0; font: 800 26px/1.1 var(--font-display); letter-spacing: -0.03em; }
-.section-title { margin: var(--s4) 0 var(--s3); font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.section-title { margin: var(--s5) 0 var(--s3); font: 800 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
 .group-title {
   margin: var(--s5) 0 var(--s2);
   font: 700 12px/1 var(--font-body);
@@ -149,8 +189,8 @@ h1, h2, h3 { text-wrap: balance; }
   color: var(--text-2);
 }
 .panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--card);
+  border: 1px solid var(--edge);
   border-radius: var(--r-card);
   padding: var(--s1) var(--s4);
 }
@@ -174,8 +214,8 @@ h1, h2, h3 { text-wrap: balance; }
 .list { display: grid; gap: var(--s2); }
 .lib-row {
   width: 100%;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--edge);
+  background: var(--card);
   border-radius: var(--r-card);
   padding-right: var(--s3);
   display: flex;
@@ -202,22 +242,22 @@ h1, h2, h3 { text-wrap: balance; }
 }
 .lib-art {
   flex: none;
-  width: 64px;
-  aspect-ratio: 4 / 5;
+  width: 92px;
+  aspect-ratio: 16 / 10;
   border-radius: var(--r-chip);
   overflow: hidden;
   background: var(--c);
 }
 .lib-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .lib-play { flex: none; position: relative; border: 0; cursor: pointer; min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
-.lib-play::after, .cont-cta::after { content: ""; position: absolute; inset: -6px; } /* 48dp touch target */
+.lib-play::after { content: ""; position: absolute; inset: -6px; } /* 48dp touch target */
 .lib-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
 .lib-title { font: 700 var(--t-card)/1.2 var(--font-body); }
 .lib-meta { font-size: var(--t-meta); color: var(--text-2); }
 .lib-stats { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .lib-stats b { color: var(--reward); font-weight: 700; }
 .empty-state {
-  background: var(--surface);
+  background: var(--card);
   border: 1px dashed var(--line-strong);
   border-radius: var(--r-card);
   padding: var(--s5);
@@ -241,18 +281,21 @@ h1, h2, h3 { text-wrap: balance; }
   align-items: center;
   justify-content: space-between;
   gap: var(--s3);
-  padding-block: var(--s3) var(--s2);
-  min-height: 64px;
+  padding-block: var(--s4) var(--s3);
+  min-height: 76px;
 }
-.brand { display: flex; align-items: center; gap: var(--s3); }
-.logo { display: grid; grid-template-columns: repeat(2, 12px); gap: 3px; }
-.logo i { width: 12px; height: 12px; border-radius: 4px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.top-title { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
+.brand { display: grid; gap: 7px; }
+.brand-row { display: flex; align-items: center; gap: 10px; }
+.logo { display: grid; grid-template-columns: repeat(2, 13px); gap: 3px; }
+.logo i { width: 13px; height: 13px; border-radius: 4px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
 .logo i:nth-child(1) { background: var(--g1); }
 .logo i:nth-child(2) { background: var(--g2); }
 .logo i:nth-child(3) { background: var(--g4); }
-.logo i:nth-child(4) { background: var(--raised); box-shadow: inset 0 2px 2px rgba(0, 0, 0, 0.35); }
-.word { font: 800 22px/1 var(--font-display); letter-spacing: -0.03em; }
-.actions { display: flex; gap: var(--s2); }
+.logo i:nth-child(4) { background: #C9D2E3; }
+.word { font: 800 30px/0.9 var(--font-display); letter-spacing: -0.04em; }
+.tagline { margin: 0; font: 600 10.5px/1 var(--font-body); letter-spacing: 0.34em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
+.actions { display: flex; gap: var(--s3); }
 .intro { padding-block: var(--s4) var(--s5); display: grid; gap: var(--s2); }
 .intro h1 { margin: 0; font: 800 var(--t-hero)/1.12 var(--font-display); letter-spacing: -0.03em; max-width: 16ch; }
 .intro p { margin: 0; color: var(--text-2); font-size: var(--t-body); max-width: 46ch; }
@@ -264,24 +307,36 @@ h1, h2, h3 { text-wrap: balance; }
   padding-bottom: var(--s5);
 }
 
-/* Feature card: wide art, a controlled shade over the lower part only, title, one-line hook, one action. */
+/* Featured carousel: one wide card at a time, swiped or moved by its dots. Each card: art full-bleed, a shade from
+   the left for the text, the FEATURED pill, title, one-line pitch and Play Now. */
+.hero { position: relative; margin: var(--s1) 0 var(--s4); }
+.hero-track {
+  display: flex;
+  gap: var(--s3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border-radius: var(--r-hero);
+}
+.hero-track::-webkit-scrollbar { display: none; }
 .feature {
   position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 440px;
-  margin: var(--s2) 0 var(--s4);
-  border: 1px solid var(--line);
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  aspect-ratio: 16 / 9;
+  min-height: 214px;
+  max-height: 420px;
+  border: 1px solid rgba(166, 157, 255, 0.28);
   border-radius: var(--r-hero);
   overflow: hidden;
   background: var(--c);
   background-clip: padding-box;
-  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-@media (min-width: 700px) { .feature { aspect-ratio: 16 / 9; } }
-.feature:has(> .feature-open:active) { transform: scale(0.99); border-color: var(--line-strong); }
-/* The card opens the game's page; the Play button on it launches the game. */
+@media (min-width: 700px) { .feature { aspect-ratio: 21 / 9; } }
+/* The card opens the game's page; Play Now on it launches the game. */
 .feature-open {
   position: absolute;
   inset: 0;
@@ -296,56 +351,107 @@ h1, h2, h3 { text-wrap: balance; }
   cursor: pointer;
 }
 .feature-open:focus-visible { outline-offset: -4px; border-radius: var(--r-hero); }
-.feature > .feature-cta { position: absolute; z-index: 1; left: var(--s4); bottom: var(--s4); border: 0; cursor: pointer; }
 .feature-art, .feature-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.feature-art img { transition: transform 0.4s var(--ease); }
+.feature-open:active .feature-art img { transform: scale(1.02); }
 .feature-shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(7, 16, 30, 0.96) 0%, rgba(7, 16, 30, 0.82) 42%, rgba(7, 16, 30, 0.35) 66%, rgba(7, 16, 30, 0) 84%);
+  background:
+    linear-gradient(90deg, rgba(7, 12, 30, 0.95) 0%, rgba(7, 12, 30, 0.9) 44%, rgba(7, 12, 30, 0.45) 68%, rgba(7, 12, 30, 0) 86%),
+    linear-gradient(0deg, rgba(7, 12, 30, 0.55) 0%, rgba(7, 12, 30, 0) 40%);
 }
 .feature-body {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   padding: var(--s4) var(--s4) calc(var(--s4) + 50px);
-  display: grid;
-  gap: 6px;
-  justify-items: start;
+  width: min(66%, 440px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 7px;
 }
-.feature-eyebrow { font: 700 11px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--secondary); }
-.feature-title { font: 800 26px/1.05 var(--font-display); letter-spacing: -0.03em; color: var(--text); }
+.feature-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  padding: 6px 11px 6px 9px;
+  border-radius: 999px;
+  background: rgba(22, 24, 64, 0.72);
+  border: 1px solid rgba(166, 157, 255, 0.4);
+  font: 700 10.5px/1 var(--font-body);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--primary-text);
+}
+.feature-pill svg { width: 13px; height: 13px; fill: var(--primary-text); }
+.feature-title { font: 800 29px/1.02 var(--font-display); letter-spacing: -0.035em; color: var(--text); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45); }
 .feature-hook {
-  max-width: 40ch;
-  font-size: 14px;
-  line-height: 1.35;
+  max-width: 34ch;
+  font-size: 13.5px;
+  line-height: 1.38;
   color: var(--text-on-art);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.feature-cta, .lib-play, .cont-cta {
+@media (min-width: 700px) {
+  /* Wide screens: the art keeps to the right at close to its own shape, and the text gets a quiet ground. */
+  .feature { background: var(--card); }
+  .feature-art { left: auto; width: 76%; }
+  .feature-body { padding: var(--s6) var(--s6) calc(var(--s6) + 56px); gap: 10px; }
+  .feature-title { font-size: 44px; }
+  .feature-hook { font-size: 16px; }
+  .feature > .feature-cta { left: var(--s6); bottom: var(--s6); }
+}
+.feature > .feature-cta { position: absolute; z-index: 1; left: var(--s4); bottom: var(--s4); border: 0; cursor: pointer; }
+.feature-cta, .lib-play {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 40px;
   padding: 0 var(--s4) 0 var(--s3);
   border-radius: 999px;
-  background: var(--primary);
+  background: var(--violet);
   color: var(--primary-ink);
   font: 700 14px/1 var(--font-body);
+  box-shadow: var(--violet-glow);
 }
-.feature-cta svg, .lib-play svg, .cont-cta svg { width: 16px; height: 16px; fill: currentColor; }
-.cont-cta { min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
+.feature-cta { min-height: 42px; padding: 0 14px 0 20px; font-size: 15px; gap: 10px; }
+.feature-cta svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.lib-play svg { width: 16px; height: 16px; fill: currentColor; }
+.hero-dots { position: absolute; z-index: 2; right: 10px; bottom: 10px; display: flex; }
+.hero-dot { width: 22px; height: 30px; padding: 0; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.hero-dot i { width: 7px; height: 7px; border-radius: 4px; background: rgba(245, 247, 252, 0.4); transition: width 0.2s var(--ease), background 0.2s var(--ease); }
+.hero-dot[aria-current="true"] { width: 30px; }
+.hero-dot[aria-current="true"] i { width: 20px; background: var(--text); }
 
-/* Compact portrait card: tall art, title and genre; one optional label on the art. */
+/* Status label on a card's art: New (violet) or Coming soon. */
+.status {
+  position: absolute;
+  z-index: 1;
+  top: var(--s2);
+  right: var(--s2);
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(7, 16, 30, 0.82);
+  color: var(--text);
+  font: 800 10px/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.status.new { background: var(--violet); box-shadow: 0 4px 12px -4px rgba(101, 87, 255, 0.9); }
+
+/* Compact portrait card: tall art, title and category. */
 .card {
   appearance: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   padding: 0;
   text-align: left;
-  background: var(--surface);
+  background: var(--card);
   background-clip: padding-box;
   border-radius: var(--r-card);
   overflow: hidden;
@@ -357,6 +463,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 button.card { cursor: pointer; transition: transform 0.12s var(--ease), border-color 0.15s var(--ease); }
 button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
+.shelf > .card { width: 148px; }
 .cover {
   display: block;
   aspect-ratio: 4 / 5;
@@ -366,59 +473,90 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   overflow: hidden;
 }
 .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.status {
-  position: absolute;
-  top: var(--s2);
-  left: var(--s2);
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(7, 16, 30, 0.8);
-  color: var(--text);
-  font: 700 11px/1 var(--font-body);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.card-body { padding: var(--s3) var(--s3) var(--s4); display: grid; gap: 3px; min-width: 0; }
-.card-title { font: 700 var(--t-card)/1.2 var(--font-body); letter-spacing: -0.01em; }
-.card-genre { font-size: var(--t-meta); color: var(--text-2); }
+.card-body { padding: 10px var(--s3) var(--s3); display: grid; gap: 4px; min-width: 0; }
+.card-title { font: 700 var(--t-card)/1.2 var(--font-body); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-genre { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 12.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-genre .ico { width: 15px; height: 15px; stroke-width: 1.9; }
 
-/* Continue card: art, title, the true saved state or when it was last played, and Resume or Play. */
+/* Continue card: the game's art, title, category and its real progress. The whole card resumes the game. */
+.shelf > .cont { width: clamp(112px, calc((100% - 2 * 10px) / 3), 232px); }
+.shelf:has(> .cont) { gap: 10px; }
 .cont {
-  position: relative;
-  width: 272px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
   background-clip: padding-box;
-  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
-}
-.cont:has(> .cont-open:active) { transform: scale(0.98); border-color: var(--line-strong); }
-.cont-open {
-  width: 100%;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  padding: var(--s2);
+  overflow: hidden;
+  padding: 0;
   display: flex;
-  align-items: stretch;
-  gap: var(--s3);
+  flex-direction: column;
   text-align: left;
   color: inherit;
   font: inherit;
   cursor: pointer;
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
 }
-.cont-art { flex: none; width: 72px; aspect-ratio: 4 / 5; border-radius: var(--r-chip); overflow: hidden; background: var(--c); }
+.cont:active { transform: scale(0.97); border-color: var(--line-strong); }
+.cont-art { display: block; aspect-ratio: 16 / 9; background: var(--c); overflow: hidden; }
 .cont-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cont-text { flex: 1 1 auto; min-width: 0; display: grid; align-content: start; justify-items: start; gap: 3px; padding-top: var(--s1); }
-.cont-text .card-genre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.cont > .cont-cta { position: absolute; left: calc(var(--s2) + 72px + var(--s3)); bottom: var(--s3); border: 0; cursor: pointer; }
+.cont-body { padding: 9px 10px 11px; display: grid; gap: 5px; min-width: 0; }
+.cont-title { font: 700 14px/1.2 var(--font-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cont .card-genre { font-size: 12px; }
+.cont-meta { font-size: 11.5px; line-height: 1.3; font-weight: 600; color: var(--text-2); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cont-progress { display: flex; align-items: center; gap: var(--s2); margin-top: 4px; font: 700 11px/1 var(--font-body); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.cont-progress .bar { flex: 1 1 auto; height: 4px; border-radius: 2px; background: rgba(170, 184, 204, 0.16); overflow: hidden; }
+.cont-progress .bar i { display: block; height: 100%; border-radius: 2px; background: var(--violet); }
 
-/* Editorial landscape card: a wide crop of the key art, a fixed title zone and one metadata line. */
-.land {
-  width: clamp(236px, 74%, 340px);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
+/* Top picks: a two-column grid of art cards; the title sits on the art beside a small square of the game's tall art. */
+.picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+@media (min-width: 900px) { .picks { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.pick {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--c);
+  background-clip: padding-box;
+  overflow: hidden;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+}
+.pick:active { transform: scale(0.98); border-color: var(--line-strong); }
+.pick-art, .pick-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.pick::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(7, 12, 30, 0.92) 0%, rgba(7, 12, 30, 0.55) 38%, rgba(7, 12, 30, 0) 66%); }
+.pick-body { position: absolute; z-index: 1; left: 9px; right: 9px; bottom: 9px; display: flex; align-items: center; gap: 9px; min-width: 0; }
+.pick-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
   background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+.pick-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pick-icon .ico { width: 18px; height: 18px; color: var(--text-2); }
+.pick-text { min-width: 0; display: grid; gap: 1px; }
+.pick-title { font: 700 14px/1.2 var(--font-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+.pick-cat { font-size: 11.5px; font-weight: 600; color: var(--text-on-art); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick.soon { border-style: dashed; border-color: var(--line-strong); }
+.pick.soon::after { background: linear-gradient(0deg, rgba(7, 12, 30, 0.7), rgba(7, 12, 30, 0) 70%); }
+.pick.soon .pick-title { color: var(--text-2); }
+
+/* Editorial landscape card: a wide crop of the key art, a fixed title zone and the category. */
+.land {
+  width: clamp(220px, 64%, 320px);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-card);
+  background: var(--card);
   background-clip: padding-box;
   overflow: hidden;
   padding: 0;
@@ -436,14 +574,47 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
 /* Coming soon: a distinct unavailable state with no play action. */
 .card.soon { border-style: dashed; border-color: var(--line-strong); background: transparent; }
-.card.soon .cover {
+.card.soon .cover, .pick.soon {
   background-color: var(--surface);
   background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 .card.soon .card-title { color: var(--text-2); }
 
-/* Quick categories: one row of chips under the feature card; the chosen one filters the feed below. */
+/* Category tiles: an icon over the label; the chosen one is solid violet and filters the feed below. */
+.cats {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--gl)) calc(-1 * var(--gr));
+  padding: var(--s1) var(--gr) var(--s2) var(--gl);
+  scrollbar-width: none;
+}
+.cats::-webkit-scrollbar { display: none; }
+.cat {
+  flex: 1 0 auto; /* a few tiles share the row; many scroll */
+  min-width: 70px;
+  max-width: 150px;
+  height: 66px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(25, 40, 65, 0.7), rgba(13, 24, 48, 0.7));
+  color: var(--text-2);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  font: 600 12.5px/1 var(--font-body);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease), transform 0.1s var(--ease);
+}
+.cat svg { width: 24px; height: 24px; color: var(--text); }
+.cat[aria-pressed="true"] { background: var(--violet); border-color: rgba(190, 182, 255, 0.5); color: var(--primary-ink); font-weight: 700; box-shadow: var(--violet-glow); }
+.cat[aria-pressed="true"] svg { color: var(--primary-ink); }
+.cat:active { transform: scale(0.96); }
+
+/* Filter and recent-search chips (Discover). */
 .chips {
   display: flex;
   gap: var(--s2);
@@ -460,23 +631,42 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   padding: 0 var(--s4);
   border: 0;
   border-radius: 999px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--text-2);
   font: 700 14px/1 var(--font-body);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 .chip::after { content: ""; position: absolute; inset: -4px 0; } /* 48dp touch target */
-.chip[aria-pressed="true"] { background: rgba(101, 87, 255, 0.26); box-shadow: inset 0 0 0 1px rgba(101, 87, 255, 0.7); color: var(--text); }
+.chip[aria-pressed="true"] { background: var(--violet); box-shadow: var(--violet-glow); color: var(--primary-ink); }
 .chip:active { background: var(--raised); }
-.chip span { margin-left: 6px; font-weight: 600; color: var(--text-2); }
 
-/* Feed: titled shelves. A shelf scrolls sideways and bleeds to the screen edge; the last block is a grid. */
-.block { margin-top: var(--s5); }
-.block-head { margin-bottom: var(--s3); display: grid; gap: 2px; }
-.block-head h2 { margin: 0; font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+/* Feed: titled shelves. A shelf scrolls sideways and bleeds to the screen edge. */
+.block { margin-top: 26px; }
+.block-head { margin-bottom: var(--s3); display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+.block-head > div { display: grid; gap: 2px; min-width: 0; }
+.block-head h2 { margin: 0; font: 800 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.015em; }
 .block-head p { margin: 0; color: var(--text-2); font-size: 14px; text-wrap: pretty; }
+.more-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: -8px calc(-1 * var(--s2)) -8px 0;
+  padding: 0 var(--s2);
+  border: 0;
+  border-radius: var(--r-chip);
+  background: transparent;
+  color: var(--primary-text);
+  font: 700 14px/1 var(--font-body);
+  cursor: pointer;
+}
+.more-link svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.more-link:active { background: var(--surface); }
 .shelf {
   display: flex;
   gap: var(--s3);
@@ -564,7 +754,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   max-height: 92%;
   overflow: auto;
   background: var(--raised);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-bottom: 0;
   border-radius: var(--r-hero) var(--r-hero) 0 0;
   padding: var(--s5) var(--s5) calc(var(--s5) + env(safe-area-inset-bottom, 0px));
@@ -574,10 +764,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 }
 @media (min-width: 600px) {
   .overlay { place-items: center; }
-  .sheet { border-radius: var(--r-hero); border-bottom: 1px solid var(--line); padding-bottom: var(--s5); }
+  .sheet { border-radius: var(--r-hero); border-bottom: 1px solid var(--edge); padding-bottom: var(--s5); }
 }
-.sheet h2 { margin: 0 0 var(--s1); font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.sheet h2 { margin: 0 0 var(--s1); font: 800 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: var(--tap); font-weight: 600; }
+.panel .row { min-height: 60px; padding-block: 10px; }
 .row small { display: block; font-weight: 500; color: var(--text-2); font-size: var(--t-meta); }
 .switch {
   flex: none;
@@ -602,11 +793,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   background: var(--text-2);
   transition: transform 0.18s var(--ease), background 0.18s var(--ease);
 }
-.switch[aria-checked="true"] { background: var(--primary); box-shadow: none; }
+.switch[aria-checked="true"] { background: var(--violet); box-shadow: none; }
 .switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--primary-ink); }
-.seg { display: inline-flex; padding: 3px; border-radius: var(--r-chip); background: var(--surface); gap: 2px; }
+.seg { display: inline-flex; padding: 3px; border-radius: var(--r-chip); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); gap: 2px; }
 .seg button { border: 0; background: transparent; min-height: 40px; padding: 0 var(--s3); border-radius: 9px; font-size: var(--t-meta); font-weight: 700; color: var(--text-2); cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--primary); color: var(--primary-ink); }
+.seg button[aria-pressed="true"] { background: var(--violet); color: var(--primary-ink); }
 .btn {
   appearance: none;
   border: 0;
@@ -614,9 +805,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   font: 700 16px/1 var(--font-body);
   min-height: 52px;
   padding: 0 var(--s5);
-  border-radius: var(--r-chip);
-  background: var(--primary);
+  border-radius: 999px;
+  background: var(--violet);
   color: var(--primary-ink);
+  box-shadow: var(--violet-glow);
   transition: transform 0.1s var(--ease), filter 0.15s var(--ease);
 }
 .btn:active { transform: translateY(1px); filter: brightness(0.92); }
@@ -635,11 +827,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s3); margin-block: var(--s2) var(--s5); }
-.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s4); display: grid; gap: var(--s2); }
+.kpi { background: var(--card); border: 1px solid var(--edge); border-radius: var(--r-card); padding: var(--s4); display: grid; gap: var(--s2); }
 .kpi span { font: 700 11px/1.15 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
 .kpi b { font: 800 26px/1 var(--font-display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .gstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--s3); }
-.gstat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s4); display: grid; gap: var(--s3); min-width: 0; }
+.gstat { background: var(--card); border: 1px solid var(--edge); border-radius: var(--r-card); padding: var(--s4); display: grid; gap: var(--s3); min-width: 0; }
 .gstat header { display: flex; align-items: center; gap: var(--s3); }
 .gstat header i { width: 14px; height: 14px; border-radius: 4px; background: var(--c); flex: none; }
 .gstat header h3 { margin: 0; font: 700 var(--t-card)/1.2 var(--font-body); }
@@ -648,12 +840,12 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .meter .lbl { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--text-2); }
 .meter .lbl b { color: var(--text); font-variant-numeric: tabular-nums; }
 .track { height: 8px; border-radius: 4px; background: var(--raised); overflow: hidden; }
-.track i { display: block; height: 100%; border-radius: 4px; background: var(--primary); }
+.track i { display: block; height: 100%; border-radius: 4px; background: var(--violet); }
 .cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
 .cell { background: var(--raised); border-radius: var(--r-chip); padding: 10px; display: grid; gap: var(--s1); min-width: 0; }
 .cell span { font: 700 10px/1.15 var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2); }
 .cell b { font: 700 15px/1 var(--font-body); font-variant-numeric: tabular-nums; }
-.empty { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s5); color: var(--text-2); }
+.empty { background: var(--card); border: 1px solid var(--edge); border-radius: var(--r-card); padding: var(--s5); color: var(--text-2); }
 .data-actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin-block: var(--s5) var(--s6); }
 .data-out { width: 100%; height: 120px; font: 12px/1.4 ui-monospace, Menlo, monospace; border-radius: var(--r-chip); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); padding: 10px; }
 
@@ -666,8 +858,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   left: max(var(--s3), env(safe-area-inset-left, 0px));
   width: var(--tap);
   height: var(--tap);
-  border: 1px solid var(--line);
-  border-radius: 50%;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-card);
   background: rgba(7, 16, 30, 0.72);
   color: var(--text);
   display: grid;
@@ -678,6 +870,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 }
 .float-back:active { background: var(--raised); }
 .float-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+/* The art runs edge to edge on a phone and fades into the page, so the title reads as part of the picture. */
 .detail-media {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -687,13 +880,15 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   overflow: hidden;
 }
 .detail-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, var(--bg) 0%, rgba(7, 16, 30, 0) 42%); }
 .detail-media.soon {
   background-color: var(--surface);
   background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 @media (min-width: 700px) {
-  .detail-media { width: 100%; margin: var(--s4) 0 0; border-radius: var(--r-hero); border: 1px solid var(--line); background-clip: padding-box; }
+  .detail-media { width: 100%; margin: var(--s4) 0 0; border-radius: var(--r-hero); border: 1px solid var(--edge); background-clip: padding-box; }
+  .detail-media::after { display: none; }
 }
 /* Once the art scrolls away, a solid bar with the title fades in behind the back button. */
 .detail-bar {
@@ -718,14 +913,19 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .detail-bar span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .detail.scrolled .detail-bar { opacity: 1; transform: none; }
 .detail.scrolled .float-back { background: transparent; border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
-.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); margin-top: var(--s4); }
-.detail-title { margin: 0; font: 800 var(--t-hero)/1.08 var(--font-display); letter-spacing: -0.03em; }
-.detail-meta { margin: var(--s2) 0 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.detail-head { position: relative; display: flex; align-items: center; gap: var(--s3); margin-top: calc(-1 * var(--s5)); }
+@media (min-width: 700px) { .detail-head { margin-top: var(--s5); } }
+.detail-icon { flex: none; width: 68px; height: 68px; border-radius: 18px; overflow: hidden; background: var(--c); border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); }
+.detail-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-names { flex: 1 1 auto; min-width: 0; }
+.detail-title { margin: 0; font: 800 var(--t-hero)/1.08 var(--font-display); letter-spacing: -0.035em; overflow-wrap: anywhere; }
+.detail-meta { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.detail-meta .ico { width: 17px; height: 17px; stroke-width: 1.9; }
 .detail-meta .beta { color: var(--secondary); }
 .fav svg { fill: none; }
 .fav[aria-pressed="true"] { color: var(--g4); border-color: rgba(236, 102, 80, 0.5); }
 .fav[aria-pressed="true"] svg { fill: currentColor; }
-.detail-pitch { margin: var(--s3) 0 0; font-size: 17px; line-height: 1.4; max-width: 46ch; text-wrap: pretty; }
+.detail-pitch { margin: var(--s4) 0 0; font-size: 17px; line-height: 1.4; max-width: 46ch; text-wrap: pretty; }
 .detail-action { margin-top: var(--s4); display: grid; gap: var(--s2); justify-items: stretch; max-width: 420px; }
 .detail-action .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); }
 .detail-action .btn svg { width: 18px; height: 18px; fill: currentColor; }
@@ -734,18 +934,27 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .facts {
   list-style: none;
   margin: var(--s5) 0 0;
-  padding: var(--s2) var(--s4);
+  padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
-  column-gap: var(--s4);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
+  gap: var(--s2);
 }
-.facts li { display: flex; align-items: center; gap: var(--s2); min-height: 44px; font-size: 14px; font-weight: 600; }
-.facts svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--secondary); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.detail-sec { margin-top: var(--s5); }
-.detail-sec > h2 { margin: 0 0 var(--s2); font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.facts li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.facts svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--primary-text); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.detail-sec { margin-top: 28px; }
+.detail-sec > h2 { margin: 0 0 var(--s2); font: 800 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.015em; }
 .detail-sec > p { margin: 0 0 var(--s3); color: var(--text-2); max-width: 60ch; text-wrap: pretty; }
 .detail-sec > p.about { color: var(--text); }
 .shots > img {
@@ -753,12 +962,13 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   height: auto;
   aspect-ratio: 540 / 1140;
   border-radius: var(--r-card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   background: var(--surface);
   object-fit: cover;
 }
 @media (min-width: 700px) { .shots > img { width: 200px; } }
 .detail .cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.detail .cell { background: var(--card); border: 1px solid var(--edge); }
 
 /* ---------- launch failure: the player stays in context with Try again and Back ---------- */
 .launch-fail {
@@ -788,11 +998,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   padding: var(--s2) var(--gr) var(--s3) var(--gl);
   display: grid;
   gap: var(--s3);
-  background: var(--bg);
   border-bottom: 1px solid transparent;
-  transition: border-color 0.15s var(--ease);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
 }
-.view.stuck .search-bar { border-bottom-color: var(--line); }
+/* Once pinned, it takes a ground so results pass under it; before that the page's glow shows through. */
+.view.stuck .search-bar { background: rgba(7, 16, 30, 0.94); border-bottom-color: var(--line); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .search { position: relative; display: flex; align-items: center; margin: 0; }
 .search > svg { position: absolute; left: var(--s4); width: 20px; height: 20px; fill: none; stroke: var(--text-2); stroke-width: 2.2; stroke-linecap: round; pointer-events: none; }
 .search input {
@@ -800,9 +1010,9 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   height: 52px;
   padding: 0 52px 0 46px;
   border: 0;
-  border-radius: 999px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--text);
   font: 600 16px/1 var(--font-body);
   -webkit-appearance: none;
@@ -810,7 +1020,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   outline: none;
 }
 .search input::placeholder { color: var(--text-2); font-weight: 500; opacity: 1; }
-.search input:focus { box-shadow: inset 0 0 0 2px var(--secondary); }
+.search input:focus { box-shadow: inset 0 0 0 2px var(--primary), 0 0 0 4px rgba(101, 87, 255, 0.18); }
 .search input::-webkit-search-decoration, .search input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
 .search-clear {
   position: absolute;
@@ -827,15 +1037,18 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 }
 .search-clear:active { background: var(--raised); }
 .search-clear svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
-/* A chosen filter shows a check as well as its colour. */
-.chip svg { display: none; width: 16px; height: 16px; margin: 0 6px 0 -4px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.chip[aria-pressed="true"] svg, .chip.recent svg { display: inline-block; }
+/* A filter shows its category's icon; once chosen, a check takes its place, as well as the colour. */
+.chip svg { width: 17px; height: 17px; margin: 0 7px 0 -5px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chip svg .f { fill: currentColor; stroke: none; }
+.chip .check { display: none; stroke-width: 2.6; }
+.chip[aria-pressed="true"] .check { display: block; }
+.chip[aria-pressed="true"] .check ~ svg { display: none; }
 .chip.recent svg { stroke-width: 2; color: var(--text-2); }
 .chip.recent { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-sep { flex: none; width: 1px; margin: 8px var(--s1); background: var(--line-strong); }
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .results-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin: var(--s4) 0 var(--s3); min-height: var(--tap); }
-.results-head h2 { margin: 0; font: 700 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.results-head h2 { margin: 0; font: 800 var(--t-section)/1.2 var(--font-body); letter-spacing: -0.015em; }
 .text-btn {
   flex: none;
   min-height: var(--tap);
@@ -844,19 +1057,19 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   border: 0;
   border-radius: var(--r-chip);
   background: transparent;
-  color: var(--secondary);
+  color: var(--primary-text);
   font: 700 14px/1 var(--font-body);
   cursor: pointer;
 }
 .text-btn:active { background: var(--surface); }
-/* Search result card: small cover, title, category and the verified controls, then its tags.
+/* Search result card: a wide cover, title, category and the verified controls, then its tags.
    Every row is the same height, and the cover's space is reserved before the art loads. */
 .result {
   width: 100%;
   min-height: 88px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--r-card);
-  background: var(--surface);
+  background: var(--card);
   background-clip: padding-box;
   padding: var(--s2) var(--s3) var(--s2) var(--s2);
   display: flex;
@@ -869,12 +1082,14 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
 }
 .result:active { transform: scale(0.99); border-color: var(--line-strong); }
-.result-art { flex: none; width: 56px; height: 70px; border-radius: var(--r-chip); overflow: hidden; background: var(--c); }
+.result-art { flex: none; width: 104px; height: 66px; border-radius: var(--r-chip); overflow: hidden; background: var(--c); }
 .result-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .result-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
 .result-title { display: flex; align-items: center; gap: var(--s2); font: 700 var(--t-card)/1.25 var(--font-body); letter-spacing: -0.01em; }
-.result-title .status { position: static; padding: 4px 8px; font-size: 10px; background: var(--raised); }
-.result-meta { font-size: var(--t-meta); color: var(--text-2); }
+.result-title .status { position: static; padding: 4px 8px; font-size: 9.5px; background: var(--raised); }
+.result-title .status.new { background: var(--violet); }
+.result-meta { display: flex; align-items: center; gap: 5px; font-size: var(--t-meta); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-meta .ico { width: 15px; height: 15px; stroke-width: 1.9; }
 .result-tags { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .result-tags b { color: var(--text); font-weight: 700; }
 .result.soon { border-style: dashed; border-color: var(--line-strong); background: transparent; }
@@ -884,6 +1099,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   background-size: 12px 12px;
 }
 .result.soon .result-title { color: var(--text-2); }
+@media (max-width: 359px) { .result-art { width: 80px; height: 60px; } }
 .empty-state h3 { margin: 0; font: 700 18px/1.25 var(--font-body); overflow-wrap: anywhere; }
 .empty-state .group-title { margin: 0 0 var(--s2); }
 .discover-note { margin-top: var(--s5); }
@@ -895,9 +1111,9 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 @media (prefers-reduced-motion: reduce) {
   .overlay, .sheet, .view, .player, .detail { animation: none; }
   .detail-bar { transition: none; }
-  .tab .pill { transition: none; }
-  .card, .feature, .cont, .land, .chip, .lib-row, .result, .search-bar, .icon-btn, .btn, .switch, .switch::after { transition: none; }
-  .feature:has(> .feature-open:active), .cont:has(> .cont-open:active), .lib-row:has(> .lib-open:active) { transform: none; }
+  .tab .pill, .hero-dot i, .feature-art img { transition: none; }
+  .card, .cont, .pick, .land, .cat, .chip, .lib-row, .result, .search-bar, .icon-btn, .btn, .switch, .switch::after, .play-fab .fab { transition: none; }
+  .cont:active, .pick:active, .land:active, .cat:active, button.card:active, .lib-row:has(> .lib-open:active), .feature-open:active .feature-art img { transform: none; }
 }
 </style>
 </head>
@@ -907,13 +1123,20 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   <section class="view" id="view-home" data-tab="home" aria-label="Home">
     <div class="wrap">
       <header class="top">
-        <div class="brand"><span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="word">Kiln</span></div>
+        <div class="brand">
+          <div class="brand-row"><span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="word">Kiln</span></div>
+          <p class="tagline">Play · Discover · Enjoy</p>
+        </div>
         <div class="actions">
           <button class="icon-btn" id="homeSearch" type="button" aria-label="Search games"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button>
+          <button class="icon-btn profile-btn" id="homeProfile" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg></button>
         </div>
       </header>
-      <div id="featured"></div>
-      <div class="chips" id="chips" role="group" aria-label="Categories"></div>
+      <section class="hero" id="featured" aria-roledescription="carousel" aria-label="Featured games">
+        <div class="hero-track" id="heroTrack"></div>
+        <div class="hero-dots" id="heroDots" role="group" aria-label="Choose a featured game"></div>
+      </section>
+      <div class="cats" id="chips" role="group" aria-label="Categories"></div>
       <div id="feed"></div>
       <footer class="foot" id="foot">Kiln</footer>
     </div>
@@ -921,11 +1144,14 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
   <section class="view" id="view-discover" data-tab="discover" aria-label="Discover" hidden>
     <div class="wrap">
-      <header class="top" id="discoverTop"><h1 class="title">Discover</h1></header>
+      <header class="top" id="discoverTop">
+        <h1 class="title">Discover</h1>
+        <button class="icon-btn profile-btn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg></button>
+      </header>
       <div class="search-bar">
         <form class="search" id="searchForm" role="search" autocomplete="off">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
-          <input id="q" type="search" placeholder="Games, genres, moods" aria-label="Search games" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+          <input id="q" type="search" placeholder="Games, categories, moods" aria-label="Search games" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
           <button class="search-clear" id="qClear" type="button" aria-label="Clear search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </form>
         <div class="chips" id="filters" role="group" aria-label="Filters"></div>
@@ -942,7 +1168,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
   <section class="view" id="view-library" data-tab="library" aria-label="Library" hidden>
     <div class="wrap">
-      <header class="top"><h1 class="title">Library</h1></header>
+      <header class="top">
+        <h1 class="title">Library</h1>
+        <button class="icon-btn profile-btn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg></button>
+      </header>
       <h2 class="section-title" id="favTitle" hidden>Favourites</h2>
       <div class="list" id="favs" hidden></div>
       <h2 class="section-title" id="recentTitle">Recently played</h2>
@@ -957,7 +1186,12 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
   <section class="view" id="view-settings" data-tab="settings" aria-label="Settings" hidden>
     <div class="wrap">
-      <header class="top"><h1 class="title">Settings</h1></header>
+      <header class="top">
+        <div class="top-title">
+          <button class="back" id="settingsBack" type="button" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <h1 class="title">Settings</h1>
+        </div>
+      </header>
       <h2 class="group-title">Play</h2>
       <div class="panel" data-settings></div>
       <h2 class="group-title">Your data</h2>
@@ -973,9 +1207,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 
   <nav class="tabbar" id="tabbar" aria-label="Main">
     <button class="tab" type="button" data-tab="home"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></svg></span><span class="label">Home</span></button>
-    <button class="tab" type="button" data-tab="discover"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/></svg></span><span class="label">Discover</span></button>
     <button class="tab" type="button" data-tab="library"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="16" rx="1"/><path d="m16.2 5.2 3.8-1 3 15.4-3.8 1z"/></svg></span><span class="label">Library</span></button>
-    <button class="tab" type="button" data-tab="settings"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span class="label">Settings</span></button>
+    <button class="play-fab" id="playFab" type="button" aria-label="Play">
+      <span class="fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M7.6 6.5h8.8a4.6 4.6 0 0 1 4.5 3.7l.95 4.9a2.7 2.7 0 0 1-4.7 2.3l-1.75-1.95H8.6l-1.75 1.95a2.7 2.7 0 0 1-4.7-2.3l.95-4.9a4.6 4.6 0 0 1 4.5-3.7z"/><path class="k" d="M8 9.6v3.6M6.2 11.4h3.6"/><circle class="kf" cx="15.6" cy="10.2" r="1.15"/><circle class="kf" cx="17.7" cy="12.4" r="1.15"/></svg></span><span class="label">Play</span>
+    </button>
+    <button class="tab" type="button" data-tab="discover"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></span><span class="label">Discover</span></button>
   </nav>
 </div>
 
@@ -1055,6 +1291,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   const nf = new Intl.NumberFormat();
   const fmt = n => nf.format(Math.round(n));
   const $ = id => document.getElementById(id);
+  // Timings the tests may shorten with ?debug&name=ms (launchTimeout, heroMs).
+  const debugMs = name => (/[?&]debug\b/.test(location.search) && +((location.search.match(new RegExp(`[?&]${name}=(\\d+)`)) || [])[1])) || 0;
 
   let settings = Object.assign({}, A._defaults, ls.get('settings', {}));
   const uid = Log.uid();
@@ -1145,7 +1383,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   /* ---------- navigation ----------
      Every screen change goes through browser history, so Android Back (Capacitor steps back through
      the WebView's history) and the browser's back button behave the same: close the sheet or game,
-     then return from Discover, Library or Settings to Home, then leave the app. */
+     then return from Discover, Library or Settings to Home, then leave the app. Settings is a view like the tabs,
+     opened from the profile button in each header instead of from the bar. */
   const hist = {
     push(st, url) { try { history.pushState(st, '', url || location.pathname + location.search); return true; } catch (e) { return false; } },
     replace(st, url) { try { history.replaceState(st, '', url || location.pathname + location.search); return true; } catch (e) { return false; } },
@@ -1173,6 +1412,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     else if (t === 'discover') renderDiscover();
     else if (t === 'library') renderLibrary();
     else syncSettingsUi();
+    syncPlayFab();
     if (changed) log(t + '_view');
   }
   function goTab(t) {
@@ -1189,6 +1429,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     showTab(t);
   }
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => goTab(b.dataset.tab)));
+  document.querySelectorAll('.profile-btn').forEach(b => b.addEventListener('click', () => goTab('settings')));
+  $('settingsBack').addEventListener('click', () => goTab('home'));
   window.addEventListener('popstate', e => applyRoute(e.state));
   function applyRoute(st) {
     const kind = st && st.kiln;
@@ -1235,7 +1477,25 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   }
   // Card families (blueprint section 5). Art leads; metadata supports; the action is obvious.
   const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.75 5.6 6.15.9-4.45 4.33 1.05 6.12L12 16.86l-5.5 2.9 1.05-6.13L3.1 9.3l6.15-.9z"/></svg>';
+  const NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+  const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   const COLLECTIONS = (window.KILN_COLLECTIONS || []).filter(c => c && c.id && Array.isArray(c.games));
+  const CATEGORIES = (window.KILN_CATEGORIES || []).filter(c => c && c.name);
+  // Category drawings on the 24px grid every hub icon uses; 'all' is the All Games tile. Parts with class f are solid.
+  const CAT_ICON = {
+    all: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>',
+    action: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M14.5 6.5 18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
+    adventure: '<circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/>',
+    racing: '<path d="M5 21V3.5M5 4h14v9H5"/><rect class="f" x="5" y="4" width="3.5" height="3"/><rect class="f" x="12" y="4" width="3.5" height="3"/><rect class="f" x="8.5" y="7" width="3.5" height="3"/><rect class="f" x="15.5" y="7" width="3.5" height="3"/><rect class="f" x="5" y="10" width="3.5" height="3"/><rect class="f" x="12" y="10" width="3.5" height="3"/>',
+    puzzle: '<path d="M4 7.5h4.3a2.2 2.2 0 1 1 3.4 0H16v4.3a2.2 2.2 0 1 1 0 3.4v4.3H4z"/>',
+    sports: '<circle cx="12" cy="12" r="9"/><path d="M12 8.2l3.6 2.6-1.4 4.2H9.8l-1.4-4.2zM12 8.2V3M15.6 10.8l4.9-1.6M14.2 15l3 4.2M9.8 15l-3 4.2M8.4 10.8 3.5 9.2"/>',
+    arcade: '<path d="M5 16.5h14a1.5 1.5 0 0 1 1.5 1.5v1.5A1.5 1.5 0 0 1 19 21H5a1.5 1.5 0 0 1-1.5-1.5V18A1.5 1.5 0 0 1 5 16.5zM12 16.5V10"/><circle cx="12" cy="7" r="3.2"/>',
+  };
+  function catIcon(genre) { // 'all', or a genre without a category, gets the All Games drawing
+    const c = CATEGORIES.find(x => x.name === genre);
+    return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${CAT_ICON[c ? c.icon : 'all'] || CAT_ICON.all}</svg>`;
+  }
   const playableGames = () => GAMES.filter(g => g.status !== 'soon');
   // When each game was last launched and how long it has been played, from the event log.
   function playHistory() {
@@ -1247,11 +1507,15 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     }
     return { last, time };
   }
+  const byLastPlayed = last => (a, b) => last[b.id] - last[a.id];
   // A saved run the game reported through Arcade.progress, or null. Games without saves never report one.
+  // pct is there only when the game measures real completion (level 6 of 30); nothing here estimates it.
   const progressMem = {};
   function progressOf(id) {
     const p = Object.prototype.hasOwnProperty.call(progressMem, id) ? progressMem[id] : ls.get(id + ':progress', null);
-    return p && typeof p.label === 'string' && p.label ? p : null;
+    if (!p || typeof p.label !== 'string' || !p.label) return null;
+    const pct = typeof p.pct === 'number' && isFinite(p.pct) ? Math.round(Math.max(0, Math.min(100, p.pct))) : null;
+    return { label: p.label, pct };
   }
   // "New" means new next to the rest of the catalogue: a game added in the last 14 days that this player
   // has not opened. While every game is that recent (as at launch), nothing is labelled new.
@@ -1277,23 +1541,25 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (text != null) n.textContent = text;
     return n;
   }
-  function playPill(cls, label) {
-    const p = el('span', cls);
-    p.innerHTML = PLAY_ICON;
-    p.append(label);
-    return p;
+  function genreLine(cls, g) {
+    const line = el('span', cls);
+    line.innerHTML = catIcon(g.genre);
+    line.append(g.genre || 'Game');
+    return line;
   }
-  // Card interaction (blueprint section 5): the card opens the game's page. A separate Play or Resume button
-  // launches directly, and only where its meaning is plain (the feature, Continue and Library cards).
-  // Every card records which shelf it sits on and where, for impressions, detail opens and launches.
-  function gameButton(cls, g, shelf, pos) {
+  const statusPill = label => el('span', label === 'New' ? 'status new' : 'status', label);
+  // Card interaction (blueprint section 5): a card opens the game's page. A Play button launches directly, and only
+  // where its meaning is plain (the featured card and Library); a Continue card resumes on a tap, because picking up
+  // where you left off is all it is for. Every card records which shelf it sits on and where, for impressions,
+  // page opens and launches.
+  function gameButton(cls, g, shelf, pos, onTap) {
     const card = el('button', cls + ' game-card');
     card.type = 'button';
     card.dataset.id = g.id;
     card.dataset.shelf = shelf;
     card.dataset.pos = pos;
     card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
-    card.addEventListener('click', () => openDetail(g.id, shelf));
+    card.addEventListener('click', onTap || (() => openDetail(g.id, shelf)));
     watch(card);
     return card;
   }
@@ -1307,42 +1573,82 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     b.addEventListener('click', () => openGame(g.id, shelf));
     return b;
   }
-  function featureCard(g) {
+  function featureCard(g, pos, count) {
     const box = el('div', 'feature');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-roledescription', 'slide');
+    box.setAttribute('aria-label', `${pos + 1} of ${count}`);
     box.style.setProperty('--c', `var(${g.accent || '--g1'})`);
-    const open = gameButton('feature-open', g, 'featured', 0);
+    const open = gameButton('feature-open', g, 'featured', pos);
     open.setAttribute('aria-label', `${g.title}. ${g.genre || 'Game'}. ${g.pitch || ''}`);
     const art = el('span', 'feature-art');
-    if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
+    if (g.artWide) {
+      const img = artImg(g.artWide, 1280, 720);
+      if (!pos) img.loading = 'eager'; // the first slide is the first thing on screen
+      art.append(img);
+    }
+    const pill = el('span', 'feature-pill');
+    pill.innerHTML = STAR;
+    pill.append('Featured');
     const body = el('span', 'feature-body');
-    body.append(el('span', 'feature-eyebrow', `Featured · ${g.genre || 'Game'}`), el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''));
+    body.append(pill, el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''));
     open.append(art, el('span', 'feature-shade'), body);
-    box.append(open, playButton('feature-cta', g, 'featured', 'Play'));
+    const cta = playButton('feature-cta', g, 'featured', 'Play Now');
+    cta.innerHTML = 'Play Now' + NEXT;
+    cta.setAttribute('aria-label', `Play ${g.title} now`);
+    box.append(open, cta);
     return box;
   }
   function continueCard(g, ts, pos) {
     const p = progressOf(g.id);
     const when = playedLabel(ts);
     const meta = p ? `${p.label} · ${when.replace(/^Played /, '')}` : when;
-    const box = el('div', 'cont');
-    box.dataset.id = g.id;
-    const open = gameButton('cont-open', g, 'continue', pos);
-    open.setAttribute('aria-label', `${g.title}. ${meta}`);
+    const card = gameButton('cont', g, 'continue', pos, () => openGame(g.id, 'continue'));
+    card.dataset.play = g.id;
+    card.setAttribute('aria-label', `${p ? 'Resume' : 'Play'} ${g.title}. ${g.genre || 'Game'}. ${meta}${p && p.pct != null ? `, ${p.pct}% complete` : ''}`);
     const art = el('span', 'cont-art');
-    if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
-    const text = el('span', 'cont-text');
-    text.append(el('span', 'card-title', g.title), el('span', 'card-genre', meta));
-    open.append(art, text);
-    box.append(open, playButton('cont-cta', g, 'continue', p ? 'Resume' : 'Play'));
-    return box;
+    if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
+    const body = el('span', 'cont-body');
+    body.append(el('span', 'cont-title', g.title), genreLine('card-genre', g));
+    if (p && p.pct != null) {
+      const row = el('span', 'cont-progress');
+      const bar = el('span', 'bar');
+      const fill = el('i');
+      fill.style.width = p.pct + '%';
+      bar.append(fill);
+      row.append(bar, p.pct + '%');
+      body.append(row);
+    } else {
+      body.append(el('span', 'cont-meta', meta));
+    }
+    card.append(art, body);
+    return card;
+  }
+  function pickCard(g, shelf, pos, fresh) {
+    const soon = g.status === 'soon';
+    const card = gameButton(soon ? 'pick soon' : 'pick', g, shelf, pos);
+    if (soon) card.setAttribute('aria-label', `${g.title}, coming soon`);
+    const art = el('span', 'pick-art');
+    if (!soon && g.artWide) art.append(artImg(g.artWide, 1280, 720));
+    const icon = el('span', 'pick-icon');
+    if (!soon && g.artTall) icon.append(artImg(g.artTall, 800, 1000));
+    else icon.innerHTML = catIcon(g.genre);
+    const text = el('span', 'pick-text');
+    text.append(el('span', 'pick-title', g.title), el('span', 'pick-cat', soon ? 'In development' : g.genre || 'Game'));
+    const body = el('span', 'pick-body');
+    body.append(icon, text);
+    card.append(art, body);
+    const label = soon ? 'Coming soon' : fresh.has(g.id) ? 'New' : '';
+    if (label) card.append(statusPill(label));
+    return card;
   }
   function landscapeCard(g, shelf, pos, fresh) {
     const card = gameButton('land', g, shelf, pos);
     const art = el('span', 'land-art');
     if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
-    if (fresh.has(g.id)) art.append(el('span', 'status', 'New'));
+    if (fresh.has(g.id)) art.append(statusPill('New'));
     const body = el('span', 'card-body');
-    body.append(el('span', 'card-title', g.title), el('span', 'card-genre', g.genre || 'Game'));
+    body.append(el('span', 'card-title', g.title), genreLine('card-genre', g));
     card.append(art, body);
     return card;
   }
@@ -1353,21 +1659,32 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     const cover = el('span', 'cover');
     if (!soon && g.artTall) cover.append(artImg(g.artTall, 800, 1000));
     const label = soon ? 'Coming soon' : fresh.has(g.id) ? 'New' : '';
-    if (label) cover.append(el('span', 'status', label));
+    if (label) cover.append(statusPill(label));
     const body = el('span', 'card-body');
-    body.append(el('span', 'card-title', g.title), el('span', 'card-genre', soon ? 'In development' : g.genre || 'Game'));
+    body.append(el('span', 'card-title', g.title), soon ? el('span', 'card-genre', 'In development') : genreLine('card-genre', g));
     card.append(cover, body);
     return card;
   }
-  function block(id, title, why, kind, cards) {
+  // more: an optional "View all" that leads to the rest of the shelf (Library or Discover).
+  function block(id, title, why, kind, cards, more) {
     const sec = el('section', 'block');
     sec.dataset.block = id;
     const h = el('h2', null, title);
     h.id = 'block-' + id;
     sec.setAttribute('aria-labelledby', h.id);
     const head = el('header', 'block-head');
-    head.append(h);
-    if (why) head.append(el('p', null, why));
+    const names = el('div');
+    names.append(h);
+    if (why) names.append(el('p', null, why));
+    head.append(names);
+    if (more) {
+      const b = el('button', 'more-link', 'View all');
+      b.type = 'button';
+      b.insertAdjacentHTML('beforeend', ARROW);
+      b.setAttribute('aria-label', more.label);
+      b.addEventListener('click', more.go);
+      head.append(b);
+    }
     const box = el('div', kind);
     box.append(...cards);
     sec.append(head, box);
@@ -1375,6 +1692,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   }
 
   // Impressions: a card counts once per visit to Home or Discover when at least 60% of it is on screen.
+  // A carousel slide scrolled out of the track is clipped, so it counts only when it is actually shown.
   let seen = new Set();
   const deferred = new Set(); // on screen but covered by a game or a game's page; counted once uncovered
   const covered = c => !!current || (!$('detail').hidden && !c.closest('#detail'));
@@ -1399,11 +1717,55 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     deferred.clear();
   }
 
-  // Quick categories come from the genres of playable games, in catalogue order.
+  // Featured carousel: the registry's featured games in order (else the first playable one), built once since the
+  // set never changes. It moves on by itself every 7 seconds until the player touches it, and never with reduced motion.
+  const featuredGames = () => { const p = playableGames(), f = p.filter(g => g.featured); return f.length ? f : p.slice(0, 1); };
+  let heroIndex = 0;
+  let heroTimer = 0;
+  const heroStep = () => { const s = $('heroTrack').children; return s.length > 1 ? s[1].offsetLeft - s[0].offsetLeft : 1; };
+  function showSlide(i, smooth) {
+    $('heroTrack').scrollTo({ left: i * heroStep(), behavior: smooth && !reduceMotion() ? 'smooth' : 'auto' });
+  }
+  function syncDots() {
+    const n = $('heroTrack').children.length;
+    heroIndex = Math.max(0, Math.min(n - 1, Math.round($('heroTrack').scrollLeft / heroStep())));
+    $('heroDots').querySelectorAll('.hero-dot').forEach((d, i) => d.setAttribute('aria-current', String(i === heroIndex)));
+  }
+  function stopHero() { clearInterval(heroTimer); heroTimer = 0; }
+  function renderHero(visit) {
+    const track = $('heroTrack');
+    if (track.children.length) {
+      if (visit) track.querySelectorAll('.game-card').forEach(watch);
+      return;
+    }
+    const games = featuredGames();
+    track.replaceChildren(...games.map((g, i) => featureCard(g, i, games.length)));
+    $('heroDots').hidden = games.length < 2;
+    $('heroDots').replaceChildren(...games.map((g, i) => {
+      const d = el('button', 'hero-dot');
+      d.type = 'button';
+      d.setAttribute('aria-label', g.title);
+      d.append(el('i'));
+      d.addEventListener('click', () => showSlide(i, true));
+      return d;
+    }));
+    syncDots();
+    if (games.length > 1 && !reduceMotion()) {
+      heroTimer = setInterval(() => {
+        if (document.hidden || tab !== 'home' || current || !$('detail').hidden) return;
+        showSlide((heroIndex + 1) % games.length, true);
+      }, debugMs('heroMs') || 7000);
+    }
+  }
+  $('heroTrack').addEventListener('scroll', syncDots, { passive: true });
+  for (const type of ['pointerdown', 'touchstart', 'wheel', 'keydown']) $('featured').addEventListener(type, stopHero, { passive: true });
+
+  // Category tiles: All Games, then each of Kiln's categories that has a game to play, in the registry's order.
   let category = 'all';
   function genres() {
-    const out = [];
-    for (const g of playableGames()) if (g.genre && !out.includes(g.genre)) out.push(g.genre);
+    const playable = playableGames();
+    const out = CATEGORIES.map(c => c.name).filter(name => playable.some(g => g.genre === name));
+    for (const g of playable) if (g.genre && !out.includes(g.genre)) out.push(g.genre);
     return out;
   }
   function renderChips() {
@@ -1413,9 +1775,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (!list.includes(category)) category = 'all';
     box.replaceChildren();
     for (const c of ['all', ...list]) {
-      const b = el('button', 'chip', c === 'all' ? 'All' : c);
+      const b = el('button', 'cat');
       b.type = 'button';
       b.dataset.cat = c;
+      b.innerHTML = catIcon(c);
+      b.append(el('span', null, c === 'all' ? 'All Games' : c));
       b.setAttribute('aria-pressed', String(c === category));
       b.addEventListener('click', () => {
         if (c === category) return;
@@ -1426,58 +1790,101 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
       box.append(b);
     }
   }
+  // Discover with one category chosen, from a category shelf's View all.
+  function browseCategory(name) {
+    query = submitted = '';
+    $('q').value = '';
+    filters.genre = name;
+    filters.keyboard = false;
+    log('filter_change', { filter: 'genre', value: name, from: 'home' });
+    goTab('discover');
+  }
 
-  // Home (blueprint section 4): feature, categories, Continue playing, one editorial collection,
-  // New on Kiln, then a grid of whatever is left. Each game appears once outside Continue playing,
-  // and a shelf without enough games is left out rather than padded.
+  // Home (blueprint section 4): featured carousel, categories, Continue playing, Top picks, the editorial collections,
+  // New on Kiln, a shelf per category, then a grid of whatever is left. Continue playing and Top picks never share a
+  // game while the catalogue has enough; below them, a shelf only takes games not shown yet, and a shelf without
+  // enough games is left out rather than padded.
+  const PICKS = 4;
   function renderHome(visit = true) {
     if (visit) newVisit();
-    const { last } = playHistory();
+    renderHero(visit);
+    const { last, time } = playHistory();
     const fresh = newIds(last);
     const playable = playableGames();
-    const featured = playable.find(g => g.featured) || playable[0];
-    $('featured').replaceChildren(...(featured ? [featureCard(featured)] : []));
     renderChips();
     const feed = $('feed');
     feed.replaceChildren();
+    $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
     const bySoonLast = (a, b) => (a.status === 'soon') - (b.status === 'soon');
 
     if (category !== 'all') {
       const games = GAMES.filter(g => g.genre === category).sort(bySoonLast);
       const n = games.filter(g => g.status !== 'soon').length;
       const shelf = 'genre:' + category.toLowerCase();
-      feed.append(block('genre', category, `${n} ${n === 1 ? 'game' : 'games'}`, 'grid', games.map((g, i) => portraitCard(g, shelf, i, fresh))));
-      $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
+      feed.append(block('genre', category, `${n} ${n === 1 ? 'game' : 'games'}`, 'picks', games.map((g, i) => pickCard(g, shelf, i, fresh))));
       return;
     }
 
-    const used = new Set(featured ? [featured.id] : []);
-    const recent = playable.filter(g => last[g.id]).sort((a, b) => last[b.id] - last[a.id]).slice(0, 8);
-    if (recent.length) feed.append(block('continue', 'Continue playing', '', 'shelf', recent.map((g, i) => continueCard(g, last[g.id], i))));
-
-    const pick = COLLECTIONS
-      .map(c => ({ c, games: c.games.map(id => playable.find(g => g.id === id)).filter(g => g && !used.has(g.id)) }))
-      .find(x => x.games.length >= 2);
-    if (pick) {
-      const shelf = 'collection:' + pick.c.id;
-      feed.append(block(pick.c.id, pick.c.title, pick.c.why || '', 'shelf', pick.games.map((g, i) => landscapeCard(g, shelf, i, fresh))));
-      pick.games.forEach(g => used.add(g.id));
+    const played = playable.filter(g => last[g.id]).sort(byLastPlayed(last));
+    const recent = played.slice(0, 8);
+    if (recent.length) {
+      feed.append(block('continue', 'Continue playing', '', 'shelf', recent.map((g, i) => continueCard(g, last[g.id], i)),
+        { label: 'View all in Library', go: () => goTab('library') }));
     }
 
-    const newOnes = playable.filter(g => fresh.has(g.id) && !used.has(g.id));
+    // Top picks: games not played yet first. Once the player has played, the categories they spend the most time
+    // in come first, and the shelf says it was picked for them. Played games fill in only while the catalogue is small.
+    const affinity = {};
+    for (const g of played) affinity[g.genre] = (affinity[g.genre] || 0) + (time[g.id] || 0) + 1;
+    const picks = playable.slice().sort((a, b) => !!last[a.id] - !!last[b.id] || (affinity[b.genre] || 0) - (affinity[a.genre] || 0) || (last[a.id] || 0) - (last[b.id] || 0)).slice(0, PICKS);
+    if (picks.length >= 2) {
+      feed.append(block('picks', played.length ? 'Picked for you' : 'Top picks', '', 'picks', picks.map((g, i) => pickCard(g, 'picks', i, fresh)),
+        { label: 'View all in Discover', go: () => goTab('discover') }));
+    }
+    const shown = new Set(recent.concat(picks).map(g => g.id));
+
+    // Editorial collections group games for their own stated reason, so they may show a pick again further down.
+    for (const c of COLLECTIONS.slice(0, 3)) {
+      const games = c.games.map(id => playable.find(g => g.id === id)).filter(Boolean);
+      if (games.length < 2) continue;
+      const shelf = 'collection:' + c.id;
+      feed.append(block(c.id, c.title, c.why || '', 'shelf', games.map((g, i) => landscapeCard(g, shelf, i, fresh))));
+      games.forEach(g => shown.add(g.id));
+    }
+
+    const newOnes = playable.filter(g => fresh.has(g.id) && !shown.has(g.id));
     if (newOnes.length >= 2) {
       feed.append(block('new', 'New on Kiln', 'Added in the last two weeks.', 'shelf', newOnes.map((g, i) => portraitCard(g, 'new', i, fresh))));
-      newOnes.forEach(g => used.add(g.id));
+      newOnes.forEach(g => shown.add(g.id));
     }
 
-    // Whatever is left, minus games already in Continue playing; coming-soon games go last.
-    const rest = GAMES.filter(g => !used.has(g.id) && !(g.status !== 'soon' && last[g.id])).sort(bySoonLast);
+    for (const name of genres()) {
+      const games = playable.filter(g => g.genre === name && !shown.has(g.id)).slice(0, 10);
+      if (games.length < 2) continue;
+      const shelf = 'genre:' + name.toLowerCase();
+      feed.append(block('genre-' + name.toLowerCase(), name, '', 'shelf', games.map((g, i) => portraitCard(g, shelf, i, fresh)),
+        { label: `View all ${name} games`, go: () => browseCategory(name) }));
+      games.forEach(g => shown.add(g.id));
+    }
+
+    // Whatever is left; coming-soon games go last.
+    const rest = GAMES.filter(g => !shown.has(g.id)).sort(bySoonLast);
     if (rest.length) {
       const onlySoon = rest.every(g => g.status === 'soon');
-      feed.append(block('more', onlySoon ? 'Coming to Kiln' : 'More to explore', '', 'grid', rest.map((g, i) => portraitCard(g, 'more', i, fresh))));
+      feed.append(block('more', onlySoon ? 'Coming to Kiln' : 'More to explore', '', 'picks', rest.map((g, i) => pickCard(g, 'more', i, fresh))));
     }
-    $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
   }
+
+  // The Play button in the bar picks up the game played most recently, or else starts the first featured game.
+  function playTarget() {
+    const { last } = playHistory();
+    return playableGames().filter(g => last[g.id]).sort(byLastPlayed(last))[0] || featuredGames()[0];
+  }
+  function syncPlayFab() {
+    const g = playTarget();
+    $('playFab').setAttribute('aria-label', g ? `Play ${g.title}` : 'Play');
+  }
+  $('playFab').addEventListener('click', () => { const g = playTarget(); if (g) openGame(g.id, 'play-button'); });
 
   /* ---------- discover and search (blueprint section 7) ----------
      Search covers titles, genres, mechanics, moods, collections, controls and the pitch. Words match while
@@ -1583,14 +1990,15 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     const list = genres();
     return { genres: list.length >= 2 ? list : [], keyboard: kb > 0 && kb < playable.length };
   }
-  const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  const CHECK = '<svg class="check" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  const KEYS = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h.5M8 14h8"/></svg>';
   const CLOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
   const CHEV = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
-  function filterChip(label, key, on, onTap) {
+  function filterChip(label, key, on, onTap, icon) {
     const b = el('button', 'chip');
     b.type = 'button';
     b.dataset.filter = key;
-    b.innerHTML = CHECK;
+    b.innerHTML = CHECK + (icon || '');
     b.append(label);
     b.setAttribute('aria-pressed', String(on));
     b.addEventListener('click', onTap);
@@ -1600,10 +2008,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     const opts = filterOptions();
     if (!opts.genres.includes(filters.genre)) filters.genre = '';
     if (!opts.keyboard) filters.keyboard = false;
-    const chips = opts.genres.map(gn => filterChip(gn, 'genre:' + gn, filters.genre === gn, () => setFilter('genre', filters.genre === gn ? '' : gn)));
+    const chips = opts.genres.map(gn => filterChip(gn, 'genre:' + gn, filters.genre === gn, () => setFilter('genre', filters.genre === gn ? '' : gn), catIcon(gn)));
     if (opts.keyboard) {
       if (chips.length) chips.push(el('span', 'chip-sep'));
-      chips.push(filterChip('Keyboard', 'keyboard', filters.keyboard, () => setFilter('keyboard', !filters.keyboard)));
+      chips.push(filterChip('Keyboard', 'keyboard', filters.keyboard, () => setFilter('keyboard', !filters.keyboard), KEYS));
     }
     $('filters').replaceChildren(...chips);
     $('filters').hidden = !chips.length;
@@ -1688,9 +2096,11 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
       row.dataset.id = g.id;
       row.style.setProperty('--c', `var(${g.accent || '--g1'})`);
       const art = el('span', 'result-art');
-      if (!soon && g.artTall) art.append(artImg(g.artTall, 800, 1000));
+      if (!soon && g.artWide) art.append(artImg(g.artWide, 1280, 720));
+      const meta = soon ? el('span', 'result-meta', 'In development') : genreLine('result-meta', g);
+      if (!soon) meta.append(` · ${g.controls || 'Touch'}`);
       const text = el('span', 'result-text');
-      text.append(el('span', 'result-title'), el('span', 'result-meta', soon ? 'In development' : `${g.genre || 'Game'} · ${g.controls || 'Touch'}`), el('span', 'result-tags'));
+      text.append(el('span', 'result-title'), meta, el('span', 'result-tags'));
       row.append(art, text);
       row.insertAdjacentHTML('beforeend', CHEV);
       row.addEventListener('click', () => openResult(g.id, row.dataset.shelf));
@@ -1701,7 +2111,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     const title = row.querySelector('.result-title');
     title.replaceChildren(g.title);
     const label = soon ? 'Coming soon' : fresh.has(g.id) ? 'New' : '';
-    if (label) title.append(el('span', 'status', label));
+    if (label) title.append(statusPill(label));
     const matched = new Set((hits || []).filter(h => ['mechanic', 'mood', 'collection'].includes(h.e.field)).map(h => h.e.label));
     const tags = [...matched, ...[...(g.mechanics || []), ...(g.moods || [])].filter(t => !matched.has(t))];
     const line = row.querySelector('.result-tags');
@@ -1866,10 +2276,15 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (!soon && g.artWide) { const img = artImg(g.artWide, 1280, 720); img.loading = 'eager'; media.append(img); }
 
     const head = el('header', 'detail-head');
-    const names = el('div');
+    if (!soon && g.artTall) {
+      const icon = el('span', 'detail-icon');
+      icon.append(artImg(g.artTall, 800, 1000));
+      head.append(icon);
+    }
+    const names = el('div', 'detail-names');
     const h = el('h1', 'detail-title', g.title);
     h.id = 'detailTitle';
-    const meta = el('p', 'detail-meta', soon ? 'In development' : g.genre || 'Game');
+    const meta = soon ? el('p', 'detail-meta', 'In development') : genreLine('detail-meta', g);
     if (g.status === 'beta') meta.append(' · ', el('span', 'beta', 'Beta'));
     names.append(h, meta);
     head.append(names);
@@ -1902,7 +2317,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
       b.append(p ? 'Resume' : 'Play');
       b.addEventListener('click', () => openGame(g.id, 'detail', { detail: true, origin: detailSource }));
       action.append(b);
-      if (p) action.append(el('p', 'note', `${p.label} · saved on this phone`));
+      if (p) action.append(el('p', 'note', `${p.label}${p.pct != null ? ` · ${p.pct}% complete` : ''} · saved on this phone`));
     }
     box.append(media, head, el('p', 'detail-pitch', g.pitch || ''), action);
     if (soon) return;
@@ -2001,7 +2416,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (s > 0) log('play_time', { game: current.game.id, s });
   }
   // A game that has not said it is ready by then gets the failure panel (blueprint section 6: Try again, Back).
-  const LAUNCH_TIMEOUT = (/[?&]debug\b/.test(location.search) && +((location.search.match(/[?&]launchTimeout=(\d+)/) || [])[1])) || 10000;
+  const LAUNCH_TIMEOUT = debugMs('launchTimeout') || 10000;
   function mountFrame() {
     const g = current.game;
     if (current.frame) current.frame.remove();
@@ -2062,6 +2477,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     else if (tab === 'discover') renderDiscover();
     else if (tab === 'library') renderLibrary();
     if (detailGame) renderDetail();
+    syncPlayFab();
     flushDeferred();
   }
   function leaveGame() {
@@ -2094,7 +2510,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
         }
         break;
       case 'progress':
-        progressMem[current.game.id] = m.progress && typeof m.progress.label === 'string' ? { label: m.progress.label.slice(0, 40) } : null;
+        progressMem[current.game.id] = m.progress && typeof m.progress.label === 'string' ? { label: m.progress.label.slice(0, 40), pct: m.progress.pct } : null;
         break;
       case 'score':
         if (typeof m.score === 'number' && isFinite(m.score)) bestMem[current.game.id] = Math.max(bestMem[current.game.id] || 0, m.score);
@@ -2136,7 +2552,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     open.type = 'button';
     open.dataset.id = g.id;
     const art = el('span', 'lib-art');
-    if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
+    if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
     const text = el('span', 'lib-text');
     const p = progressOf(g.id);
     const when = last[g.id] ? playedLabel(last[g.id]) : 'Not played yet';
@@ -2144,7 +2560,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     const b = bestOf(g.id);
     if (b > 0) stats.append(el('b', null, 'Best ' + fmt(b)));
     if (time[g.id]) stats.append(document.createTextNode((b > 0 ? ' · ' : '') + dur(time[g.id]) + ' played'));
-    text.append(el('span', 'lib-title', g.title), el('span', 'lib-meta', `${g.genre || 'Game'} · ${p ? p.label + ' · ' : ''}${when}`), stats);
+    const meta = p ? `${p.label}${p.pct != null ? ` · ${p.pct}%` : ''} · ${when.replace(/^Played /, '')}` : when;
+    text.append(el('span', 'lib-title', g.title), genreLine('card-genre', g), el('span', 'lib-meta', meta), stats);
     open.append(art, text);
     open.addEventListener('click', () => openDetail(g.id, shelf));
     row.append(open, playButton('lib-play', g, shelf, p ? 'Resume' : 'Play'));

@@ -98,6 +98,13 @@
 
   const fmt = n => Math.round(+n || 0).toLocaleString('en-US');
 
+  // Arcade.haptic, minus the browser's console warning when nobody has touched the page yet (capture scenes).
+  function haptic(pattern) {
+    const ua = navigator.userActivation;
+    if (ua && !ua.hasBeenActive) return;
+    A.haptic(pattern);
+  }
+
   /* ---------------------------------------------------------------- easing and tweens */
 
   const ease = {
@@ -545,12 +552,14 @@
           for (const l of L) {
             ready(l, w, h);
             if (l.alpha !== undefined) ctx.globalAlpha = pa * l.alpha;
+            // Tiles land on whole device pixels and keep their exact pixel size, so the seams never show.
+            const dw = l.canvas.width / l.dpr, dh = l.canvas.height / l.dpr;
             if (l.axis === 'x') {
-              const off = -wrap(sx * l.depth, 0, l.w);
-              for (let x = off; x < w; x += l.w) ctx.drawImage(l.canvas, x, 0, l.w, l.h);
+              const off = Math.round(-wrap(sx * l.depth, 0, l.w) * l.dpr) / l.dpr;
+              for (let x = off; x < w; x += l.w) ctx.drawImage(l.canvas, x, 0, dw, dh);
             } else {
-              const off = -wrap(sy * l.depth, 0, l.h);
-              for (let y = off; y < h; y += l.h) ctx.drawImage(l.canvas, 0, y, l.w, l.h);
+              const off = Math.round(-wrap(sy * l.depth, 0, l.h) * l.dpr) / l.dpr;
+              for (let y = off; y < h; y += l.h) ctx.drawImage(l.canvas, 0, y, dw, dh);
             }
             ctx.globalAlpha = pa;
           }
@@ -2081,7 +2090,7 @@
 .k-confetti i{position:absolute;left:50%;top:38%;width:8px;height:12px;border-radius:2px;opacity:0;animation:k-confetti 1.5s cubic-bezier(.15,.7,.3,1) forwards}
 .k-over[data-locked] .k-btn{pointer-events:none}
 
-.k-shell[data-panel=glass] .k-panel{-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 0 0 1px var(--k-line),0 30px 80px -30px rgba(0,0,0,.7)}
+.k-shell[data-panel=glass] .k-panel{background:radial-gradient(120% 55% at 50% 0%,color-mix(in srgb,var(--k-accent) 16%,transparent),transparent 70%),var(--k-panel);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 0 0 1px var(--k-line),0 30px 80px -30px rgba(0,0,0,.7)}
 .k-shell[data-panel=solid] .k-panel{box-shadow:0 30px 70px -28px rgba(0,0,0,.55)}
 .k-shell[data-panel=outline] .k-panel{background:transparent;box-shadow:inset 0 0 0 2px var(--k-line)}
 .k-shell[data-panel=outline] .k-modal{-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
@@ -2325,7 +2334,7 @@
       statsEl.hidden = !statsEl.children.length;
       show(overEl);
       countUp(score);
-      if (isBest) { celebrate(); if (o.uiSound !== false) sfx('win'); A.haptic([30, 50, 30]); }
+      if (isBest) { celebrate(); if (o.uiSound !== false) sfx('win'); haptic([30, 50, 30]); }
       // Buttons wake up a beat later so a held key or a stray tap from play cannot skip the result.
       overEl.dataset.locked = '';
       unlockTimer = setTimeout(() => { delete overEl.dataset.locked; $('[data-k=again]').focus({ preventScroll: true }); }, 550);
@@ -2378,7 +2387,7 @@
         b.setAttribute('aria-expanded', String(!h.hidden));
       } else if (k === 'sound' || k === 'vibration') {
         A.setSetting(k, !(A.settings[k] !== false));
-        if (k === 'vibration') A.haptic(20);
+        if (k === 'vibration') haptic(20);
         syncSettings();
       }
     });
@@ -2458,7 +2467,7 @@
     audio, sfx, music,
     clamp, lerp, dist, angle, approach, wrap, smooth, smoothstep, angleDiff,
     circleCircle, rectRect, pointInRect, segCircle,
-    fmt, isDark, onTheme, css,
+    fmt, haptic, isDark, onTheme, css,
     STEP,
   };
 })();

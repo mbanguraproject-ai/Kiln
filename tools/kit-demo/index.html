@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Lanternwing</title>
+<meta name="description" content="Lanternwing, the Kiln kit demo: steer a glowing moth up through the night canopy, gather fireflies to keep your light alive, and dash through the bats.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Unbounded:wght@600;800&display=swap">
+<style>
+/* Layout: one full-bleed canvas. The kit's shell draws the title, pause and game-over screens over it;
+   the HUD is painted on the canvas so it lives inside the scene's light. */
+:root {
+  /* Twilight set (light theme): softer sky, lighter dark. */
+  --dusk-1: #4E4F9E; --dusk-2: #9C72B4; --dusk-3: #F0A38E;
+  --night-1: #262A66; --night-2: #46418A; --night-3: #8669AE;
+  --leaf-far: #4C4B8C; --leaf-mid: #2F2D66; --leaf-near: #1C1A42; --leaf-rim: #F6C9A8;
+  --fog: #D7C4EC; --moon: #FFF0C8; --dark: #1D1640; --dark-a: 0.5;
+  --ember: #FFB547; --cream: #FFF6E4; --firefly: #E2FF7A; --luna: #A6F7D2; --danger: #FF5470; --bat: #1A0F26;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --dusk-1: #17133A; --dusk-2: #36265E; --dusk-3: #7E3F6E;
+    --night-1: #04050D; --night-2: #0B0F2A; --night-3: #19204A;
+    --leaf-far: #1E1F45; --leaf-mid: #121331; --leaf-near: #08091A; --leaf-rim: #F2C79A;
+    --fog: #6C68A8; --moon: #FFE7B0; --dark: #050310; --dark-a: 0.76;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --dusk-1: #17133A; --dusk-2: #36265E; --dusk-3: #7E3F6E;
+  --night-1: #04050D; --night-2: #0B0F2A; --night-3: #19204A;
+  --leaf-far: #1E1F45; --leaf-mid: #121331; --leaf-near: #08091A; --leaf-rim: #F2C79A;
+  --fog: #6C68A8; --moon: #FFE7B0; --dark: #050310; --dark-a: 0.76;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html {
+  height: 100%;
+  background: var(--dusk-1);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--dusk-1);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+#game { position: relative; display: block; width: 100%; height: 100%; outline: none; cursor: grab; }
+#game:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Lanternwing: drag or use the arrow keys to steer the moth, tap or press Space to dash"></canvas>
+<script src="../../hub/sdk.js"></script>
+<script src="../../hub/kit.js"></script>
+<script>
+(() => {
+  'use strict';
+  Arcade.init({ id: 'kit-demo', title: 'Lanternwing', version: '1.0.0' });
+  const { gfx, fx, cam, clamp, lerp } = Kit;
+
+  /* ---------- tuning (world units: the open shaft is 360 wide; 10 units = 1 m of altitude) ---------- */
+  const FIELD = 180;            // half width of the shaft the moth flies in
+  const CHUNK = 150;            // world is generated in horizontal bands this tall
+  const MOTH_R = 11, FLY_R = 22, BAT_R = 14, SPIDER_R = 12, LUNA_R = 26;
+  const DASH_TIME = 0.34, DASH_COOLDOWN = 1.0, MAGNET = 74;
+  const SKY_STEPS = 48;
+
+  const view = Kit.view(document.getElementById('game'), { maxDpr: 2, alpha: false });
+  const ctx = view.ctx;
+  const rand = Kit.rng(1);
+  let zoom = 1;
+  // Narrow phones see the whole shaft; wide screens see the forest around it at a comfortable scale.
+  function fit() { zoom = clamp(Math.min(view.w / 400, view.h / 680), 0.7, 1.7); cam.zoom = zoom; }
+  view.onResize(fit);
+  fit();
+
+  /* ---------- palette, read from the CSS tokens so the hub's light/dark setting reaches the canvas ---------- */
+  const pal = {};
+  let skies = [];
+  function readPalette() {
+    const names = ['dusk-1', 'dusk-2', 'dusk-3', 'night-1', 'night-2', 'night-3', 'leaf-far', 'leaf-mid', 'leaf-near',
+      'leaf-rim', 'fog', 'moon', 'dark', 'ember', 'cream', 'firefly', 'luna', 'danger', 'bat'];
+    for (const n of names) pal[n.replace(/-(\w)/g, (m, c) => c.toUpperCase())] = Kit.css('--' + n, '#888');
+    pal.darkA = parseFloat(Kit.css('--dark-a', '0.7'));
+    // The sky drifts from dusk to deep night as you climb. Precomputing every step keeps draw() allocation-free.
+    skies = [];
+    for (let i = 0; i <= SKY_STEPS; i++) {
+      const t = i / SKY_STEPS;
+      skies.push([[0, gfx.mix(pal.dusk1, pal.night1, t)], [0.55, gfx.mix(pal.dusk2, pal.night2, t)], [1, gfx.mix(pal.dusk3, pal.night3, t)]]);
+    }
+    pal.emberSoft = gfx.alpha(pal.ember, 0.65);
+    pal.creamSoft = gfx.alpha(pal.cream, 0.72);
+    pal.thread = gfx.alpha(pal.cream, 0.28);
+    gfx.clearSprites();
+    buildDark();
+    if (walls) { walls.invalidate(); front.invalidate(); }
+  }
+
+  /* ---------- background: sky, stars, moon, three depths of canopy, fog ---------- */
+  const stars = gfx.starfield({ count: 150, seed: 9, layers: 3, size: [0.5, 2] });
+
+  // Paints one depth of the forest for both sides of the shaft into a tile that repeats vertically.
+  function paintCanopy(o) {
+    return (g, w, h) => {
+      const r = Kit.rng(o.seed), cx = w / 2, edge = FIELD * zoom, s = zoom * o.scale;
+      const wrapY = (y, rad, fn) => { fn(y); if (y - rad < 0) fn(y + h); if (y + rad > h) fn(y - h); };
+      for (const side of [-1, 1]) {
+        // Trunks from the shaft's edge out to the screen's edge.
+        for (let x = edge + o.inset * s; x < cx + 60; x += r.range(o.gap * 0.7, o.gap * 1.3) * s) {
+          const X = cx + side * x, tw = r.range(10, 26) * s;
+          g.fillStyle = o.color;
+          g.fillRect(X - tw / 2, 0, tw, h);
+          if (o.rim) { g.fillStyle = gfx.alpha(pal.leafRim, 0.1); g.fillRect(X - side * tw / 2 - side * 2, 0, 2, h); }
+          // Branches reaching into the shaft, each ending in a clump of leaves.
+          const n = Math.round(h / (120 * s)) + 1;
+          for (let i = 0; i < n; i++) {
+            const y = r.range(0, h), len = r.range(24, 70) * s * (x < edge + 80 * s ? 1.2 : 0.7);
+            const bx = X - side * len, by = y - r.range(10, 40) * s;
+            wrapY(y, 120 * s, yy => {
+              g.strokeStyle = o.color;
+              g.lineWidth = r.range(3, 6) * s;
+              g.lineCap = 'round';
+              g.beginPath();
+              g.moveTo(X, yy);
+              g.quadraticCurveTo((X + bx) / 2, yy - 6 * s, bx, by - y + yy);
+              g.stroke();
+              clump(g, r, bx, by - y + yy, s * r.range(0.8, 1.3), o, side);
+            });
+          }
+        }
+        // Hanging vines just inside the edge.
+        for (let i = 0; i < o.vines; i++) {
+          const X = cx + side * (edge - r.range(-6, 24) * s), y0 = r.range(0, h), len = r.range(60, 180) * s;
+          wrapY(y0 + len / 2, len, yy => {
+            const top = yy - len / 2;
+            g.strokeStyle = o.color;
+            g.lineWidth = 1.5 * s;
+            g.beginPath();
+            g.moveTo(X, top);
+            g.quadraticCurveTo(X - side * 10 * s, top + len / 2, X, top + len);
+            g.stroke();
+            g.fillStyle = o.color;
+            for (let k = 12 * s; k < len; k += 16 * s) {
+              g.beginPath();
+              g.ellipse(X - side * Math.sin(k / len * Math.PI) * 6 * s + 4 * s * (k % 32 < 16 ? 1 : -1), top + k, 4 * s, 2.2 * s, 0.6, 0, Math.PI * 2);
+              g.fill();
+            }
+          });
+        }
+      }
+    };
+  }
+  function clump(g, r, x, y, s, o, side) {
+    const n = 7 + (r.next() * 6) | 0;
+    for (let i = 0; i < n; i++) {
+      const a = r.range(0, Math.PI * 2), d = r.range(0, 22) * s, rad = r.range(9, 18) * s;
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d * 0.7;
+      if (o.rim) {
+        // Moonlight catches the upper inner edge of the near leaves.
+        g.fillStyle = gfx.alpha(pal.leafRim, 0.16);
+        g.beginPath(); g.arc(px - side * 1.5 * s, py - 1.8 * s, rad, 0, Math.PI * 2); g.fill();
+      }
+      g.fillStyle = o.color;
+      g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fill();
+    }
+  }
+  let walls = null, front = null;
+  function buildLayers() {
+    walls = gfx.layers([
+      { axis: 'y', depth: 0.25, alpha: 0.55, paint: (g, w, h) => paintCanopy({ seed: 3, color: gfx.mix(pal.leafFar, pal.fog, 0.35), scale: 0.65, inset: -60, gap: 54, vines: 0 })(g, w, h) },
+      { axis: 'y', depth: 0.55, alpha: 0.85, paint: (g, w, h) => paintCanopy({ seed: 5, color: pal.leafMid, scale: 0.85, inset: -16, gap: 70, vines: 3 })(g, w, h) },
+      { axis: 'y', depth: 1, paint: (g, w, h) => paintCanopy({ seed: 8, color: pal.leafNear, scale: 1, inset: 12, gap: 90, vines: 4, rim: true })(g, w, h) },
+    ]);
+    // Big blurred-dark leaves in front of everything, at the very edges: depth without hiding play.
+    front = gfx.layers([{ axis: 'y', depth: 1.4, paint: (g, w, h) => {
+      const r = Kit.rng(21), edge = FIELD * zoom, cx = w / 2;
+      g.fillStyle = gfx.mix(pal.leafNear, '#000', 0.5);
+      for (const side of [-1, 1]) {
+        for (let y = r.range(0, 120); y < h; y += r.range(140, 260) * zoom) {
+          const x = cx + side * (edge + r.range(10, 50) * zoom);
+          g.beginPath();
+          g.ellipse(x, y, 24 * zoom, 58 * zoom, side * r.range(0.4, 0.9), 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    } }]);
+  }
+
+  const moonSprite = () => gfx.sprite('moon', 96, 96, (g) => {
+    const grad = g.createRadialGradient(40, 40, 4, 48, 48, 46);
+    grad.addColorStop(0, '#FFFFFF');
+    grad.addColorStop(0.7, pal.moon);
+    grad.addColorStop(1, gfx.shade(pal.moon, -0.12));
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(48, 48, 46, 0, Math.PI * 2); g.fill();
+    g.fillStyle = gfx.alpha(gfx.shade(pal.moon, -0.35), 0.25);
+    for (const [x, y, r] of [[34, 56, 9], [60, 36, 6], [62, 64, 5], [42, 30, 4], [54, 52, 3]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+  });
+  const fogSprite = () => gfx.sprite('fog', 320, 90, (g, w, h) => {
+    g.save();
+    g.scale(1, h / w);
+    const grad = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    grad.addColorStop(0, gfx.alpha(pal.fog, 0.5));
+    grad.addColorStop(1, gfx.alpha(pal.fog, 0));
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, w);
+    g.restore();
+  });
+  // The dark that closes in around your light: clear in the middle, the palette's dark at the rim and
+  // beyond. One unit-radius gradient, scaled into place each frame, so there are no seams and no garbage.
+  let darkGrad = null;
+  function buildDark() {
+    darkGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    darkGrad.addColorStop(0, gfx.alpha(pal.dark, 0));
+    darkGrad.addColorStop(0.45, gfx.alpha(pal.dark, 0.08));
+    darkGrad.addColorStop(0.75, gfx.alpha(pal.dark, 0.55));
+    darkGrad.addColorStop(1, pal.dark);
+  }
+  const wingSprite = (key, c1, c2) => gfx.sprite(key, 34, 30, (g) => {
+    const grad = g.createLinearGradient(0, 0, 34, 30);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(1, 16);
+    g.bezierCurveTo(6, -2, 30, -4, 33, 9);
+    g.bezierCurveTo(34, 18, 22, 22, 14, 21);
+    g.bezierCurveTo(16, 27, 8, 31, 4, 26);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = gfx.alpha('#3A2410', 0.25);
+    g.lineWidth = 0.8;
+    g.beginPath(); g.moveTo(2, 16); g.lineTo(28, 5); g.moveTo(2, 16); g.lineTo(24, 16); g.moveTo(2, 17); g.lineTo(9, 26); g.stroke();
+    g.fillStyle = gfx.alpha('#3A2410', 0.45);
+    g.beginPath(); g.arc(20, 10, 3.2, 0, Math.PI * 2); g.fill();
+    g.fillStyle = c1;
+    g.beginPath(); g.arc(20, 10, 1.4, 0, Math.PI * 2); g.fill();
+  });
+
+  /* ---------- run state ---------- */
+  let G = null;
+  let nextSeed = null;
+  let auto = false;             // autopilot: attract mode and capture scenes
+  let lastInput = 'touch';
+  const camTarget = { x: 0, y: 0 };
+  const motes = [];
+  for (let i = 0; i < 46; i++) motes.push({ x: rand.range(-1, 1), y: rand.next(), d: rand.range(0.3, 1), ph: rand.range(0, 6) });
+
+  function newRun(mode, seed) {
+    rand.reset(seed == null ? (Date.now() & 0xffffff) : seed);
+    fx.clear();
+    Kit.tween.clear();
+    G = {
+      mode, t: 0, score: 0, flies: 0, combo: 0, chainT: 0, bestCombo: 0, mult: 1, lunas: 0, kills: 0,
+      light: 100, alt: 0, milestone: 250, spawnY: -40, hurtT: 0, dashT: 0, dashCd: 0, dead: false, deadT: 0,
+      warnT: 0, beatT: 0, comboPop: 1,
+      m: { x: 0, y: 0, tx: 0, vx: 0, px: 0, py: 0, pop: 1, tilt: 0, fall: 0 },
+      items: [], bats: [], spiders: [],
+    };
+    cam.x = 0;
+    cam.y = -view.h * 0.16 / zoom;
+    camTarget.x = 0; camTarget.y = cam.y;
+    cam.follow(camTarget, 6);
+    fx.trail(G.m, { spacing: 7, color: [pal.ember, pal.cream, pal.ember], glow: true, size: [1.2, 2.8], sizeEnd: 0.1, life: [0.5, 1], speed: [4, 26], drag: 2 });
+    // Leaves drifting down through the shaft, spawned just above the top of the view.
+    fx.fountain(0, 0, { follow: leafSpawn, rate: 1.4, area: FIELD * 2.4, angle: Math.PI / 2, spread: 0.6, speed: [14, 34], gravity: 10, drag: 0.4,
+      life: [7, 10], size: [2.5, 4.5], shape: 'square', spin: [-2.4, 2.4], color: [pal.leafMid, pal.leafNear, gfx.mix(pal.leafMid, pal.leafRim, 0.25)], fade: false });
+    spawnAhead();
+  }
+  const leafSpawn = { get x() { return cam.x; }, get y() { return cam.y - view.h / 2 / zoom - 30; } };
+
+  /* ---------- world generation ---------- */
+  function spawnAhead() {
+    const top = cam.y - view.h / zoom * 1.2;
+    while (G.spawnY > top) { spawnBand(G.spawnY); G.spawnY -= CHUNK; }
+  }
+  function spawnBand(y) {
+    const alt = -y / 10, play = G.mode === 'play';
+    if (rand.chance(0.82)) fireflies(y);
+    if (play && y < -600) {
+      if (rand.chance(clamp(0.2 + alt / 2600, 0.2, 0.62))) bat(y - CHUNK / 2);
+      else if (alt > 140 && rand.chance(0.32)) spider(y - CHUNK / 2);
+    }
+    if (play && y < -1800 && rand.chance(0.04)) G.items.push({ kind: 'luna', x: rand.range(-110, 110), y: y - 60, bx: 0, ph: rand.range(0, 6), taken: false });
+  }
+  function fly(x, y) { G.items.push({ kind: 'fly', x: clamp(x, -FIELD + 16, FIELD - 16), y, ph: rand.range(0, 6), taken: false }); }
+  function fireflies(y) {
+    const x0 = rand.range(-120, 120);
+    switch (rand.int(0, 3)) {
+      case 0: for (let i = 0; i < 5; i++) fly(x0, y - i * 26); break;
+      case 1: for (let i = 0; i < 6; i++) fly(x0 + (i % 2 ? 34 : -34), y - i * 24); break;
+      case 2: for (let i = 0; i < 5; i++) fly(-110 + i * 55, y - Math.sin((i / 4) * Math.PI) * 44); break;
+      default: for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; fly(clamp(x0, -110, 110) + Math.cos(a) * 40, y - 40 + Math.sin(a) * 40); }
+    }
+  }
+  function bat(y) {
+    const side = rand.sign();
+    G.bats.push({ x: side * 280, y, by: y, side, speed: rand.range(115, 165) * (1 + Math.min(0.6, G.alt / 3000)), ph: rand.range(0, 6), on: false, dead: false });
+  }
+  function spider(y) {
+    const len = rand.range(320, 420);
+    G.spiders.push({ ax: rand.range(-90, 90), ay: y - len, len, amp: rand.range(0.18, 0.3), ph: rand.range(0, 6), sp: rand.range(1.4, 2), x: 0, y: 0 });
+  }
+
+  /* ---------- verbs ---------- */
+  function dash() {
+    if (!G || G.mode !== 'play' || G.dead || G.dashCd > 0) return;
+    G.dashT = DASH_TIME;
+    G.dashCd = DASH_COOLDOWN;
+    Kit.sfx('whoosh');
+    Kit.haptic(12);
+    fx.burst(G.m.x, G.m.y + 10, { count: 14, angle: Math.PI / 2, spread: 1.1, speed: [80, 200], color: [pal.ember, pal.cream], glow: true, shape: 'spark', size: [1.5, 3], life: [0.25, 0.5] });
+    Kit.tween(cam, { zoom: zoom * 1.05 }, 90, 'quadOut', { onDone: () => Kit.tween(cam, { zoom }, 320, 'backOut') });
+  }
+
+  function collect(it) {
+    it.taken = true;
+    const m = G.m;
+    G.chainT = 1.4;
+    G.combo++;
+    G.bestCombo = Math.max(G.bestCombo, G.combo);
+    const mult = Math.min(6, 1 + Math.floor(G.combo / 5));
+    const play = G.mode === 'play'; // the title screen's attract run is silent
+    if (mult > G.mult) { G.comboPop = 1.6; Kit.tween(G, { comboPop: 1 }, 380, 'backOut'); if (play) Kit.sfx('select'); }
+    G.mult = mult;
+    if (it.kind === 'luna') {
+      const pts = 250 * mult;
+      G.score += pts;
+      G.lunas++;
+      G.light = 100;
+      Kit.sfx('bell'); Kit.sfx('powerup');
+      Kit.music.duck(0.45, 700);
+      fx.shockwave(it.x, it.y, { radius: 150, color: pal.luna, width: 5, ms: 600 });
+      fx.burst(it.x, it.y, { count: 46, color: [pal.luna, pal.cream, pal.firefly], glow: true, shape: 'star', size: [2, 5], speed: [60, 260], life: [0.6, 1.2], spin: [-6, 6] });
+      fx.flash(pal.luna, 220, 0.3);
+      fx.float('+' + Kit.fmt(pts), it.x, it.y - 20, { color: pal.luna, size: 26 });
+      // A beat of slow motion to savour the rare catch.
+      loop.timeScale = 0.35;
+      Kit.tween(loop, { timeScale: 1 }, 260, 'quadIn', { delay: 160 });
+      Kit.haptic([20, 40, 30]);
+      return;
+    }
+    G.flies++;
+    G.score += 10 * mult;
+    G.light = Math.min(100, G.light + 6.5);
+    if (play) Kit.sfx.combo(G.combo);
+    fx.burst(it.x, it.y, { count: 10, color: [pal.firefly, pal.cream], glow: true, size: [1.2, 3], speed: [40, 150], life: [0.3, 0.6] });
+    fx.shockwave(it.x, it.y, { radius: 26, color: pal.firefly, width: 2, ms: 300 });
+    fx.float('+' + 10 * mult, it.x, it.y - 12, { color: mult > 1 ? pal.ember : pal.cream, size: 15 + mult * 2, ms: 700, rise: 34 });
+    m.pop = 1.25;
+    Kit.tween(m, { pop: 1 }, 260, 'backOut');
+    if (G.flies === 10 && !Kit.save.get('taught', false)) { Kit.save.set('taught', true); Arcade.track('tutorial_complete'); }
+  }
+
+  function hurt(by) {
+    const m = G.m;
+    G.light -= 28;
+    G.hurtT = 1.3;
+    G.combo = 0;
+    G.mult = 1;
+    m.vx += (m.x < by.x ? -1 : 1) * 260;
+    loop.hitstop(90);
+    fx.shake(11, 320);
+    fx.flash(pal.danger, 180, 0.32);
+    fx.burst(m.x, m.y, { count: 24, color: [pal.cream, pal.ember, pal.danger], size: [1.5, 3.5], speed: [80, 260], shape: 'square', spin: [-8, 8], gravity: 140, life: [0.5, 0.9] });
+    Kit.sfx('hurt');
+    Kit.sfx('thud');
+    Kit.music.duck(0.5, 450);
+    Kit.haptic(45);
+    if (G.light <= 0) die();
+  }
+
+  function swat(b) {
+    b.dead = true;
+    G.kills++;
+    const pts = 50 * G.mult;
+    G.score += pts;
+    loop.hitstop(50);
+    fx.shake(5, 180);
+    fx.burst(b.x, b.y, { count: 22, color: [pal.bat, gfx.mix(pal.bat, pal.danger, 0.4), pal.cream], size: [2, 4], speed: [60, 220], shape: 'square', spin: [-9, 9], gravity: 160, life: [0.5, 0.9] });
+    fx.shockwave(b.x, b.y, { radius: 50, color: pal.ember, width: 3, ms: 320 });
+    fx.float('+' + pts, b.x, b.y - 16, { color: pal.ember, size: 20 });
+    Kit.sfx('hit');
+    Kit.haptic(20);
+  }
+
+  function die() {
+    if (G.dead) return;
+    G.dead = true;
+    G.light = 0;
+    G.deadT = 0;
+    Kit.sfx('lose');
+    Kit.music.duck(0.3);
+    fx.burst(G.m.x, G.m.y, { count: 30, color: [pal.ember, pal.cream], glow: true, size: [1.5, 3], speed: [30, 140], gravity: -30, life: [0.8, 1.6] });
+    shell.over({
+      score: G.score,
+      delay: 1100,
+      stats: [
+        { label: 'Altitude', value: Kit.fmt(G.alt) + ' m' },
+        { label: 'Fireflies', value: Kit.fmt(G.flies) },
+        { label: 'Best chain', value: Kit.fmt(G.bestCombo) },
+        { label: G.lunas ? 'Luna moths' : 'Bats dashed', value: Kit.fmt(G.lunas || G.kills) },
+      ],
+      props: { altitude: Math.floor(G.alt), fireflies: G.flies, best_chain: G.bestCombo, lunas: G.lunas, bats: G.kills },
+    });
+  }
+
+  /* ---------- update ---------- */
+  function steer(dt) {
+    const m = G.m;
+    if (auto || G.mode === 'attract') {
+      // Head for the nearest firefly a little way ahead; drift lazily when there is none.
+      let best = null, bd = 1e9;
+      for (const it of G.items) {
+        const dy = m.y - it.y;
+        if (!it.taken && dy > 20 && dy < 260 && dy < bd) { bd = dy; best = it; }
+      }
+      m.tx = best ? best.x : Math.sin(G.t * 0.7) * 90;
+      return;
+    }
+    const ax = input.axisX();
+    if (ax) { m.tx += ax * 330 * dt; lastInput = 'keys'; }
+    if (input.pressed('Space') || input.pressed('ArrowUp') || input.pressed('w')) { dash(); lastInput = 'keys'; }
+  }
+
+  function update(dt) {
+    if (!G) return;
+    G.t += dt;
+    const m = G.m, play = G.mode === 'play';
+    if (G.dead) {
+      // The light gutters out: the moth tumbles and the world keeps drifting by.
+      G.deadT += dt;
+      m.fall += 220 * dt;
+      m.y += m.fall * dt - 40 * dt;
+      m.tilt += dt * 5;
+    } else {
+      steer(dt);
+      m.tx = clamp(m.tx, -FIELD + MOTH_R + 4, FIELD - MOTH_R - 4);
+      const nx = Kit.smooth(m.x, m.tx, 13, dt) + m.vx * dt;
+      m.vx = Kit.approach(m.vx, 0, 900 * dt);
+      const speed = play ? 125 + Math.min(120, G.alt * 0.11) : 70;
+      const climb = speed * (G.dashT > 0 ? 2.3 : 1);
+      m.px = m.x; m.py = m.y;
+      m.tilt = Kit.smooth(m.tilt, clamp((nx - m.x) / dt / 500, -0.5, 0.5), 10, dt);
+      m.x = clamp(nx, -FIELD + MOTH_R, FIELD - MOTH_R);
+      m.y -= climb * dt;
+      G.alt = Math.max(G.alt, -m.y / 10);
+      G.dashT = Math.max(0, G.dashT - dt);
+      G.dashCd = Math.max(0, G.dashCd - dt);
+      G.hurtT = Math.max(0, G.hurtT - dt);
+      if (G.chainT > 0 && (G.chainT -= dt) <= 0) { G.combo = 0; G.mult = 1; }
+      if (play) {
+        G.score += climb * dt / 10 * 0.5;
+        G.light -= Math.min(12, 6.5 + G.alt * 0.004) * dt;
+        if (G.alt >= G.milestone) {
+          shell.toast(Kit.fmt(G.milestone) + ' m');
+          Kit.sfx('levelup');
+          G.milestone += 250;
+        }
+        if (G.light < 28 && (G.beatT -= dt) <= 0) { Kit.sfx('heartbeat'); G.beatT = 0.62 + G.light / 60; }
+        if (G.light <= 0) die();
+      }
+    }
+    camTarget.x = m.x * 0.12;
+    camTarget.y = (G.dead ? cam.y - 30 : m.y) - view.h * 0.16 / zoom;
+    if (G.dead) cam.y -= 30 * dt;
+
+    // Fireflies (and the rare luna moth): bob, get pulled in while dashing, and get collected along the
+    // moth's path this step (a segment test, so a fast dash cannot tunnel past one).
+    for (const it of G.items) {
+      if (it.taken) continue;
+      if (it.kind === 'luna') { it.bx = Math.sin(G.t * 1.3 + it.ph) * 60; }
+      const ix = it.x + (it.bx || 0);
+      if (!G.dead && G.dashT > 0 && Kit.dist(ix, it.y, m.x, m.y) < MAGNET) { it.x = lerp(it.x, m.x, 0.25); it.y = lerp(it.y, m.y, 0.25); }
+      if (!G.dead && Kit.segCircle(m.px, m.py, m.x, m.y, ix, it.y, it.kind === 'luna' ? LUNA_R : FLY_R)) {
+        it.x = ix;
+        it.bx = 0;
+        collect(it);
+      }
+    }
+    for (const b of G.bats) {
+      if (b.dead) continue;
+      if (!b.on && m.y - b.y < 560) { b.on = true; if (play) Kit.sfx('screech', { pan: b.side * 0.6 }); }
+      if (b.on) b.x -= b.side * b.speed * dt;
+      b.y = b.by + Math.sin(G.t * 3.2 + b.ph) * 18;
+      if (play && !G.dead && Kit.circleCircle(m.x, m.y, MOTH_R, b.x, b.y, BAT_R)) {
+        if (G.dashT > 0) swat(b);
+        else if (G.hurtT <= 0) hurt(b);
+      }
+    }
+    for (const s of G.spiders) {
+      const a = Math.sin(G.t * s.sp + s.ph) * s.amp;
+      s.x = s.ax + Math.sin(a) * s.len;
+      s.y = s.ay + Math.cos(a) * s.len;
+      if (play && !G.dead && G.hurtT <= 0 && G.dashT <= 0 && Kit.circleCircle(m.x, m.y, MOTH_R, s.x, s.y, SPIDER_R)) hurt(s);
+    }
+    // Forget what fell far below the view, in place, with predicates made once: no garbage per frame.
+    below = cam.y + view.h / zoom;
+    compact(G.items, itemGone);
+    compact(G.bats, batGone);
+    compact(G.spiders, spiderGone);
+    spawnAhead();
+  }
+  let below = 0;
+  const itemGone = it => it.taken || it.y > below;
+  const batGone = b => b.dead || b.y > below || (b.on && Math.abs(b.x) > 340);
+  const spiderGone = s => s.y > below + 60;
+  function compact(arr, gone) {
+    let j = 0;
+    for (let i = 0; i < arr.length; i++) if (!gone(arr[i])) arr[j++] = arr[i];
+    arr.length = j;
+  }
+
+  /* ---------- draw ---------- */
+  const P = { x: 0, y: 0 };
+  function draw() {
+    const w = view.w, h = view.h, t = G.t, sy = cam.y * zoom;
+    view.clear();
+    gfx.sky(ctx, skies[Math.round(clamp(G.alt / 1500, 0, 1) * SKY_STEPS)]);
+    ctx.globalAlpha = 0.45 + 0.55 * clamp(G.alt / 800, 0, 1);
+    stars.draw(ctx, w, h, t, 0, sy * 0.12);
+    ctx.globalAlpha = 1;
+
+    const mx = w / 2 + FIELD * zoom * 0.5, my = h * 0.16 - sy * 0.002;
+    gfx.light(ctx, mx, my, 260 * zoom, pal.moon, 0.28);
+    gfx.lightRays(ctx, mx, my, { angle: 2.05, spread: 0.9, length: h * 1.2, count: 6, color: pal.moon, alpha: 0.05, t });
+    gfx.blit(ctx, moonSprite(), mx, my, zoom * 0.62);
+
+    walls.draw(ctx, w, h, 0, sy);
+    const fog = fogSprite();
+    for (let i = 0; i < 3; i++) {
+      const fy = Kit.wrap(h * (0.2 + i * 0.33) - sy * 0.6, -60, h + 60);
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(fog, w / 2 - fog.w * zoom * 1.2 + Math.sin(t * 0.07 + i * 2) * 60, fy - fog.h * zoom / 2, fog.w * zoom * 2.4, fog.h * zoom);
+    }
+    ctx.globalAlpha = 1;
+
+    cam.apply(ctx);
+    drawMotes(t);
+    for (const s of G.spiders) drawSpider(s, t);
+    for (const it of G.items) if (!it.taken && it.kind === 'fly') drawFly(it, t);
+    for (const b of G.bats) if (!b.dead) drawBat(b, t);
+    for (const it of G.items) if (!it.taken && it.kind === 'luna') drawLuna(it, t);
+    drawMoth(t);
+    cam.restore(ctx);
+    front.draw(ctx, w, h, 0, sy);
+
+    drawDark(t);
+
+    // Light sources go on top of the dark, additively, so they glow instead of being dimmed.
+    cam.apply(ctx);
+    for (const it of G.items) {
+      if (it.taken || !cam.visible(it.x, it.y, 40)) continue;
+      if (it.kind === 'fly') gfx.light(ctx, it.x, it.y + Math.sin(t * 2 + it.ph) * 4, 18, pal.firefly, 0.55 + 0.35 * Math.sin(t * 7 + it.ph * 3));
+      else gfx.light(ctx, it.x + it.bx, it.y, 70, pal.luna, 0.6);
+    }
+    for (const b of G.bats) if (!b.dead && cam.visible(b.x, b.y, 30)) gfx.light(ctx, b.x, b.y - 2, 10, pal.danger, 0.8);
+    const m = G.m, glow = G.dead ? Math.max(0, 1 - G.deadT) : 0.5 + G.light / 200;
+    gfx.light(ctx, m.x, m.y, (40 + G.light * 0.5) * glow, pal.ember, 0.75 * glow);
+    if (G.dashT > 0) gfx.light(ctx, m.x, m.y, 70, pal.cream, G.dashT / DASH_TIME * 0.6);
+    fx.draw(ctx);
+    cam.restore(ctx);
+
+    gfx.vignette(ctx, 0.55, pal.dark);
+    gfx.grain(ctx, 0.05, t);
+    drawHud(w, h);
+  }
+
+  function drawDark(t) {
+    const m = G.m;
+    cam.toScreen(m.x, m.y, P);
+    const R = (95 + Math.max(0, G.light) * 1.9) * zoom * (1 + 0.03 * Math.sin(t * 9) + 0.02 * Math.sin(t * 23));
+    ctx.save();
+    ctx.globalAlpha = pal.darkA * (G.mode === 'play' || G.dead ? 1 : 0.55);
+    ctx.translate(P.x, P.y);
+    ctx.scale(R, R);
+    ctx.fillStyle = darkGrad;
+    ctx.fillRect(-P.x / R, -P.y / R, view.w / R, view.h / R);
+    ctx.restore();
+  }
+
+  function drawMotes(t) {
+    // Pollen drifting in the moonlight, wrapped around the camera so there is always some in view.
+    const hw = view.w / 2 / zoom, hh = view.h / 2 / zoom;
+    ctx.fillStyle = pal.cream;
+    for (const p of motes) {
+      const x = cam.x + Kit.wrap(p.x * hw + Math.sin(t * 0.4 + p.ph) * 20 - cam.x * p.d * 0.2, -hw, hw);
+      const y = cam.y + Kit.wrap(p.y * hh * 2 - (cam.y * (1 - p.d)) + t * 8 * p.d, -hh, hh);
+      ctx.globalAlpha = 0.18 + 0.25 * p.d * (0.5 + 0.5 * Math.sin(t * 1.7 + p.ph));
+      ctx.fillRect(x, y, 1.6 * p.d + 0.6, 1.6 * p.d + 0.6);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFly(it, t) {
+    const y = it.y + Math.sin(t * 2 + it.ph) * 4;
+    if (!cam.visible(it.x, y, 10)) return;
+    ctx.fillStyle = pal.cream;
+    ctx.beginPath(); ctx.arc(it.x, y, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = gfx.alpha(pal.cream, 0.35);
+    const f = Math.abs(Math.sin(t * 30 + it.ph)) * 4;
+    ctx.fillRect(it.x - 1 - f, y - 3, f, 2);
+    ctx.fillRect(it.x + 1, y - 3, f, 2);
+  }
+
+  function drawBat(b, t) {
+    if (!cam.visible(b.x, b.y, 40)) return;
+    const flap = Math.sin(t * 15 + b.ph);
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.scale(b.side < 0 ? -1 : 1, 1);
+    ctx.fillStyle = pal.bat;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(s * 10, -10 - flap * 8, s * 26, -6 - flap * 14);
+      ctx.lineTo(s * 22, 2 - flap * 6);
+      ctx.lineTo(s * 16, -1 - flap * 4);
+      ctx.lineTo(s * 11, 5 - flap * 3);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.beginPath(); ctx.ellipse(0, 1, 6, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-4, -6); ctx.lineTo(-3, -11); ctx.lineTo(-1, -6); ctx.moveTo(4, -6); ctx.lineTo(3, -11); ctx.lineTo(1, -6); ctx.fill();
+    ctx.fillStyle = pal.danger;
+    ctx.fillRect(-3, -3, 2, 2); ctx.fillRect(1, -3, 2, 2);
+    ctx.restore();
+  }
+
+  function drawSpider(s, t) {
+    if (!cam.visible(s.x, s.y, 40)) return;
+    ctx.strokeStyle = pal.thread;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(s.ax, s.ay); ctx.lineTo(s.x, s.y); ctx.stroke();
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(Math.atan2(s.ax - s.x, s.y - s.ay) * 0.8);
+    ctx.strokeStyle = pal.bat;
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    const k = Math.sin(t * 6 + s.ph) * 2;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      for (const d of [-1, 1]) {
+        const a = (i - 1.5) * 0.45;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(d * (10 + i), a * 14 - 6 + (i % 2 ? k : -k));
+        ctx.lineTo(d * (17 + i), a * 22 + 4);
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = pal.bat;
+    ctx.beginPath(); ctx.arc(0, -4, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 7, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = gfx.alpha(pal.danger, 0.85);
+    ctx.fillRect(-3, -7, 2, 2); ctx.fillRect(1, -7, 2, 2);
+    ctx.restore();
+  }
+
+  function drawWings(x, y, scale, tilt, flap, key, c1, c2, tails) {
+    const s = wingSprite(key, c1, c2);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(tilt);
+    ctx.scale(scale, scale);
+    const open = 0.35 + 0.65 * Math.abs(Math.cos(flap));
+    for (const d of [-1, 1]) {
+      ctx.save();
+      ctx.scale(d * open, 1);
+      ctx.drawImage(s, 1, -18, s.w, s.h);
+      ctx.scale(0.8, -0.75);
+      ctx.drawImage(s, 1, -24, s.w, s.h);
+      ctx.restore();
+      if (tails) {
+        ctx.strokeStyle = c2;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(d * 10 * open, 14); ctx.quadraticCurveTo(d * 18 * open, 30, d * 8 * open, 40); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = gfx.mix(c1, '#3A2410', 0.35);
+    ctx.beginPath(); ctx.ellipse(0, 2, 3.4, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = gfx.alpha(c1, 0.8);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-1, -8); ctx.quadraticCurveTo(-6, -16, -9, -15); ctx.moveTo(1, -8); ctx.quadraticCurveTo(6, -16, 9, -15); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawMoth(t) {
+    const m = G.m;
+    if (G.hurtT > 0 && !G.dead && Math.sin(G.hurtT * 40) > 0.3) return; // blink while invulnerable
+    gfx.softShadow(ctx, m.x + 6, m.y + 16, 20, 7, 0.25);
+    const flap = t * (G.dashT > 0 ? 34 : 21);
+    drawWings(m.x, m.y, 1.2 * m.pop * (G.dead ? Math.max(0.4, 1 - G.deadT * 0.4) : 1), m.tilt, flap, 'wing', pal.cream, pal.ember, false);
+    if (G.mode === 'play' && !G.dead) {
+      // The light meter is diegetic: an arc of lantern-light around the moth.
+      const k = clamp(G.light / 100, 0, 1), low = G.light < 28;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = gfx.alpha(pal.cream, 0.14);
+      ctx.beginPath(); ctx.arc(m.x, m.y, 30, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = low ? (Math.sin(t * 12) > 0 ? pal.danger : pal.ember) : pal.ember;
+      ctx.beginPath(); ctx.arc(m.x, m.y, 30, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+      if (G.dashCd <= 0) {
+        ctx.fillStyle = pal.cream;
+        ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 6);
+        ctx.beginPath(); ctx.arc(m.x, m.y - 30, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  function drawLuna(it, t) {
+    const x = it.x + it.bx;
+    if (!cam.visible(x, it.y, 60)) return;
+    drawWings(x, it.y, 1.5, Math.sin(t * 1.3 + it.ph) * 0.25, t * 9 + it.ph, 'luna', pal.luna, gfx.mix(pal.luna, '#1E6B57', 0.45), true);
+  }
+
+  const HUD_FONT = '800 30px ' + gfx.fonts.display;
+  function drawHud(w, h) {
+    if (Kit.keyart || G.mode !== 'play') return;
+    const x = Math.max(18, (w - Math.min(w, 1100)) / 2 + 18);
+    gfx.text(ctx, Kit.fmt(G.score), x, 34, { size: 30, align: 'left', color: pal.cream, shadow: pal.emberSoft, shadowBlur: 16 });
+    gfx.text(ctx, Kit.fmt(G.alt) + ' m', x + 1, 64, { size: 13, font: 'body', weight: 700, align: 'left', color: pal.creamSoft });
+    if (G.mult > 1) {
+      ctx.font = HUD_FONT;
+      const sw = ctx.measureText(Kit.fmt(G.score)).width;
+      const cx = x + sw + 30, s = G.comboPop;
+      ctx.save();
+      ctx.translate(cx, 34);
+      ctx.scale(s, s);
+      ctx.fillStyle = pal.ember;
+      gfx.roundRect(ctx, -20, -13, 40, 26, 13).fill();
+      gfx.text(ctx, '×' + G.mult, 0, 1, { size: 14, color: '#2A1405' });
+      ctx.restore();
+    }
+    if (G.t < 5 && Kit.save.get('runs', 0) <= 3) {
+      const a = clamp(Math.min(G.t * 2, (5 - G.t) * 1.5), 0, 1);
+      const hint = lastInput === 'keys' ? '← → steer  ·  Space dash' : 'Drag to steer  ·  Tap to dash';
+      gfx.text(ctx, hint, w / 2, h - 46, { size: 15, font: 'body', weight: 700, color: pal.cream, alpha: a, stroke: gfx.alpha(pal.dark, 0.6), strokeWidth: 4 });
+    }
+  }
+
+  /* ---------- sound and music ---------- */
+  Kit.sfx.define('heartbeat', [
+    { wave: 'sine', freq: 70, to: 45, attack: 0.004, hold: 0.04, release: 0.1, vol: 0.5 },
+    { wave: 'sine', freq: 64, to: 42, at: 0.16, attack: 0.004, hold: 0.03, release: 0.12, vol: 0.35 },
+  ]);
+  Kit.sfx.define('screech', { wave: 'square', freq: 2400, to: 1500, arp: [0, 3, 0, 3], arpStep: 0.04, attack: 0.01, hold: 0.12, release: 0.08, vol: 0.05, filter: 'bandpass', cut: 2600, q: 3, jitter: 2 });
+
+  // A song is plain data: chords per bar (scale degrees), and tracks that play hits or note degrees per 16th.
+  const NOCTURNE = {
+    bpm: 86, swing: 0.16, key: 'D', scale: 'dorian',
+    chords: [0, 3, 5, 4],
+    tracks: [
+      { name: 'pad', inst: 'pad', chord: true, seventh: true, cutoff: 1250 },
+      { name: 'bell', inst: 'bell', notes: '. . 4 . . . 7 - . . 6 . 4 . . . . . 2 . . . 4 - . . . . . . . .', vol: 0.8 },
+      { name: 'bass', inst: 'bass', notes: '0 - - . . . 0 . . . 4 - . . 2 .', follow: true, cutoff: 420, wave: 'triangle' },
+      { name: 'kick', inst: 'kick', hits: 'x.....x...x.....', on: false },
+      { name: 'snare', inst: 'snare', hits: '....x.......x...', vol: 0.55, on: false },
+      { name: 'hat', inst: 'hat', hits: 'x.g.x.gxx.g.x.g.', on: false },
+      { name: 'keys', inst: 'pluck', notes: '0 . 2 4 . 7 . 4 . 2 . 4 7 . 9 .', follow: true, vol: 0.75, on: false },
+    ],
+  };
+  function setIntensity(playing) {
+    for (const n of ['kick', 'snare', 'hat', 'keys']) Kit.music.layer(n, playing);
+  }
+
+  /* ---------- shell, loop, input ---------- */
+  const loop = Kit.loop({ view, update, draw });
+  const input = Kit.input(view.canvas);
+  input.on('move', p => {
+    if (!G || G.mode !== 'play' || p !== input.pointer) return;
+    G.m.tx += (p.dx / zoom) * 1.3; // relative steering: your finger never covers the moth
+    lastInput = 'touch';
+  });
+  input.on('tap', () => dash());
+  input.on('swipe', p => { if (p.dir === 'up') dash(); });
+
+  const shell = Kit.shell({
+    title: 'Lanternwing',
+    kicker: 'Kiln kit demo',
+    tagline: 'Climb the night canopy. Gather fireflies to keep your light alive.',
+    how: [
+      'Drag anywhere (or use ← →) to steer the moth as it climbs.',
+      'Fireflies refill your light; catch them in a row to raise the multiplier.',
+      'Tap (or press Space) to dash: you fly faster, pull fireflies in and can smash straight through bats.',
+      'When the light runs out, the night wins.',
+    ],
+    loop,
+    focus: view.canvas,
+    score: () => (G ? Math.floor(G.score) : 0),
+    lose: () => die(),
+    theme: {
+      panel: 'glass',
+      layout: 'bottom',
+      button: 'pill',
+      titleStyle: 'gradient',
+      colors: { accent: 'var(--ember)', accentInk: '#2A1405', ink: 'var(--cream)', panel: 'rgba(24,16,48,0.42)', scrim: 'rgba(8,5,22,0.58)', line: 'rgba(255,230,190,0.22)' },
+    },
+    onStart() {
+      newRun('play', nextSeed);
+      nextSeed = null;
+      auto = false;
+      Kit.save.set('runs', Kit.save.get('runs', 0) + 1);
+      setIntensity(true);
+      Kit.music.duck(1);
+      fx.flash(pal.cream, 260, 0.25);
+      Kit.sfx('select');
+    },
+  });
+  shell.test({
+    seed(n) { nextSeed = n; },
+    step(n) { loop.step(n); },
+    dash,
+    steer(x) { if (G) G.m.tx = x; },
+    autopilot(on) { auto = !!on; },
+    info: () => (G ? { mode: G.mode, alt: G.alt, light: G.light, flies: G.flies, combo: G.combo, x: G.m.x, bats: G.bats.length } : null),
+  });
+
+  /* ---------- capture scenes: deterministic states for card art and store screenshots ---------- */
+  function scene(seed, steps, setup) {
+    fx.seed(seed);
+    nextSeed = seed;
+    shell.start();
+    auto = true;
+    loop.step(steps);
+    if (setup) setup();
+    loop.stop(); // hold this exact frame for the capture
+  }
+  Arcade.scenes({
+    art: () => scene(7, 420, () => {
+      G.light = 92;
+      const m = G.m;
+      G.items.push({ kind: 'luna', x: m.x + 90, y: m.y - 150, bx: 0, ph: 1, taken: false });
+      G.bats.push({ x: m.x - 120, y: m.y - 90, by: m.y - 90, side: 1, speed: 0, ph: 2, on: true, dead: false });
+      for (let i = 0; i < 5; i++) fly(m.x - 40 + i * 22, m.y - 70 - i * 18);
+      fx.burst(m.x + 30, m.y - 40, { count: 26, color: [pal.firefly, pal.cream], glow: true, size: [1.5, 3.5], speed: [40, 160], life: [0.5, 0.9] });
+      loop.step(8);
+    }),
+    shot1: () => scene(11, 300, () => { G.light = 74; loop.step(2); }),
+    shot2: () => scene(23, 900, () => {
+      const m = G.m, luna = { kind: 'luna', x: m.x + 20, y: m.y - 30, bx: 0, ph: 0, taken: false };
+      G.combo = 17; G.mult = 4; G.chainT = 1.4;
+      G.items.push(luna);
+      collect(luna);
+      loop.step(9);
+    }),
+  });
+
+  /* ---------- boot ---------- */
+  readPalette();
+  buildLayers();
+  Kit.onTheme(() => { readPalette(); loop.render(); });
+  newRun('attract', 3);
+  Kit.music.play(NOCTURNE);
+  setIntensity(false);
+  loop.start();
+})();
+</script>
+</body>
+</html>
