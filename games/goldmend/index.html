@@ -1,0 +1,2962 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Goldmend</title>
+<meta name="description" content="Goldmend: cracks race across a glazed vessel. Trace each one in gold from where it started and catch its tip before it reaches the edge.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Unbounded:wght@600;800&display=swap">
+<style>
+/* Layout: score bar, the vessel stage (canvas), then a footer with chips and the gold leaf meter */
+:root {
+  --plaster: #E6EBEF;
+  --grout: #CDD6DE;
+  --slot: #BCC8D3;
+  --card: #F7F9FB;
+  --ink: #16253A;
+  --ink-soft: #56687D;
+  --accent: #2752C4;
+  --accent-ink: #FFFFFF;
+  --on-glaze: #1C1405;
+  --scrim: rgba(22, 37, 58, 0.42);
+  --g1: #2E5BD0;
+  --g2: #E39C1A;
+  --g3: #17977A;
+  --g4: #DD5038;
+  --g5: #8A47B4;
+  --g6: #1C9FC0;
+  --stone: #9AA7B4;
+  /* Goldmend's own palette: gold leaf and raw clay */
+  --gold: #C99619;
+  --gold-hi: #FFE8A3;
+  --gold-deep: #8A5F07;
+  --gold-text: #8F6406;
+  --clay: #C8A684;
+  --track: #C6D0DA;
+  --pip: #A9B6C3;
+  --font-display: "Unbounded", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plaster: #0D141D; --grout: #1A2636; --slot: #111B27; --card: #1A2533;
+    --ink: #E3EBF3; --ink-soft: #8D9DB1; --accent: #6D91FF; --accent-ink: #0A1220;
+    --scrim: rgba(3, 7, 12, 0.62);
+    --g1: #4C76E8; --g2: #EFAE36; --g3: #22AC89; --g4: #EC6650; --g5: #A262CE; --g6: #31B4D3;
+    --stone: #415064;
+    --gold: #E2B03A; --gold-hi: #FFF0C4; --gold-deep: #7A5408; --gold-text: #F0C45A; --clay: #A5886A;
+    --track: #24324A; --pip: #3A4A60;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --plaster: #0D141D; --grout: #1A2636; --slot: #111B27; --card: #1A2533;
+  --ink: #E3EBF3; --ink-soft: #8D9DB1; --accent: #6D91FF; --accent-ink: #0A1220;
+  --scrim: rgba(3, 7, 12, 0.62);
+  --g1: #4C76E8; --g2: #EFAE36; --g3: #22AC89; --g4: #EC6650; --g5: #A262CE; --g6: #31B4D3;
+  --stone: #415064;
+  --gold: #E2B03A; --gold-hi: #FFF0C4; --gold-deep: #7A5408; --gold-text: #F0C45A; --clay: #A5886A;
+  --track: #24324A; --pip: #3A4A60;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  height: 100%;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--plaster);
+}
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--plaster);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+button:focus-visible, canvas:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+canvas:focus:not(:focus-visible) { outline: none; }
+
+#app {
+  height: 100%;
+  max-width: 1100px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 10px;
+}
+
+/* ---------- score bar ---------- */
+.hud {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 12px;
+  padding-block: 14px 2px;
+}
+.best {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 10px;
+  border-radius: 999px;
+  background: var(--grout);
+  color: var(--ink-soft);
+  font: 700 11px/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.best svg { width: 14px; height: 14px; fill: var(--gold); flex: none; }
+.best b {
+  font: 600 14px/1 var(--font-display);
+  letter-spacing: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.best.bump { animation: bump 0.45s cubic-bezier(.2, .9, .3, 1.4); }
+.score {
+  font: 800 clamp(34px, 10vw, 54px)/1 var(--font-display);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.icon-btn {
+  justify-self: end;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--grout);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
+.sub {
+  grid-column: 1 / -1;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.hint {
+  color: var(--ink);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: fade 0.25s ease-out;
+}
+.vl { font: 700 11px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+.pd { display: inline-flex; gap: 3px; align-items: center; }
+.pd i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--pip); }
+.pd i.a { box-shadow: inset 0 0 0 2px var(--ink-soft); animation: pulse 0.9s ease-in-out infinite alternate; }
+.pd i.g { background: var(--gold); box-shadow: none; }
+.pd i.c { background: var(--g4); box-shadow: none; }
+.pd i.s { background: var(--pip); box-shadow: none; }
+.pc { font: 600 12px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--on-glaze);
+  font: 700 12px/1 var(--font-body);
+  letter-spacing: 0.04em;
+  animation: bump 0.4s cubic-bezier(.2, .9, .3, 1.4);
+}
+.chip .w { margin-right: 4px; }
+@media (max-width: 400px) { .chip .w { display: none; } .best.long .bw { display: none; } }
+.score.long { font-size: clamp(28px, 8.4vw, 46px); }
+.score.xlong { font-size: clamp(24px, 7.2vw, 40px); }
+
+/* ---------- stage ---------- */
+.stage { position: relative; flex: 1 1 auto; min-height: 0; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* ---------- footer: chips and gold leaf ---------- */
+.foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 40px;
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  padding-inline: 2px;
+}
+.chips { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.lbl { font: 700 11px/1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); margin-right: 4px; }
+.chips i {
+  width: 20px;
+  height: 12px;
+  border-radius: 2px 2px 10px 10px;
+  background: var(--pip);
+  transition: background 0.2s;
+}
+.chips i.on {
+  background: var(--g4);
+  clip-path: polygon(0 0, 34% 0, 50% 55%, 66% 0, 100% 0, 100% 100%, 0 100%);
+  animation: bump 0.45s cubic-bezier(.2, .9, .3, 1.4);
+}
+.leaf { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.leaf svg { width: 16px; height: 16px; flex: none; fill: var(--gold); }
+.bar { position: relative; flex: 1 1 auto; height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold) 45%, var(--gold-hi));
+}
+.leaf.low .fill { animation: blink 0.5s ease-in-out infinite alternate; }
+.leaf.dry .fill { background: var(--ink-soft); }
+.leaf.dry svg { fill: var(--ink-soft); }
+
+/* ---------- overlays ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  animation: fade 0.2s ease-out;
+}
+.card {
+  width: min(360px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 24px;
+  padding: 26px 22px 22px;
+  display: grid;
+  gap: 16px;
+  text-align: center;
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.5);
+  animation: rise 0.36s cubic-bezier(.2, .9, .25, 1.15);
+}
+.stack { display: grid; gap: 12px; }
+.card h2 { margin: 0; font: 800 24px/1.15 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+.card p { margin: 0; line-height: 1.5; }
+.eyebrow { font: 700 12px/1 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
+.big { font: 800 58px/1 var(--font-display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.mark { display: flex; justify-content: center; gap: 4px; }
+.mark span {
+  flex: 1 1 0;
+  max-width: 34px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--c);
+  color: #FFFFFF;
+  font: 800 15px/1 var(--font-display);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+.ribbon {
+  justify-self: center;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--on-glaze);
+  font: 700 12px/1 var(--font-body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.shelf { display: block; width: 100%; height: 96px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { background: var(--plaster); border-radius: 14px; padding: 10px 4px; display: grid; gap: 6px; }
+.stat span { font: 700 10px/1.1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); }
+.stat b { font: 600 17px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: 700 17px/1 var(--font-body);
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), inset 0 2px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 0.08s;
+}
+.btn:active { transform: translateY(2px); }
+.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--slot); }
+.settings { display: grid; gap: 4px; padding-block: 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 2px; font-weight: 600; text-align: left; }
+.row small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-soft); }
+.switch {
+  flex: none;
+  position: relative;
+  width: 52px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--slot);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+.switch[aria-checked="true"] { background: var(--g3); }
+.switch[aria-checked="true"]::after { transform: translateX(22px); }
+.how { font-size: 14px; color: var(--ink-soft); text-align: left; }
+.how b { color: var(--ink); }
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
+@keyframes bump { 40% { transform: scale(1.14); } }
+@keyframes pulse { from { opacity: 0.45; } }
+@keyframes blink { from { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .overlay, .card, .chip, .best.bump, .chips i.on, .hint, .pd i.a, .leaf.low .fill { animation: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hud">
+    <div class="best" id="bestPill" title="Best score">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5 8 12l4-7 4 7 4.5-3.5L18.5 19h-13z"/></svg>
+      <span class="bw">Best</span> <b id="best">0</b>
+    </div>
+    <div class="score" id="score">0</div>
+    <button class="icon-btn" id="menuBtn" type="button" aria-label="Pause and settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg>
+    </button>
+    <div class="sub" id="sub" aria-live="polite"></div>
+  </header>
+  <main class="stage" id="stage">
+    <canvas id="cv" tabindex="0" aria-label="Goldmend vessel. Cracks grow across the glaze. Drag along a crack from where it started to fill it with gold and catch its tip before it reaches the edge."></canvas>
+  </main>
+  <footer class="foot">
+    <div class="chips" id="chips" role="img" aria-label="No chips yet">
+      <span class="lbl">Chips</span><i></i><i></i><i></i>
+    </div>
+    <div class="leaf" id="leaf" role="meter" aria-label="Gold leaf" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15l-1 1-1.4-1.4L5 19zm2.5-1.6c4.6-.4 8-3.2 9.6-9.4-4.6 2.4-7.8 5.6-9.6 9.4z"/></svg>
+      <div class="bar"><div class="fill" id="leafFill"></div></div>
+    </div>
+  </footer>
+</div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-label="Paused">
+    <div class="mark" aria-hidden="true">
+      <span style="--c: var(--gold)">G</span><span style="--c: var(--gold)">O</span><span style="--c: var(--gold)">L</span><span style="--c: var(--gold)">D</span><span style="--c: var(--g1)">M</span><span style="--c: var(--g3)">E</span><span style="--c: var(--g5)">N</span><span style="--c: var(--g6)">D</span>
+    </div>
+    <div class="stack" id="pauseMain">
+      <button class="btn" id="resumeBtn" type="button">Resume</button>
+      <button class="btn ghost" id="newBtn" type="button">New game</button>
+      <button class="btn ghost" id="exitBtn" type="button" hidden>Back to games</button>
+      <div class="settings">
+        <div class="row" id="sndRow"><span id="sndLbl">Sound</span><button class="switch" id="sndSw" type="button" role="switch" aria-checked="true" aria-labelledby="sndLbl"></button></div>
+        <div class="row" id="vibRow"><span id="vibLbl">Vibration</span><button class="switch" id="vibSw" type="button" role="switch" aria-checked="true" aria-labelledby="vibLbl"></button></div>
+        <div class="row"><span id="penLbl">Pen offset<small>Draw 40px above your fingertip</small></span><button class="switch" id="penSw" type="button" role="switch" aria-checked="false" aria-labelledby="penLbl"></button></div>
+      </div>
+      <p class="how"><b>Catch each crack.</b> A tock, then a crack races toward the edge. Put your finger where it started and trace along it. Your gold only grows from the start, and the crack stops when your gold reaches its tip. Tapping the tip does nothing.</p>
+      <p class="how"><b>Forks:</b> catch one branch, then follow your gold back to the fork for the other. Dragging off a crack spends gold leaf; lift your finger to move for free. A crack that reaches the edge chips a piece off. Three chips end the run.</p>
+    </div>
+    <div class="stack" id="pauseConfirm" hidden>
+      <h2>Start over?</h2>
+      <p>Your current score of <b id="confirmScore">0</b> will be lost.</p>
+      <button class="btn" id="confirmYes" type="button">Start over</button>
+      <button class="btn ghost" id="confirmNo" type="button">Keep playing</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="over" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="overTitle">
+    <div class="eyebrow" id="overEyebrow">Run over</div>
+    <h2 id="overTitle">Three chips</h2>
+    <div class="ribbon" id="newBest" hidden>New best</div>
+    <div class="big" id="overScore">0</div>
+    <canvas class="shelf" id="shelf" role="img" aria-label="Your shelf of vessels from this run"></canvas>
+    <div class="stats">
+      <div class="stat"><span>Vessels</span><b id="overVessels">0</b></div>
+      <div class="stat"><span>Catches</span><b id="overCatches">0</b></div>
+      <div class="stat"><span>Fine</span><b id="overFine">0</b></div>
+    </div>
+    <button class="btn" id="againBtn" type="button">Play again</button>
+  </div>
+</div>
+
+<script src="../../hub/sdk.js"></script>
+<script>
+(() => {
+  'use strict';
+  const kiln = Arcade.init({ id: 'goldmend', title: 'Goldmend', version: '1.0.0' });
+  const DEBUG = /[?&]debug\b/.test(location.search);
+  const SEED = (() => { const m = /[?&]seed=(\d+)/.exec(location.search); return m ? +m[1] >>> 0 : 0; })();
+
+  /* ---------- rules (world units: the vessel is about 340 units across) ---------- */
+  const STEP = 2.5;          // spacing of crack path samples
+  const REACH = 18;          // a stroke gilds crack points within this distance
+  const SNAP = 34;           // a new crack bursts this far at once, so you always have to chase it
+  const AHEAD = 0.6;         // the stress line shows where the tip will be this many seconds ahead
+  const CAP = 160;           // top crack speed
+  const LEAF_MAX = 100, LEAF_REFUND = 20, LEAF_REGEN = 4, LEAF_WAKE = 10, LEAF_PER = 3;
+  const CHIPS_MAX = 3;
+  const PEN_PX = 40;
+  const WHITE = [255, 255, 255];
+  const BLACK = [0, 0, 0];
+  const TAU = Math.PI * 2;
+  const FONT_D = '"Unbounded", "Arial Black", system-ui, sans-serif';
+  const FONT_B = '"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const nf = new Intl.NumberFormat();
+  const fmt = n => nf.format(n);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+  const easeInCubic = t => t * t * t;
+  const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const easeOutBack = t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+  const rand = Math.random;
+
+  const store = Arcade.store;
+  const settings = { sound: kiln.settings.sound, vib: kiln.settings.vibration };
+  let best = store.get('best', 0) | 0;
+  let tutorialDone = !!store.get('tutorial', 0);
+  let pen = !!store.get('pen', false);
+  let leafHintDone = !!store.get('leafHint', 0);
+
+  function mulberry32(a) {
+    return () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---------- theme ---------- */
+  const $ = id => document.getElementById(id);
+  let T = null;
+  function parseHex(h) {
+    h = (h || '#888888').trim().replace('#', '');
+    if (h.length === 3) h = h.split('').map(x => x + x).join('');
+    const n = parseInt(h.slice(0, 6), 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+  const rgb = (c, a = 1) => (a === 1 ? `rgb(${c[0]},${c[1]},${c[2]})` : `rgba(${c[0]},${c[1]},${c[2]},${a})`);
+  const lum = c => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+  function readTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    const v = n => cs.getPropertyValue(n).trim();
+    T = {
+      plaster: v('--plaster'), grout: v('--grout'), slot: v('--slot'), card: v('--card'),
+      ink: v('--ink'), inkSoft: v('--ink-soft'), accent: v('--accent'),
+      glazes: [1, 2, 3, 4, 5, 6].map(i => v('--g' + i)), stone: v('--stone'),
+      gold: v('--gold'), goldHi: v('--gold-hi'), goldDeep: v('--gold-deep'), goldText: v('--gold-text'),
+      clay: v('--clay'), danger: v('--g4'), track: v('--track'),
+    };
+    T.dark = lum(parseHex(T.plaster)) < 0.35;
+  }
+
+  // Vessel glazes. Saffron and coral are left out: gold and the chip warning must read on every glaze.
+  const GLAZES = [
+    { name: 'Cobalt', token: 0 },
+    { name: 'Celadon', token: 2 },
+    { name: 'Tenmoku', hex: ['#3E2B21', '#4C372B'] },
+    { name: 'Shino', hex: ['#ECE3D4', '#D9CDBA'] },
+    { name: 'Plum', token: 4 },
+    { name: 'Turquoise', token: 5 },
+  ];
+  const glazeRGB = i => { const gz = GLAZES[i]; return parseHex(gz.hex ? gz.hex[T.dark ? 1 : 0] : T.glazes[gz.token]); };
+
+  /* ---------- geometry ---------- */
+  function pip(x, y, P) {
+    let inside = false;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+      const xi = P[i][0], yi = P[i][1], xj = P[j][0], yj = P[j][1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function polyArea(P) {
+    let a = 0;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) a += (P[j][0] + P[i][0]) * (P[j][1] - P[i][1]);
+    return Math.abs(a / 2);
+  }
+  function segHit(ax, ay, bx, by, cx, cy, dx, dy) {
+    const rx = bx - ax, ry = by - ay, sx = dx - cx, sy = dy - cy;
+    const den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-9) return -1;
+    const t = ((cx - ax) * sy - (cy - ay) * sx) / den;
+    const u = ((cx - ax) * ry - (cy - ay) * rx) / den;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : -1;
+  }
+  function distSeg2(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    let t = l2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+    t = clamp(t, 0, 1);
+    const x = ax + dx * t - px, y = ay + dy * t - py;
+    return x * x + y * y;
+  }
+  function profileFn(P) {
+    const slope = j => { const a = P[Math.max(0, j - 1)], b = P[Math.min(P.length - 1, j + 1)]; return (b[1] - a[1]) / (b[0] - a[0]); };
+    return t => {
+      let i = 0;
+      while (i < P.length - 2 && t > P[i + 1][0]) i++;
+      const [t0, w0] = P[i], [t1, w1] = P[i + 1];
+      const h = t1 - t0, u = clamp((t - t0) / h, 0, 1), u2 = u * u, u3 = u2 * u;
+      return (2 * u3 - 3 * u2 + 1) * w0 + (u3 - 2 * u2 + u) * slope(i) * h + (-2 * u3 + 3 * u2) * w1 + (u3 - u2) * slope(i + 1) * h;
+    };
+  }
+
+  /* ---------- vessels ---------- */
+  const FORMS = {
+    bowl: { kind: 'side', name: 'bowl', R: 172, H: 228, k: 0.2, sites: 30, prof: [[0, 1], [0.3, 0.965], [0.62, 0.83], [0.86, 0.6], [1, 0.43]] },
+    cup: { kind: 'side', name: 'tea bowl', R: 142, H: 282, k: 0.2, sites: 30, prof: [[0, 0.96], [0.14, 1], [0.55, 0.975], [0.82, 0.86], [1, 0.62]] },
+    jar: { kind: 'side', name: 'jar', R: 160, H: 330, k: 0.18, sites: 32, prof: [[0, 0.5], [0.05, 0.46], [0.15, 0.62], [0.38, 0.97], [0.55, 1], [0.78, 0.87], [0.95, 0.62], [1, 0.58]] },
+    vase: { kind: 'side', name: 'vase', R: 140, H: 400, k: 0.16, sites: 30, prof: [[0, 0.46], [0.06, 0.36], [0.2, 0.31], [0.36, 0.55], [0.6, 1], [0.8, 0.93], [0.95, 0.66], [1, 0.58]] },
+    slim: { kind: 'side', name: 'bud vase', R: 112, H: 410, k: 0.16, sites: 26, prof: [[0, 0.55], [0.07, 0.42], [0.25, 0.45], [0.55, 1], [0.8, 0.9], [0.96, 0.62], [1, 0.56]] },
+    plate: { kind: 'plate', name: 'plate', R: 168, sites: 32 },
+  };
+  const NEWS = { 2: 'Cracks can fork now', 4: 'Watch for crazing bursts', 7: 'Busy glazes, faster cracks' };
+  // Difficulty by vessel. Cracks arrive in waves: p2 / p3 / p4 are the chances a wave brings two, three or
+  // four tocks close together, placed far apart, so one finger cannot save them all and you choose.
+  function diffFor(n) {
+    return {
+      speed: n <= 1 ? 60 : n <= 3 ? 75 : n <= 6 ? 90 : Math.min(140, 90 + 7 * (n - 6)),
+      accel: n >= 7 ? Math.min(70, 16 + 5 * (n - 7)) : 0,
+      max: n <= 1 ? 1 : n <= 3 ? 2 : n <= 7 ? 3 : n <= 12 ? 4 : 5,
+      forks: n >= 2,
+      craze: n >= 4 ? 0.2 : 0,
+      tele: n <= 1 ? 1.1 : n <= 11 ? 1.0 : 0.85,
+      gap: n <= 1 ? [2.4, 4] : [Math.max(1.2, 2.4 - 0.08 * (n - 2)), Math.max(2.0, 3.8 - 0.12 * (n - 2))],
+      spread: [0.2, 0.55],
+      p2: n <= 1 ? 0 : n <= 3 ? 0.45 + 0.2 * (n - 2) : 0.4,
+      p3: n <= 3 ? 0 : Math.min(0.55, 0.3 + 0.07 * (n - 4)),
+      p4: n >= 8 ? Math.min(0.4, 0.1 * (n - 7)) : 0,
+      p5: n >= 13 ? Math.min(0.35, 0.07 * (n - 12)) : 0,
+      minLen: n <= 1 ? 150 : Math.max(80, 136 - 5 * (n - 2)),
+      rest: n <= 1 ? 1.2 : 0.7,
+    };
+  }
+  function formFor(n, rng) {
+    const order = ['cup', 'jar', 'bowl', 'plate', 'vase', 'cup'];
+    if (n <= order.length) return order[n - 1];
+    const pool = ['bowl', 'cup', 'jar', 'plate', 'vase', 'vase', 'slim', 'slim'];
+    return pool[(rng() * pool.length) | 0];
+  }
+  function glazeFor(n, rng, prev) {
+    const order = [0, 1, 2, 3, 4, 5];
+    if (n <= order.length) return order[n - 1];
+    let g = (rng() * GLAZES.length) | 0;
+    if (g === prev) g = (g + 1 + ((rng() * (GLAZES.length - 1)) | 0)) % GLAZES.length;
+    return g;
+  }
+
+  function makeVessel(n, seed, prevGlaze) {
+    const rng = mulberry32(seed);
+    const form = formFor(n, rng);
+    const F = FORMS[form];
+    const V = {
+      n, seed, form, F, glaze: glazeFor(n, rng, prevGlaze), busy: n >= 7,
+      rng: mulberry32((seed ^ 0x5BD1E995) >>> 0),
+      total: 5 + n, spawned: 0, chips: 0, chipped: new Set(), seams: [], tings: [], marks: [],
+      nextSpawn: 0, crazes: 0, wave: 0, diff: diffFor(n),
+    };
+    const out = [];
+    if (F.kind === 'plate') {
+      const R = F.R;
+      for (let i = 0; i < 72; i++) { const a = (i / 72) * TAU; out.push([Math.cos(a) * R, Math.sin(a) * R]); }
+      V.bbox = { x: -R, y: -R, w: 2 * R, h: 2 * R };
+      V.maxR = R;
+    } else {
+      const wf = profileFn(F.prof);
+      const R = F.R, H = F.H, M = 48;
+      const rx0 = R * wf(0), ry0 = rx0 * F.k, rx1 = R * wf(1), ry1 = rx1 * F.k * 0.9;
+      for (let i = 0; i <= 24; i++) { const a = Math.PI - (Math.PI * i) / 24; out.push([rx0 * Math.cos(a), ry0 * Math.sin(a)]); }
+      for (let i = 1; i <= M; i++) { const t = i / M; out.push([R * wf(t), t * H]); }
+      for (let i = 1; i <= 24; i++) { const a = (Math.PI * i) / 24; out.push([rx1 * Math.cos(a), H + ry1 * Math.sin(a)]); }
+      for (let i = M - 1; i >= 1; i--) { const t = i / M; out.push([-R * wf(t), t * H]); }
+      let maxR = 0;
+      for (let i = 0; i <= 60; i++) maxR = Math.max(maxR, R * wf(i / 60));
+      V.open = { rx: rx0, ry: ry0 };
+      V.foot = { rx: rx1, ry: ry1 };
+      V.wf = wf;
+      V.maxR = maxR;
+      V.bbox = { x: -maxR, y: -ry0, w: 2 * maxR, h: H + ry1 + ry0 };
+    }
+    V.outline = out;
+    scatterSites(V, rng, F.sites);
+    voronoi(V);
+    buildGraph(V);
+    computeDist(V);
+    for (let i = 0; i < V.total; i++) V.marks.push('');
+    return V;
+  }
+
+  function scatterSites(V, rng, count) {
+    const b = V.bbox, sites = [];
+    while (sites.length < count) {
+      let bestP = null, bestD = -1;
+      for (let k = 0; k < 14; k++) {
+        let x = 0, y = 0, tries = 0;
+        do { x = b.x + rng() * b.w; y = b.y + rng() * b.h; } while (!pip(x, y, V.outline) && ++tries < 60);
+        let dmin = Infinity;
+        for (const s of sites) dmin = Math.min(dmin, (s[0] - x) ** 2 + (s[1] - y) ** 2);
+        if (dmin > bestD) { bestD = dmin; bestP = [x, y]; }
+      }
+      sites.push(bestP);
+    }
+    V.sites = sites;
+  }
+
+  // Voronoi cells by half-plane clipping. Each polygon edge remembers the neighbouring site that made it.
+  function voronoi(V) {
+    const b = V.bbox, m = 60;
+    const box = [[b.x - m, b.y - m], [b.x + b.w + m, b.y - m], [b.x + b.w + m, b.y + b.h + m], [b.x - m, b.y + b.h + m]];
+    const S = V.sites;
+    V.cells = S.map(([sx, sy], i) => {
+      let poly = box.map(p => p.slice()), lab = [-1, -1, -1, -1];
+      for (let j = 0; j < S.length; j++) {
+        if (j === i) continue;
+        const [tx, ty] = S[j];
+        const nx = tx - sx, ny = ty - sy, c = nx * (sx + tx) / 2 + ny * (sy + ty) / 2;
+        const out = [], olab = [];
+        for (let k = 0; k < poly.length; k++) {
+          const P = poly[k], Q = poly[(k + 1) % poly.length], L0 = lab[k];
+          const dp = nx * P[0] + ny * P[1] - c, dq = nx * Q[0] + ny * Q[1] - c;
+          const pin = dp <= 0, qin = dq <= 0;
+          if (pin) { out.push(P); olab.push(L0); }
+          if (pin !== qin) {
+            const t = dp / (dp - dq);
+            out.push([P[0] + (Q[0] - P[0]) * t, P[1] + (Q[1] - P[1]) * t]);
+            olab.push(pin ? j : L0);
+          }
+        }
+        poly = out; lab = olab;
+        if (poly.length < 3) break;
+      }
+      return { poly, lab, site: [sx, sy], area: polyArea(poly) };
+    });
+  }
+
+  // Hairline jitter: midpoint displacement, so cracks wander instead of running as straight polygon sides.
+  function jitter(ax, ay, bx, by, rng) {
+    let pts = [ax, ay, bx, by];
+    const len = Math.hypot(bx - ax, by - ay);
+    const depth = len > 48 ? 5 : len > 20 ? 4 : len > 8 ? 3 : 1;
+    const amps = [0.09, 0.14, 0.18, 0.2, 0.2];
+    for (let d = 0; d < depth; d++) {
+      const np = [pts[0], pts[1]];
+      for (let i = 0; i < pts.length - 2; i += 2) {
+        const x0 = pts[i], y0 = pts[i + 1], x1 = pts[i + 2], y1 = pts[i + 3];
+        const dx = x1 - x0, dy = y1 - y0, sl = Math.hypot(dx, dy) || 1;
+        const off = (rng() * 2 - 1) * sl * amps[d];
+        np.push((x0 + x1) / 2 - (dy / sl) * off, (y0 + y1) / 2 + (dx / sl) * off, x1, y1);
+      }
+      pts = np;
+    }
+    return new Float32Array(pts);
+  }
+
+  function buildGraph(V) {
+    const out = V.outline, nodes = [], edges = [], grid = new Map();
+    const rng = mulberry32((V.seed ^ 0x2545F491) >>> 0);
+    const findNode = (x, y) => {
+      const gx = Math.round(x / 2), gy = Math.round(y / 2);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+        const list = grid.get((gx + dx) * 4096 + gy + dy);
+        if (!list) continue;
+        for (const id of list) { const nd = nodes[id]; if (Math.abs(nd.x - x) < 1.2 && Math.abs(nd.y - y) < 1.2) return id; }
+      }
+      const id = nodes.length;
+      nodes.push({ x, y, rim: false, inside: pip(x, y, out), adj: [] });
+      const key = gx * 4096 + gy;
+      let l = grid.get(key);
+      if (!l) grid.set(key, (l = []));
+      l.push(id);
+      return id;
+    };
+    function addEdge(a, b, i, j) {
+      const A = nodes[a], B = nodes[b];
+      const pts = jitter(A.x, A.y, B.x, B.y, rng);
+      let len = 0;
+      for (let k = 2; k < pts.length; k += 2) len += Math.hypot(pts[k] - pts[k - 2], pts[k + 1] - pts[k - 1]);
+      const id = edges.length;
+      edges.push({ a, b, cells: [i, j], pts, len, used: 0, dead: false });
+      A.adj.push(id);
+      B.adj.push(id);
+    }
+    const raw = [];
+    V.cells.forEach((cell, i) => {
+      const P = cell.poly;
+      for (let k = 0; k < P.length; k++) {
+        const j = cell.lab[k];
+        if (j <= i) continue;
+        const A = P[k], B = P[(k + 1) % P.length];
+        if (Math.hypot(B[0] - A[0], B[1] - A[1]) < 0.6) continue;
+        const a = findNode(A[0], A[1]), b = findNode(B[0], B[1]);
+        if (a !== b) raw.push([a, b, i, j]);
+      }
+    });
+    for (const [a, b, i, j] of raw) {
+      const A = nodes[a], B = nodes[b];
+      if (A.inside && B.inside) {
+        let ok = true;
+        for (const t of [0.25, 0.5, 0.75]) if (!pip(A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t, out)) { ok = false; break; }
+        if (ok) addEdge(a, b, i, j);
+      } else if (A.inside !== B.inside) {
+        const ia = A.inside ? a : b, ob = A.inside ? b : a;
+        const I = nodes[ia], O = nodes[ob];
+        let tmin = 2;
+        for (let k = 0; k < out.length; k++) {
+          const p = out[k], q = out[(k + 1) % out.length];
+          const t = segHit(I.x, I.y, O.x, O.y, p[0], p[1], q[0], q[1]);
+          if (t >= 0 && t < tmin) tmin = t;
+        }
+        if (tmin > 1) continue;
+        const rx = I.x + (O.x - I.x) * tmin, ry = I.y + (O.y - I.y) * tmin;
+        if (Math.hypot(rx - I.x, ry - I.y) < 5) { I.rim = true; continue; }
+        const r = nodes.length;
+        nodes.push({ x: rx, y: ry, rim: true, inside: true, adj: [] });
+        addEdge(ia, r, i, j);
+      }
+    }
+    for (const e of edges) for (const id of [e.a, e.b]) {
+      const nd = nodes[id];
+      if (!nd.cells) nd.cells = new Set();
+      nd.cells.add(e.cells[0]).add(e.cells[1]);
+    }
+    V.nodes = nodes;
+    V.edges = edges;
+  }
+
+  function computeDist(V) {
+    const n = V.nodes.length, d = new Float64Array(n).fill(Infinity), done = new Uint8Array(n);
+    for (let i = 0; i < n; i++) if (V.nodes[i].rim) d[i] = 0;
+    for (;;) {
+      let u = -1, du = Infinity;
+      for (let i = 0; i < n; i++) if (!done[i] && d[i] < du) { du = d[i]; u = i; }
+      if (u < 0) break;
+      done[u] = 1;
+      for (const ei of V.nodes[u].adj) {
+        const e = V.edges[ei];
+        if (e.dead) continue;
+        const v = e.a === u ? e.b : e.a, nd = du + e.len;
+        if (nd < d[v]) d[v] = nd;
+      }
+    }
+    V.dist = d;
+  }
+
+  /* ---------- crack paths ---------- */
+  // A random walk along the fracture edges that drifts toward the rim (or, for crazing, wanders a set distance).
+  function walk(start, o, rng) {
+    const seen = new Set(o.avoid || []);
+    seen.add(start);
+    const nodes = [start], edges = [];
+    let len = 0, cur = start, dx = 0, dy = 0;
+    for (let guard = 0; guard < 80; guard++) {
+      const nd = V.nodes[cur];
+      if (nd.rim && guard > 0) break;
+      if (o.target && len >= o.target) break;
+      const opts = [];
+      let tot = 0;
+      for (const ei of nd.adj) {
+        const e = V.edges[ei];
+        if (e.dead) continue;
+        const nx = e.a === cur ? e.b : e.a;
+        if (seen.has(nx)) continue;
+        const N2 = V.nodes[nx];
+        if (o.noRim && N2.rim) continue;
+        if (guard === 0 && o.first != null && ei !== o.first) continue;
+        let w = 1;
+        if (!o.noRim) {
+          const dr = V.dist[nx] - V.dist[cur];
+          w = Math.exp(-dr / (len > o.maxLen ? 5 : 20));
+          if (!isFinite(w)) w = 0;
+        }
+        if (e.used) w *= 0.05;
+        const ex = N2.x - nd.x, ey = N2.y - nd.y, el = Math.hypot(ex, ey) || 1;
+        if (dx || dy) w *= 0.2 + 0.8 * Math.pow(Math.max(0, (1 + (ex * dx + ey * dy) / el) / 2), 1.5);
+        if (!(w > 0)) continue;
+        opts.push([ei, nx, w, ex / el, ey / el]);
+        tot += w;
+      }
+      if (!opts.length) break;
+      let r = rng() * tot, pick = opts[opts.length - 1];
+      for (const op of opts) { r -= op[2]; if (r <= 0) { pick = op; break; } }
+      edges.push(pick[0]);
+      nodes.push(pick[1]);
+      seen.add(pick[1]);
+      len += V.edges[pick[0]].len;
+      dx = pick[3]; dy = pick[4];
+      cur = pick[1];
+    }
+    if (!edges.length) return null;
+    if (!o.noRim && !V.nodes[cur].rim) return null;
+    return { nodes, edges, len };
+  }
+
+  function planPath(origin, minLen, maxLen, rng, extra) {
+    let bestP = null;
+    for (let k = 0; k < 24; k++) {
+      const p = walk(origin, Object.assign({ minLen, maxLen }, extra), rng);
+      if (!p) continue;
+      if (p.len >= minLen && p.len <= maxLen) return p;
+      if (!bestP || Math.abs(p.len - minLen * 1.3) < Math.abs(bestP.len - minLen * 1.3)) bestP = p;
+    }
+    return bestP;
+  }
+
+  // Concatenate the jittered edges of a walk and resample at even spacing.
+  function pathPoly(path) {
+    const raw = [], arcs = [0];
+    let acc = 0;
+    for (let k = 0; k < path.edges.length; k++) {
+      const e = V.edges[path.edges[k]], fwd = e.a === path.nodes[k], p = e.pts, m = p.length / 2;
+      for (let q = 0; q < m; q++) {
+        const idx = fwd ? q : m - 1 - q;
+        const x = p[idx * 2], y = p[idx * 2 + 1];
+        if (raw.length) {
+          if (q === 0) continue;
+          acc += Math.hypot(x - raw[raw.length - 2], y - raw[raw.length - 1]);
+        }
+        raw.push(x, y);
+      }
+      arcs.push(acc);
+    }
+    const total = Math.max(acc, 0.01), n = Math.max(2, Math.ceil(total / STEP) + 1), sp = total / (n - 1);
+    const xs = new Float32Array(n), ys = new Float32Array(n), segs = raw.length / 2 - 1;
+    let seg = 0, s0 = 0, sl = Math.hypot(raw[2] - raw[0], raw[3] - raw[1]);
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const s = i === n - 1 ? total : i * sp;
+      while (seg < segs - 1 && s0 + sl < s) {
+        s0 += sl; seg++;
+        sl = Math.hypot(raw[seg * 2 + 2] - raw[seg * 2], raw[seg * 2 + 3] - raw[seg * 2 + 1]);
+      }
+      const t = sl > 0 ? clamp((s - s0) / sl, 0, 1) : 0;
+      const x = raw[seg * 2] + (raw[seg * 2 + 2] - raw[seg * 2]) * t, y = raw[seg * 2 + 1] + (raw[seg * 2 + 3] - raw[seg * 2 + 1]) * t;
+      xs[i] = x; ys[i] = y;
+      if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y;
+    }
+    return { xs, ys, n, sp, total, arcs, bx0, by0, bx1, by1 };
+  }
+
+  const TMP = { x: 0, y: 0 };
+  function at(b, s) {
+    const f = clamp(s, 0, b.total) / b.sp, i = Math.floor(f);
+    if (i >= b.n - 1) { TMP.x = b.xs[b.n - 1]; TMP.y = b.ys[b.n - 1]; return TMP; }
+    const t = f - i;
+    TMP.x = b.xs[i] + (b.xs[i + 1] - b.xs[i]) * t;
+    TMP.y = b.ys[i] + (b.ys[i + 1] - b.ys[i]) * t;
+    return TMP;
+  }
+
+  let branchId = 0;
+  function makeBranch(path, parent, jLen, rimEnd, snapLen) {
+    const poly = pathPoly(path);
+    return Object.assign(poly, {
+      id: ++branchId, parent, jLen, nodes: path.nodes, edges: path.edges, rimEnd, len: poly.total,
+      state: 'wait', tip: 0, front: 0, delay: 0, snapLen: Math.min(snapLen, poly.total * 0.3),
+      minCatch: parent ? 10 : Math.min(snapLen, poly.total * 0.3), devSum: 0, devW: 0, creak: 0,
+      arcIdx: 1, warnCell: undefined, gleam: -9, caughtAt: 0,
+    });
+  }
+
+  function crackPoints() {
+    const pts = [];
+    for (const c of cracks) {
+      pts.push([c.origin.x, c.origin.y]);
+      for (const b of c.branches) if (b.state === 'grow') { const p = at(b, b.tip); pts.push([p.x, p.y]); }
+    }
+    return pts;
+  }
+  function pickOrigin(minLen, rng, preferFar) {
+    const avoid = crackPoints(), cand = [];
+    V.nodes.forEach((nd, i) => {
+      if (nd.rim || !nd.adj.length) return;
+      const d = V.dist[i];
+      if (!isFinite(d)) return;
+      let near = Infinity;
+      for (const p of avoid) near = Math.min(near, Math.hypot(p[0] - nd.x, p[1] - nd.y));
+      const live = nd.adj.filter(e => !V.edges[e].dead).length;
+      cand.push({ i, d, near, live });
+    });
+    let pool = cand.filter(c => c.d >= minLen && c.near > 60 && c.live >= 2);
+    if (!pool.length) pool = cand.filter(c => c.d >= minLen * 0.6 && c.near > 30 && c.live >= 1);
+    if (!pool.length) pool = cand.filter(c => c.live >= 1).sort((a, b) => b.d - a.d).slice(0, 3);
+    if (!pool.length) return -1;
+    if (preferFar) { pool.sort((a, b) => b.d - a.d); pool = pool.slice(0, Math.max(1, Math.ceil(pool.length / 3))); }
+    // with other cracks live, prefer origins far from them so a wave spreads across the vessel
+    const wt = c => Math.min(c.d, minLen * 1.6) * (avoid.length ? Math.pow(Math.min(c.near, 260) / 100, 2) : 1);
+    let tot = 0;
+    for (const c of pool) tot += wt(c);
+    let r = rng() * tot;
+    for (const c of pool) { r -= wt(c); if (r <= 0) return c.i; }
+    return pool[pool.length - 1].i;
+  }
+
+  let crackId = 0;
+  function makeCrack(o) {
+    const rng = V.rng;
+    const origin = pickOrigin(o.minLen, rng, o.tut);
+    if (origin < 0) return null;
+    const main = planPath(origin, o.minLen, o.minLen * 2.4, rng);
+    if (!main) return null;
+    const root = makeBranch(main, null, 0, true, o.tut ? SNAP : clamp(o.speed * 0.42, 26, 56));
+    const c = {
+      id: ++crackId, kind: 'crack', state: 'tele', t0: gt, tele: o.tele, wait: !!o.wait, speed: o.speed, accel: o.accel || 0,
+      tut: !!o.tut, origin: { x: V.nodes[origin].x, y: V.nodes[origin].y }, branches: [root], hadChip: false, runAt: 0,
+      preLen: Math.min(root.arcs[Math.min(3, root.edges.length)], root.total * 0.7),
+    };
+    // Forks: 10% per 100 units of crack decides whether it splits. The split sits at one of the first two
+    // junctions and the crack's opening burst carries past it, so a fork is a live choice, not a rare accident.
+    const forkP = o.forceFork ? 1 : o.forks ? 1 - Math.pow(0.9, main.len / 100) : 0;
+    if (forkP && rng() < forkP) {
+      const seen = new Set(main.nodes);
+      const ks = o.forceFork ? [1, 2] : rng() < 0.5 ? [1, 2] : [2, 1];
+      for (const k of ks) {
+        // only near the start, so the opening burst can carry past the fork without a huge head start
+        if (k >= main.nodes.length - 2 || root.arcs[k] > (o.forceFork ? 90 : 75) || root.arcs[k] + 14 > root.total * 0.72) continue;
+        let kid = null;
+        for (let t = 0; t < 8 && !kid; t++) {
+          const p = walk(main.nodes[k], { avoid: seen, minLen: 50, maxLen: 260 }, rng);
+          if (p && p.len >= 55) kid = p;
+        }
+        if (!kid) continue;
+        c.branches.push(makeBranch(kid, root, root.arcs[k], true, 0));
+        root.snapLen = root.minCatch = Math.max(root.snapLen, root.arcs[k] + 14);
+        c.preLen = Math.max(c.preLen, Math.min(root.total * 0.7, root.arcs[k] + 10));
+        break;
+      }
+    }
+    return c;
+  }
+
+  // Crazing: five short, fast hairlines from one impact. They stop on their own and never chip.
+  function makeCraze(o) {
+    const rng = V.rng;
+    const origin = pickOrigin(90, rng, true);
+    if (origin < 0) return null;
+    const O = V.nodes[origin];
+    const starts = [];
+    for (const ei of O.adj) if (!V.edges[ei].dead) starts.push({ node: origin, first: ei });
+    const near = V.nodes.map((nd, i) => ({ i, d: Math.hypot(nd.x - O.x, nd.y - O.y), nd }))
+      .filter(x => x.i !== origin && !x.nd.rim && x.d < 80 && x.nd.adj.length).sort((a, b) => a.d - b.d);
+    for (const x of near) { if (starts.length >= 8) break; starts.push({ node: x.i, first: null }); }
+    const c = {
+      id: ++crackId, kind: 'craze', state: 'tele', t0: gt, tele: o.tele, wait: false, speed: Math.min(CAP, o.speed * 1.3), accel: 0,
+      tut: false, origin: { x: O.x, y: O.y }, branches: [], hadChip: false, runAt: 0, preLen: 22,
+    };
+    for (const s of starts) {
+      if (c.branches.length >= 5) break;
+      const target = 48 + rng() * 40;
+      const p = walk(s.node, { noRim: true, target, first: s.first }, rng);
+      if (!p || p.len < 26) continue;
+      const b = makeBranch(p, null, 0, false, 10);
+      b.len = Math.min(b.total, target);
+      b.delay = c.branches.length * 0.3;
+      c.branches.push(b);
+    }
+    return c.branches.length >= 3 ? c : null;
+  }
+
+  /* ---------- state ---------- */
+  let G = null;
+  let V = null;
+  let cracks = [];
+  let phase = 'ready', phaseT = 0, paused = false, gt = 0;
+  let leaf = LEAF_MAX, dry = false;
+  const brush = { down: false, id: null, type: 'mouse', x: 0, y: 0, fx: 0, fy: 0, trail: [] };
+  const parts = [], texts = [], falling = [];
+  const shake = { amp: 0, t0: 0, dur: 0.34 };
+  let dispScore = 0;
+
+  function freshRun() {
+    const runSeed = SEED || ((Date.now() ^ Math.floor(rand() * 1e9)) >>> 0);
+    return {
+      score: 0, streak: 0, topStreak: 0, catches: 0, fine: 0, chipsTotal: 0, mended: 0, whole: 0,
+      startBest: best, tut: tutorialDone ? 0 : clamp(store.get('tutStage', 1) | 0, 1, 3), runSeed, rng: mulberry32(runSeed), n: 1, running: false,
+      shelf: [], hint: '', hintUntil: 0, lastGild: 0, slowUntil: 0, ramp: 9, lastBuzz: 0, tickAt: 0,
+      tipHintAt: -99, overShown: false, gildN: 0,
+    };
+  }
+
+  /* ---------- DOM ---------- */
+  const stage = $('stage');
+  const cv = $('cv');
+  const ctx = cv.getContext('2d');
+  const scoreEl = $('score'), bestEl = $('best'), bestPill = $('bestPill'), sub = $('sub');
+  const pauseEl = $('pause'), overEl = $('over');
+  const chipsEl = $('chips'), leafEl = $('leaf'), leafFill = $('leafFill');
+
+  /* ---------- layout ---------- */
+  let W = 1, H = 1, dpr = 1;
+  const L = { s: 1, ox: 0, oy: 0 };
+  let cache = null, cacheCtx = null, cacheBox = null;
+
+  function layout() {
+    const r = stage.getBoundingClientRect();
+    W = Math.max(1, r.width);
+    H = Math.max(1, r.height);
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    fitVessel();
+    buildCache();
+    kick();
+  }
+  function fitVessel() {
+    if (!V) return;
+    const b = V.bbox;
+    const s = Math.max(0.2, Math.min((W - 12) / b.w, (H - 30) / (b.h + 18), 2.0));
+    L.s = s;
+    L.ox = W / 2 - (b.x + b.w / 2) * s;
+    L.oy = H / 2 - (b.y + b.h / 2 + 6) * s;
+  }
+  const wx = x => L.ox + x * L.s;
+  const wy = y => L.oy + y * L.s;
+
+  /* ---------- drawing helpers ---------- */
+  function rrect(g, x, y, w, h, r) {
+    g.beginPath();
+    if (g.roundRect) { g.roundRect(x, y, w, h, r); return; }
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+  function bodyPath(g) {
+    const o = V.outline;
+    g.beginPath();
+    g.moveTo(o[0][0], o[0][1]);
+    for (let i = 1; i < o.length; i++) g.lineTo(o[i][0], o[i][1]);
+    g.closePath();
+  }
+  function polyPath(g, P) {
+    g.beginPath();
+    g.moveTo(P[0][0], P[0][1]);
+    for (let i = 1; i < P.length; i++) g.lineTo(P[i][0], P[i][1]);
+    g.closePath();
+  }
+  function flatPath(g, pts, ox = 0, oy = 0) {
+    g.beginPath();
+    g.moveTo(pts[0] + ox, pts[1] + oy);
+    for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i] + ox, pts[i + 1] + oy);
+  }
+  function rangePath(g, b, s0, s1, ox = 0, oy = 0) {
+    g.beginPath();
+    let p = at(b, s0);
+    g.moveTo(p.x + ox, p.y + oy);
+    const i0 = Math.floor(s0 / b.sp) + 1, i1 = Math.min(b.n - 1, Math.ceil(s1 / b.sp) - 1);
+    for (let i = i0; i <= i1; i++) g.lineTo(b.xs[i] + ox, b.ys[i] + oy);
+    p = at(b, s1);
+    g.lineTo(p.x + ox, p.y + oy);
+  }
+  function rangePts(b, s0, s1) {
+    const arr = [];
+    let p = at(b, s0);
+    arr.push(p.x, p.y);
+    const i0 = Math.floor(s0 / b.sp) + 1, i1 = Math.min(b.n - 1, Math.ceil(s1 / b.sp) - 1);
+    for (let i = i0; i <= i1; i++) arr.push(b.xs[i], b.ys[i]);
+    p = at(b, s1);
+    arr.push(p.x, p.y);
+    return new Float32Array(arr);
+  }
+  const lineW = w => Math.max(w, 1.1 / L.s);
+
+  // Gold seam: a dark bed so it reads on pale glazes, the leaf itself, and a bright edge where light catches it.
+  function goldStroke(g, draw, wMul = 1) {
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    draw(0, 0);
+    g.strokeStyle = T.dark ? 'rgba(20,12,2,0.55)' : 'rgba(70,42,4,0.5)';
+    g.lineWidth = lineW(5.6 * wMul);
+    g.stroke();
+    g.strokeStyle = T.gold;
+    g.lineWidth = lineW(4 * wMul);
+    g.stroke();
+    draw(-0.45, -0.6);
+    g.strokeStyle = T.goldHi;
+    g.globalAlpha = 0.9;
+    g.lineWidth = lineW(1.3 * wMul);
+    g.stroke();
+    g.globalAlpha = 1;
+  }
+  function hairStroke(g, draw, alpha, w = 1.5) {
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    draw(0.65, 0.75);
+    g.globalAlpha = alpha * 0.8;
+    g.strokeStyle = V.hairLight;
+    g.lineWidth = lineW(w * 0.75);
+    g.stroke();
+    draw(0, 0);
+    g.globalAlpha = alpha;
+    g.strokeStyle = V.hair;
+    g.lineWidth = lineW(w);
+    g.stroke();
+    g.globalAlpha = 1;
+  }
+
+  /* ---------- the vessel art (cached) ---------- */
+  function vesselColors() {
+    const base = glazeRGB(V.glaze);
+    const l = lum(base);
+    V.base = base;
+    V.hair = l < 0.3 ? rgb(mix(base, WHITE, 0.6)) : rgb(mix(base, BLACK, 0.72));
+    V.hairLight = l < 0.3 ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.5)';
+    V.glowRGB = l > 0.62 ? [196, 112, 18] : [255, 242, 210];
+  }
+  function paintVessel(g) {
+    const base = V.base, rng = mulberry32((V.seed ^ 0x77) >>> 0);
+    if (V.F.kind === 'plate') paintPlate(g, base, rng);
+    else paintSide(g, base, rng);
+  }
+  function glazeTexture(g, base, rng) {
+    const b = V.bbox;
+    for (let k = 0; k < 16; k++) {
+      const x = b.x + rng() * b.w, y = b.y + rng() * b.h, r = 20 + rng() * 60;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      const c = mix(base, rng() < 0.5 ? WHITE : BLACK, 0.12 + rng() * 0.1);
+      gr.addColorStop(0, rgb(c, 0.32));
+      gr.addColorStop(1, rgb(c, 0));
+      g.fillStyle = gr;
+      g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    const dark = rgb(mix(base, BLACK, 0.55));
+    const light = rgb(mix(base, WHITE, 0.55));
+    for (let k = 0; k < 240; k++) {
+      g.globalAlpha = 0.12 + rng() * 0.3;
+      g.fillStyle = rng() < 0.75 ? dark : light;
+      g.beginPath();
+      g.arc(b.x + rng() * b.w, b.y + rng() * b.h, 0.35 + rng() * 0.9, 0, TAU);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+    if (V.busy) {
+      g.lineCap = 'round';
+      for (let k = 0; k < 44; k++) {
+        const x = b.x + rng() * b.w, y = b.y + rng() * b.h, ang = rng() * TAU, l = 24 + rng() * 64;
+        const x2 = x + Math.cos(ang) * l, y2 = y + Math.sin(ang) * l;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.quadraticCurveTo((x + x2) / 2 + (rng() - 0.5) * l * 0.8, (y + y2) / 2 + (rng() - 0.5) * l * 0.8, x2, y2);
+        const lightStroke = rng() < 0.55;
+        g.strokeStyle = rgb(mix(base, lightStroke ? WHITE : BLACK, 0.3 + rng() * 0.2), 0.3 + rng() * 0.3);
+        g.lineWidth = 1.2 + rng() * 5;
+        g.stroke();
+      }
+      // faint decoy hairlines: the camouflage that makes later vessels harder to read
+      g.strokeStyle = V.hair;
+      for (let k = 0; k < 22; k++) {
+        let x = b.x + rng() * b.w, y = b.y + rng() * b.h, ang = rng() * TAU;
+        g.globalAlpha = 0.22 + rng() * 0.15;
+        g.lineWidth = 0.9;
+        g.beginPath();
+        g.moveTo(x, y);
+        for (let s = 0; s < 6; s++) { ang += (rng() - 0.5) * 0.9; x += Math.cos(ang) * 6; y += Math.sin(ang) * 6; g.lineTo(x, y); }
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
+  }
+  function paintSide(g, base, rng) {
+    const F = V.F, H = F.H, o = V.open, f = V.foot, R = V.maxR;
+    // table shadow
+    g.save();
+    g.translate(0, H + f.ry * 0.6);
+    g.scale(1, 0.17);
+    let gr = g.createRadialGradient(0, 0, 0, 0, 0, R * 1.05);
+    gr.addColorStop(0, `rgba(0,0,0,${T.dark ? 0.45 : 0.24})`);
+    gr.addColorStop(0.6, `rgba(0,0,0,${T.dark ? 0.22 : 0.12})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(0, 0, R * 1.05, 0, TAU);
+    g.fill();
+    g.restore();
+    // body
+    bodyPath(g);
+    g.fillStyle = rgb(base);
+    g.fill();
+    g.save();
+    bodyPath(g);
+    g.clip();
+    const top = -o.ry - 4, ht = H + f.ry + o.ry + 8;
+    glazeTexture(g, base, rng);
+    gr = g.createLinearGradient(-R, 0, R, 0);
+    gr.addColorStop(0, rgb(mix(base, BLACK, 0.45), 0.95));
+    gr.addColorStop(0.16, rgb(mix(base, BLACK, 0.12), 0.55));
+    gr.addColorStop(0.36, rgb(mix(base, WHITE, 0.22), 0.55));
+    gr.addColorStop(0.56, rgb(base, 0));
+    gr.addColorStop(0.84, rgb(mix(base, BLACK, 0.28), 0.6));
+    gr.addColorStop(1, rgb(mix(base, BLACK, 0.52), 0.95));
+    g.fillStyle = gr;
+    g.fillRect(-R - 4, top, R * 2 + 8, ht);
+    gr = g.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, 'rgba(255,255,255,0.08)');
+    gr.addColorStop(0.55, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, 'rgba(0,0,0,0.24)');
+    g.fillStyle = gr;
+    g.fillRect(-R - 4, top, R * 2 + 8, ht);
+    // unglazed foot below a wavy glaze line, with a few drips
+    const band = Math.max(12, H * 0.07), ph = rng() * TAU;
+    const drips = [0, 1, 2].map(() => ({ x: (rng() * 2 - 1) * f.rx * 0.8, d: 3 + rng() * 6, w: 5 + rng() * 6 }));
+    const waveY = x => {
+      let y = H - band + Math.sin(x * 0.07 + ph) * 1.8 + Math.sin(x * 0.19 + ph * 2) * 0.9;
+      for (const d of drips) y += d.d * Math.exp(-((x - d.x) ** 2) / (d.w * d.w));
+      return y;
+    };
+    g.beginPath();
+    g.moveTo(-R - 4, H + f.ry + 6);
+    for (let x = -R - 4; x <= R + 4; x += 3) g.lineTo(x, waveY(x));
+    g.lineTo(R + 4, H + f.ry + 6);
+    g.closePath();
+    const clay = parseHex(T.clay);
+    gr = g.createLinearGradient(-R, 0, R, 0);
+    gr.addColorStop(0, rgb(mix(clay, BLACK, 0.4)));
+    gr.addColorStop(0.35, rgb(mix(clay, WHITE, 0.12)));
+    gr.addColorStop(0.7, rgb(clay));
+    gr.addColorStop(1, rgb(mix(clay, BLACK, 0.45)));
+    g.fillStyle = gr;
+    g.fill();
+    g.beginPath();
+    for (let x = -R - 4; x <= R + 4; x += 3) (x === -R - 4 ? g.moveTo(x, waveY(x)) : g.lineTo(x, waveY(x)));
+    g.strokeStyle = rgb(mix(base, BLACK, 0.35), 0.7);
+    g.lineWidth = 1.6;
+    g.stroke();
+    // specular streak and glint
+    const hx = -R * 0.46, hy = H * 0.36;
+    g.save();
+    g.translate(hx, hy);
+    g.scale(0.26, 1);
+    gr = g.createRadialGradient(0, 0, 0, 0, 0, H * 0.42);
+    gr.addColorStop(0, 'rgba(255,255,255,0.36)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(0, 0, H * 0.42, 0, TAU);
+    g.fill();
+    g.restore();
+    g.save();
+    g.translate(hx + R * 0.05, hy - H * 0.12);
+    g.rotate(-0.25);
+    g.fillStyle = 'rgba(255,255,255,0.5)';
+    g.beginPath();
+    g.ellipse(0, 0, 3.2, Math.min(26, H * 0.09), 0, 0, TAU);
+    g.fill();
+    g.restore();
+    g.restore();
+    // body edge
+    bodyPath(g);
+    g.strokeStyle = rgb(mix(base, BLACK, 0.45), 0.55);
+    g.lineWidth = 1.1;
+    g.stroke();
+    // the opening and the lip
+    g.save();
+    g.beginPath();
+    g.ellipse(0, 0, o.rx, o.ry, 0, 0, TAU);
+    g.clip();
+    gr = g.createLinearGradient(0, -o.ry, 0, o.ry);
+    gr.addColorStop(0, rgb(mix(base, BLACK, 0.42)));
+    gr.addColorStop(0.45, rgb(mix(base, BLACK, 0.18)));
+    gr.addColorStop(1, rgb(mix(base, BLACK, 0.62)));
+    g.fillStyle = gr;
+    g.fillRect(-o.rx, -o.ry, o.rx * 2, o.ry * 2);
+    gr = g.createRadialGradient(-o.rx * 0.25, -o.ry * 0.1, 0, -o.rx * 0.25, -o.ry * 0.1, o.rx * 0.8);
+    gr.addColorStop(0, 'rgba(255,255,255,0.16)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.fillRect(-o.rx, -o.ry, o.rx * 2, o.ry * 2);
+    g.restore();
+    g.beginPath();
+    g.ellipse(0, 0, o.rx, o.ry, 0, 0, TAU);
+    g.strokeStyle = rgb(mix(base, WHITE, 0.25));
+    g.lineWidth = 2.4;
+    g.stroke();
+    g.beginPath();
+    g.ellipse(0, 0.3, o.rx - 0.6, o.ry - 0.3, 0, 0.12, Math.PI - 0.12);
+    g.strokeStyle = rgb(mix(base, WHITE, 0.55), 0.85);
+    g.lineWidth = 1.3;
+    g.stroke();
+  }
+  function paintPlate(g, base, rng) {
+    const R = V.F.R;
+    g.save();
+    g.translate(5, 9);
+    let gr = g.createRadialGradient(0, 0, R * 0.8, 0, 0, R * 1.08);
+    gr.addColorStop(0, `rgba(0,0,0,${T.dark ? 0.5 : 0.22})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(0, 0, R * 1.08, 0, TAU);
+    g.fill();
+    g.restore();
+    bodyPath(g);
+    g.fillStyle = rgb(base);
+    g.fill();
+    g.save();
+    bodyPath(g);
+    g.clip();
+    glazeTexture(g, base, rng);
+    gr = g.createLinearGradient(-R, -R, R, R);
+    gr.addColorStop(0, rgb(mix(base, WHITE, 0.2), 0.6));
+    gr.addColorStop(0.5, rgb(base, 0));
+    gr.addColorStop(1, rgb(mix(base, BLACK, 0.3), 0.7));
+    g.fillStyle = gr;
+    g.fillRect(-R, -R, 2 * R, 2 * R);
+    // the well: a soft inner wall, shadowed top-left and lit bottom-right
+    const w = R * 0.68;
+    g.lineWidth = 7;
+    g.beginPath();
+    g.arc(0, 0, w, Math.PI * 0.75, Math.PI * 1.75);
+    g.strokeStyle = rgb(mix(base, BLACK, 0.3), 0.35);
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 0, w + 1.5, -Math.PI * 0.25, Math.PI * 0.75);
+    g.strokeStyle = rgb(mix(base, WHITE, 0.4), 0.35);
+    g.stroke();
+    gr = g.createRadialGradient(-w * 0.3, -w * 0.35, 0, 0, 0, w);
+    gr.addColorStop(0, rgb(mix(base, WHITE, 0.12), 0.5));
+    gr.addColorStop(1, rgb(mix(base, BLACK, 0.12), 0.4));
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(0, 0, w - 2, 0, TAU);
+    g.fill();
+    // glint on the rim
+    g.save();
+    g.translate(-R * 0.62, -R * 0.55);
+    g.rotate(-0.75);
+    g.fillStyle = 'rgba(255,255,255,0.45)';
+    g.beginPath();
+    g.ellipse(0, 0, 22, 4, 0, 0, TAU);
+    g.fill();
+    g.restore();
+    g.restore();
+    bodyPath(g);
+    g.strokeStyle = rgb(mix(base, BLACK, 0.4), 0.6);
+    g.lineWidth = 1.4;
+    g.stroke();
+    g.beginPath();
+    g.arc(0, 0, R - 2.5, Math.PI * 1.02, Math.PI * 1.6);
+    g.strokeStyle = 'rgba(255,255,255,0.5)';
+    g.lineWidth = 1.4;
+    g.stroke();
+  }
+  function bakeSeam(g, sm) {
+    if (sm.kind === 'gold') goldStroke(g, (ox, oy) => flatPath(g, sm.pts, ox, oy));
+    else hairStroke(g, (ox, oy) => flatPath(g, sm.pts, ox, oy), sm.kind === 'craze' ? 0.5 : 0.85, sm.kind === 'craze' ? 1.1 : 1.5);
+  }
+  function eraseCell(g, ci) {
+    const P = V.cells[ci].poly;
+    g.save();
+    bodyPath(g);
+    g.clip();
+    polyPath(g, P);
+    g.strokeStyle = rgb(mix(parseHex(T.clay), BLACK, 0.15));
+    g.lineWidth = 3.6;
+    g.lineJoin = 'round';
+    g.stroke();
+    g.globalCompositeOperation = 'destination-out';
+    polyPath(g, P);
+    g.fill();
+    g.restore();
+  }
+  function cacheXform(g) {
+    const k = L.s * dpr;
+    g.setTransform(k, 0, 0, k, -cacheBox.x * k, -cacheBox.y * k);
+  }
+  function buildCache() {
+    if (!V || !T) return;
+    vesselColors();
+    const b = V.bbox;
+    cacheBox = { x: b.x - 28, y: b.y - 14, w: b.w + 56, h: b.h + 46 };
+    const k = L.s * dpr;
+    if (!cache) { cache = document.createElement('canvas'); cacheCtx = cache.getContext('2d'); }
+    cache.width = Math.max(2, Math.ceil(cacheBox.w * k));
+    cache.height = Math.max(2, Math.ceil(cacheBox.h * k));
+    cacheXform(cacheCtx);
+    cacheCtx.clearRect(cacheBox.x, cacheBox.y, cacheBox.w, cacheBox.h);
+    paintVessel(cacheCtx);
+    for (const sm of V.seams) bakeSeam(cacheCtx, sm);
+    for (const ci of V.chipped) eraseCell(cacheCtx, ci);
+  }
+
+  /* ---------- sound (synthesised, no files) ---------- */
+  const Sound = {
+    ctx: null, master: null, noise: null, verb: null,
+    unlock() {
+      if (!settings.sound) return;
+      try {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          this.ctx = new AC();
+          this.master = this.ctx.createGain();
+          this.master.gain.value = 0.55;
+          this.master.connect(this.ctx.destination);
+          // a little room for the bells: one filtered feedback delay
+          const d = this.ctx.createDelay(1), fb = this.ctx.createGain(), lp = this.ctx.createBiquadFilter(), wet = this.ctx.createGain();
+          d.delayTime.value = 0.19; fb.gain.value = 0.32; lp.type = 'lowpass'; lp.frequency.value = 2600; wet.gain.value = 0.3;
+          d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(wet); wet.connect(this.master);
+          this.verb = d;
+          const len = this.ctx.sampleRate | 0;
+          this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+          const ch = this.noise.getChannelData(0);
+          for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      } catch (e) { /* audio unavailable */ }
+    },
+    ok() { return settings.sound && this.ctx && this.ctx.state === 'running'; },
+    out(node, wet) { node.connect(this.master); if (wet && this.verb) node.connect(this.verb); },
+    tone(f, dur, { type = 'sine', vol = 0.2, at = 0, attack = 0.004, slide = 0, wet = false } = {}) {
+      const c = this.ctx, t = c.currentTime + at;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      this.out(g, wet);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    },
+    hiss(dur, { freq = 2400, q = 2, vol = 0.25, at = 0, type = 'bandpass', to = 0 } = {}) {
+      const c = this.ctx, t = c.currentTime + at;
+      const src = c.createBufferSource();
+      src.buffer = this.noise;
+      const bp = c.createBiquadFilter();
+      bp.type = type;
+      bp.frequency.setValueAtTime(freq, t);
+      if (to) bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+      bp.Q.value = q;
+      const g = c.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(this.master);
+      src.start(t, Math.random() * 0.5);
+      src.stop(t + dur + 0.02);
+    },
+    // FM bell: a modulator at 3.5x the pitch, its index dying away, gives the struck-metal 'ting'
+    fm(f, at, vol, dur = 1.6, ratio = 3.5, index = 2.2) {
+      const c = this.ctx, t = c.currentTime + at;
+      const car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain(), g = c.createGain();
+      car.frequency.value = f;
+      mod.frequency.value = f * ratio;
+      mg.gain.setValueAtTime(f * index, t);
+      mg.gain.exponentialRampToValueAtTime(f * 0.02, t + dur * 0.5);
+      mod.connect(mg);
+      mg.connect(car.frequency);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      car.connect(g);
+      this.out(g, true);
+      car.start(t); mod.start(t);
+      car.stop(t + dur + 0.05); mod.stop(t + dur + 0.05);
+    },
+    scale: [783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093, 2349.32, 2637.02],
+    tock() { if (!this.ok()) return; this.tone(520, 0.08, { vol: 0.15, slide: 0.72 }); this.hiss(0.035, { freq: 1500, q: 5, vol: 0.12 }); },
+    snap() {
+      if (!this.ok()) return;
+      this.hiss(0.07, { freq: 5200, q: 0.8, vol: 0.13 });
+      for (let k = 0; k < 3; k++) this.hiss(0.02, { freq: 3000 + k * 600, q: 5, vol: 0.1, at: 0.02 + k * 0.03 });
+    },
+    creak() { if (this.ok()) this.hiss(0.018, { freq: 2400 + Math.random() * 1600, q: 7, vol: 0.05 }); },
+    seal(k) { if (this.ok()) this.tone(1400 + Math.min(k, 16) * 45, 0.05, { vol: 0.035 }); },
+    ting(streak, close) {
+      if (!this.ok()) return;
+      const f = this.scale[Math.min(Math.max(streak, 1) - 1, this.scale.length - 1)];
+      this.fm(f, 0, close ? 0.2 : 0.16, 1.6);
+      this.tone(f * 2, 0.5, { vol: 0.04, wet: true });
+      if (close) this.fm(f * 1.5, 0.07, 0.1, 1.2);
+      this.hiss(0.22, { freq: 8000, q: 0.7, vol: 0.035 });
+      return f;
+    },
+    chip() {
+      if (!this.ok()) return;
+      this.tone(120, 0.24, { vol: 0.32, slide: 0.5 });
+      this.hiss(0.09, { freq: 1700, q: 1, vol: 0.28 });
+      for (let k = 0; k < 7; k++) {
+        this.hiss(0.05 + Math.random() * 0.07, { freq: 2200 + Math.random() * 3800, q: 9 + Math.random() * 9, vol: 0.2 * (1 - k / 8) + 0.04, at: 0.03 + k * 0.045 + Math.random() * 0.03 });
+      }
+      this.tone(2950 + Math.random() * 600, 0.12, { vol: 0.045, at: 0.06 });
+      this.tone(3720, 0.1, { vol: 0.035, at: 0.15 });
+    },
+    dry() { if (this.ok()) this.tone(200, 0.16, { type: 'triangle', vol: 0.1, slide: 0.8 }); },
+    wake() { if (this.ok()) this.tone(988, 0.12, { vol: 0.04 }); },
+    chord(freqs) {
+      if (!this.ok()) return;
+      const fs = [...new Set(freqs)].sort((a, b) => a - b).slice(-8);
+      if (!fs.length) { this.fm(392, 0.2, 0.08, 1.6, 2, 0.8); return; }
+      fs.forEach((f, k) => this.fm(f, 0.2 + k * 0.07, 0.09, 2.4, 3.5, 1.2));
+    },
+    sweep() { if (this.ok()) this.hiss(1.3, { freq: 700, to: 5200, q: 3, vol: 0.05 }); },
+    whole() { if (this.ok()) [1046.5, 1318.51, 1567.98, 2093].forEach((f, k) => this.fm(f, 0.9 + k * 0.08, 0.07, 1.8)); },
+    over() { if (this.ok()) [659.25, 523.25, 392, 329.63].forEach((f, k) => this.fm(f, k * 0.22, 0.11, 1.8, 2, 1)); },
+    best() { if (this.ok()) [523.25, 659.25, 783.99, 1046.5].forEach((f, k) => this.fm(f, k * 0.09, 0.1, 1.6)); },
+    ui() { if (this.ok()) this.tone(1320, 0.06, { type: 'triangle', vol: 0.06 }); },
+  };
+  function buzz(p) { if (settings.vib) Arcade.haptic(p); }
+
+  /* ---------- run flow ---------- */
+  function prepareRun() {
+    G = freshRun();
+    cracks = [];
+    parts.length = 0; texts.length = 0; falling.length = 0;
+    leaf = LEAF_MAX; dry = false;
+    brush.down = false; brush.trail.length = 0;
+    dispScore = 0;
+    scoreEl.textContent = '0';
+    V = makeVessel(1, (G.rng() * 4294967296) >>> 0, -1);
+    fitVessel();
+    buildCache();
+    phase = 'ready';
+    phaseT = 0;
+    if (G.tut === 1) spawnTut(1);
+    updateHud();
+  }
+  function beginRun(fromButton) {
+    Arcade.runStart({ tutorial: !!G.tut });
+    G.running = true;
+    G.startBest = best;
+    if (fromButton) { phase = 'enter'; phaseT = 0; } else { phase = 'play'; V.nextSpawn = gt + 0.7; }
+    updateHud();
+    kick();
+  }
+  function newGame() {
+    if (Arcade.inRun()) Arcade.runEnd(runProps('restart'));
+    overEl.hidden = true;
+    prepareRun();
+    beginRun(true);
+  }
+  function runProps(reason) {
+    return {
+      score: G.score, reason, vessel: V ? V.n : 1, vessels: G.mended, catches: G.catches, fine: G.fine,
+      chips: G.chipsTotal, top_combo: G.topStreak, whole: G.whole, new_best: G.score > G.startBest && G.score > 0,
+    };
+  }
+
+  function spawnTut(stage) {
+    const o = stage === 1
+      ? { minLen: 160, tele: 1.0, speed: 36, tut: true, wait: true }
+      : { minLen: 170, tele: 1.4, speed: 42, tut: true, forceFork: true };
+    let c = makeCrack(o);
+    // the fork lesson must really fork: try other origins (then shorter cracks) until one does
+    for (let k = 0; stage === 2 && k < 30 && !(c && c.branches.length > 1); k++) {
+      c = makeCrack(Object.assign({}, o, { minLen: k < 15 ? 170 : 120, tut: k < 10 }));
+      if (c) c.tut = true;
+    }
+    if (!c) { G.tut = 3; return; }
+    addCrack(c);
+  }
+  function addCrack(c) {
+    c.idx = V.spawned++;
+    V.marks[c.idx] = 'a';
+    cracks.push(c);
+    Sound.tock();
+    if (!reduceMotion.matches) parts.push({ kind: 'ring', x: c.origin.x, y: c.origin.y, r0: 4, r1: 40, age: 0, life: 0.5, color: V.glowRGB });
+  }
+  function spawnTick() {
+    const D = V.diff;
+    if (V.spawned >= V.total) return;
+    if (G.tut === 1 || G.tut === 2) {
+      if (!cracks.length && gt >= V.nextSpawn) spawnTut(G.tut);
+      return;
+    }
+    const max = G.tut ? 1 : D.max;
+    if (cracks.length >= max || gt < V.nextSpawn) return;
+    let c = null;
+    if (D.craze && V.spawned > 0 && V.crazes < 2 && V.rng() < D.craze) {
+      c = makeCraze(D);
+      if (c) V.crazes++;
+    }
+    if (!c) c = makeCrack({ minLen: D.minLen, tele: D.tele, speed: D.speed, accel: D.accel, forks: D.forks && !G.tut });
+    if (!c) { V.total = V.spawned; V.marks.length = V.total; return; }
+    addCrack(c);
+    if (V.wave > 0) {
+      V.wave--;
+      V.nextSpawn = gt + lerp(D.spread[0], D.spread[1], V.rng());
+    } else {
+      const r = V.rng();
+      const p5 = D.p5, p4 = p5 + D.p4, p3 = p4 + D.p3, p2 = p3 + D.p2;
+      V.wave = r < p5 ? 4 : r < p4 ? 3 : r < p3 ? 2 : r < p2 ? 1 : 0;
+      V.nextSpawn = gt + lerp(D.gap[0], D.gap[1], V.rng());
+    }
+  }
+
+  function startCrack(c) {
+    c.state = 'run';
+    c.runAt = gt;
+    Sound.snap();
+    buzz(6);
+    burst(c.origin.x, c.origin.y, 6, V.glowRGB, 60, 'dust');
+  }
+
+  function updateCracks(dt) {
+    for (const c of cracks) {
+      if (c.state === 'tele') {
+        if (c.wait) {
+          if (brush.down && Math.hypot(brush.x - c.origin.x, brush.y - c.origin.y) <= REACH * 1.6) { c.wait = false; c.t0 = gt - c.tele + 0.35; }
+          continue;
+        }
+        if (gt - c.t0 < c.tele) continue;
+        startCrack(c);
+      }
+      if (c.state !== 'run') continue;
+      if (c.accel) c.speed = Math.min(CAP, c.speed + c.accel * dt);
+      for (const b of c.branches) {
+        if (b.state === 'wait') {
+          if (b.parent) {
+            if (b.parent.tip >= b.jLen) { b.state = 'grow'; b.tip = Math.min(b.len, b.parent.tip - b.jLen); }
+            else if (b.parent.state !== 'grow') b.state = 'cancel';
+          } else if (gt >= c.runAt + b.delay) {
+            b.state = 'grow';
+            if (b.delay > 0) Sound.creak();
+          }
+          if (b.state !== 'grow') continue;
+        }
+        if (b.state !== 'grow') continue;
+        let v = b.tip < b.snapLen ? 340 : c.speed;
+        if (c.tut) {
+          const rem = b.len - b.tip;
+          if (rem < 16) v = 0; else if (rem < 52) v = Math.min(v, 7);
+        }
+        const before = b.tip;
+        b.tip = Math.min(b.len, b.tip + v * dt);
+        b.creak += b.tip - before;
+        if (b.creak > 40) { b.creak = 0; Sound.creak(); }
+        if (b.tip >= b.len - 1e-6) {
+          if (b.rimEnd) chipBranch(c, b);
+          else b.state = 'stopped';
+        }
+        if (phase !== 'play') return;
+      }
+    }
+    for (let i = cracks.length - 1; i >= 0; i--) {
+      const c = cracks[i];
+      if (c.state === 'run' && c.branches.every(b => b.state === 'caught' || b.state === 'chipped' || b.state === 'stopped' || b.state === 'cancel')) resolveCrack(c);
+    }
+  }
+
+  /* ---------- gilding ---------- */
+  function avail(b) {
+    if (b.state !== 'grow' && b.state !== 'chipped' && b.state !== 'stopped') return false;
+    return !b.parent || b.parent.front >= b.jLen - 0.01;
+  }
+  function nearBranch(b, x, y, r) {
+    if (x < b.bx0 - r || x > b.bx1 + r || y < b.by0 - r || y > b.by1 + r) return false;
+    const r2 = r * r, lim = Math.min(b.n - 1, Math.ceil(b.tip / b.sp));
+    for (let i = 0; i <= lim; i += 2) { const dx = b.xs[i] - x, dy = b.ys[i] - y; if (dx * dx + dy * dy <= r2) return true; }
+    const p = at(b, b.tip);
+    return (p.x - x) ** 2 + (p.y - y) ** 2 <= r2;
+  }
+  // Advance the gold front: only from the front itself, point by point, while the next crack point is within reach of the stroke.
+  function gildBranch(b, x, y) {
+    if (!avail(b)) return 0;
+    const r2 = REACH * REACH, f0 = b.front;
+    while (b.front < b.tip - 1e-6) {
+      let nxt = (Math.floor(b.front / b.sp + 1e-6) + 1) * b.sp;
+      if (nxt > b.tip) nxt = b.tip;
+      const p = at(b, nxt);
+      if ((p.x - x) ** 2 + (p.y - y) ** 2 > r2) break;
+      b.front = nxt;
+    }
+    return b.front - f0;
+  }
+  function deviation(b, x, y, s0, s1) {
+    const i0 = Math.max(0, Math.floor(s0 / b.sp) - 8), i1 = Math.min(b.n - 1, Math.ceil(s1 / b.sp) + 2);
+    let m = Infinity;
+    for (let i = i0; i < i1; i++) m = Math.min(m, distSeg2(x, y, b.xs[i], b.ys[i], b.xs[i + 1], b.ys[i + 1]));
+    return Math.sqrt(m);
+  }
+  function brushSample(x, y, moved) {
+    if (phase !== 'play') return;
+    let near = false;
+    for (const c of cracks) {
+      if (c.state === 'tele') {
+        if (Math.hypot(x - c.origin.x, y - c.origin.y) <= REACH * 1.6) near = true;
+        continue;
+      }
+      for (const b of c.branches) {
+        if (b.state === 'wait' || b.state === 'cancel') continue;
+        if (!near && nearBranch(b, x, y, REACH)) near = true;
+        if (dry) continue;
+        const f0 = b.front;
+        const adv = gildBranch(b, x, y);
+        if (adv > 0) onGild(c, b, x, y, f0, adv);
+      }
+    }
+    if (moved > 0 && !near) spendLeaf(moved / LEAF_PER, x, y);
+  }
+  function onGild(c, b, x, y, f0, adv) {
+    const dev = deviation(b, x, y, f0, b.front);
+    b.devSum += dev * adv;
+    b.devW += adv;
+    G.lastGild = gt;
+    // a light tick for every fracture edge sealed
+    while (b.arcIdx < b.arcs.length && b.front >= b.arcs[b.arcIdx] - 0.5) {
+      b.arcIdx++;
+      Sound.seal(G.gildN++);
+      if (gt - G.lastBuzz > 0.06) { buzz(4); G.lastBuzz = gt; }
+    }
+    if (!reduceMotion.matches && rand() < Math.min(1, adv / 6)) {
+      const p = at(b, b.front);
+      parts.push({ kind: 'spark', x: p.x, y: p.y, vx: (rand() - 0.5) * 50, vy: -20 - rand() * 50, size: 1.2 + rand() * 1.6, age: 0, life: 0.35 + rand() * 0.3, rot: rand() * 3 });
+    }
+    if (b.state === 'grow' && b.front >= b.tip - 0.05 && b.tip >= b.minCatch) catchBranch(c, b);
+  }
+  function spendLeaf(amount, x, y) {
+    if (dry) return;
+    leaf -= amount;
+    if (leaf <= 0) {
+      leaf = 0;
+      dry = true;
+      Sound.dry();
+      buzz(12);
+      flash('Brush dry. Let the gold leaf refill', 2.4);
+      pushText('word', 'Dry', wx(x), wy(y) - 28, 0.9, T.inkSoft);
+    } else if (!leafHintDone && leaf < 45) {
+      leafHintDone = true;
+      store.set('leafHint', 1);
+      flash('Lift your finger to move for free', 3);
+    }
+  }
+
+  function catchBranch(c, b) {
+    b.state = 'caught';
+    b.front = b.tip;
+    b.caughtAt = gt;
+    b.gleam = gt;
+    const dev = b.devW > 0 ? b.devSum / b.devW : 0;
+    const q = dev <= 4 ? 3 : dev <= 9 ? 2 : 1;
+    const combo = comboMult();
+    const pts = Math.round(50 * q * combo);
+    G.streak++;
+    G.topStreak = Math.max(G.topStreak, G.streak);
+    G.catches++;
+    if (q === 3) G.fine++;
+    leaf = Math.min(LEAF_MAX, leaf + LEAF_REFUND);
+    if (dry && leaf >= LEAF_WAKE) { dry = false; Sound.wake(); }
+    const close = b.rimEnd && b.len - b.tip < 28;
+    Sound.ting(G.streak, close);
+    V.tings.push(Sound.scale[Math.min(G.streak - 1, Sound.scale.length - 1)]);
+    buzz(close ? [20, 30, 25] : 25);
+    const p = at(b, b.tip);
+    const px = p.x, py = p.y;
+    burst(px, py, close ? 26 : 16, null, close ? 150 : 110, 'spark');
+    parts.push({ kind: 'ring', x: px, y: py, r0: 6, r1: close ? 60 : 42, age: 0, life: 0.45, gold: true });
+    if (close) { G.slowUntil = gt + 0.1; if (!reduceMotion.matches) { shake.amp = 3; shake.t0 = gt; } }
+    addScore(pts);
+    const word = close ? 'Just in time!' : ['', 'Rough', 'Steady', 'Fine'][q];
+    pushText('pts', '+' + fmt(pts), wx(px), wy(py) - 16, 0.95);
+    pushText('tag', word, wx(px), texts[texts.length - 1].y - 24, 1.1, q === 3 || close ? T.goldText : T.inkSoft);
+    if (G.tut === 3) completeTutorial();
+  }
+  const COMBO_CAP = 3;
+  function comboMult() { return Math.min(COMBO_CAP, 1 + 0.1 * G.streak); }
+  function completeTutorial() {
+    G.tut = 0;
+    tutorialDone = true;
+    store.set('tutorial', 1);
+    Arcade.track('tutorial_complete');
+    flash('Lovely. You have the knack', 2.2);
+  }
+  function addScore(pts) {
+    G.score += pts;
+    if (G.score > best) {
+      if (best > 0 && G.score - pts <= best) { bestPill.classList.remove('bump'); void bestPill.offsetWidth; bestPill.classList.add('bump'); }
+      best = G.score;
+      store.set('best', best);
+      setBest();
+    }
+  }
+
+  /* ---------- chips ---------- */
+  function chipCellFor(c, b) {
+    const e = V.edges[b.edges[b.edges.length - 1]];
+    const cand = e.cells.filter(ci => ci >= 0 && !V.chipped.has(ci));
+    if (!cand.length) return -1;
+    if (cand.length === 1) return cand[0];
+    const count = ci => { let n = 0; for (const bb of c.branches) for (const ei of bb.edges) if (V.edges[ei].cells.includes(ci)) n++; return n; };
+    const p = cand[0], q = cand[1], np = count(p), nq = count(q);
+    if (np !== nq) return np > nq ? p : q;
+    return V.cells[p].area <= V.cells[q].area ? p : q;
+  }
+  function chipBranch(c, b) {
+    b.state = 'chipped';
+    c.hadChip = true;
+    const ci = b.warnCell !== undefined ? b.warnCell : chipCellFor(c, b);
+    const end = at(b, b.len);
+    const ex = end.x, ey = end.y;
+    if (ci >= 0 && !V.chipped.has(ci)) doChip(ci);
+    V.chips++;
+    G.chipsTotal++;
+    G.streak = 0;
+    Sound.chip();
+    buzz([45, 35, 70]);
+    if (!reduceMotion.matches) { shake.amp = 7; shake.t0 = gt; }
+    pushText('tag', 'Chipped', wx(ex), wy(ey) - 30, 1.1, T.danger);
+    if (V.chips >= CHIPS_MAX) breakRun();
+    updateHud();
+  }
+  function doChip(ci) {
+    V.chipped.add(ci);
+    const piece = makePiece(ci);
+    eraseCell(cacheCtx, ci);
+    for (const e of V.edges) {
+      if (!e.dead && (e.cells[0] === ci || e.cells[1] === ci)) { e.dead = true; V.nodes[e.a].rim = true; V.nodes[e.b].rim = true; }
+    }
+    computeDist(V);
+    retarget();
+    const cx = V.bbox.x + V.bbox.w / 2, cy = V.bbox.y + V.bbox.h / 2;
+    if (piece) {
+      const px = piece.x + piece.w / 2, py = piece.y + piece.h / 2;
+      const dx = px - cx, dy = py - cy, dl = Math.hypot(dx, dy) || 1;
+      falling.push({ spr: piece.c, x: px, y: py, w: piece.w, h: piece.h, vx: (dx / dl) * 80, vy: -70 + (dy / dl) * 40, rot: 0, vr: (rand() < 0.5 ? -1 : 1) * (1.5 + rand() * 2), age: 0, life: 1.5 });
+      const n = reduceMotion.matches ? 5 : 16;
+      const clay = parseHex(T.clay);
+      for (let k = 0; k < n; k++) {
+        let x = 0, y = 0, tries = 0;
+        do { x = piece.x + rand() * piece.w; y = piece.y + rand() * piece.h; } while (++tries < 20 && !(pip(x, y, V.outline) && pip(x, y, V.cells[ci].poly)));
+        parts.push({
+          kind: 'shard', x, y, vx: (rand() - 0.5) * 260 + (dx / dl) * 80, vy: -120 - rand() * 220, rot: rand() * 6, vr: (rand() - 0.5) * 14,
+          size: 2.5 + rand() * 5, color: rgb(k % 4 === 0 ? clay : mix(V.base, rand() < 0.5 ? WHITE : BLACK, rand() * 0.25)), age: 0, life: 0.7 + rand() * 0.5,
+        });
+      }
+    }
+  }
+  function makePiece(ci) {
+    const P = V.cells[ci].poly;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    const b = V.bbox;
+    x0 = Math.max(x0, b.x - 2); y0 = Math.max(y0, b.y - 2); x1 = Math.min(x1, b.x + b.w + 2); y1 = Math.min(y1, b.y + b.h + 2);
+    if (x1 <= x0 || y1 <= y0) return null;
+    const k = L.s * dpr;
+    const c = document.createElement('canvas');
+    c.width = Math.max(2, Math.ceil((x1 - x0) * k) + 2);
+    c.height = Math.max(2, Math.ceil((y1 - y0) * k) + 2);
+    const g = c.getContext('2d');
+    g.setTransform(k, 0, 0, k, -x0 * k + 1, -y0 * k + 1);
+    g.save();
+    bodyPath(g);
+    g.clip();
+    polyPath(g, P);
+    g.clip();
+    g.drawImage(cache, cacheBox.x, cacheBox.y, cacheBox.w, cacheBox.h);
+    polyPath(g, P);
+    g.strokeStyle = T.clay;
+    g.lineWidth = 3;
+    g.stroke();
+    g.restore();
+    return { c, x: x0 - 1 / k, y: y0 - 1 / k, w: c.width / k, h: c.height / k };
+  }
+  // After a chip the hole's edge is new rim: shorten any crack that would now run into it.
+  function retarget() {
+    for (const c of cracks) for (const b of c.branches) {
+      if (b.state !== 'grow' && b.state !== 'wait') continue;
+      if (b.state === 'wait' && V.edges[b.edges[0]].dead) { b.state = 'cancel'; continue; }
+      let k = 0;
+      while (k < b.edges.length - 1 && b.arcs[k + 1] <= b.tip) k++;
+      if (b.state === 'grow' && V.edges[b.edges[k]].dead) { b.state = 'stopped'; continue; }
+      for (let m = k + 1; m < b.nodes.length - 1; m++) {
+        if (!V.nodes[b.nodes[m]].rim) continue;
+        const end = b.arcs[m];
+        if (end >= b.len) break;
+        if (b.state === 'grow' && end - b.tip < 22) b.state = 'stopped';
+        else {
+          b.len = end;
+          b.edges = b.edges.slice(0, m);
+          b.nodes = b.nodes.slice(0, m + 1);
+          b.rimEnd = c.kind !== 'craze';
+          b.warnCell = undefined;
+        }
+        for (const kb of c.branches) if (kb.parent === b && kb.jLen > b.len - 0.01) kb.state = 'cancel';
+        break;
+      }
+    }
+  }
+
+  function resolveCrack(c) {
+    c.state = 'done';
+    const g = cacheCtx;
+    cacheXform(g);
+    for (const b of c.branches) {
+      if (b.state === 'cancel' || b.tip <= 0.5) continue;
+      if (b.front > 0.5) V.seams.push({ kind: 'gold', pts: rangePts(b, 0, b.front) });
+      if (b.tip - b.front > 0.5) V.seams.push({ kind: c.kind === 'craze' ? 'craze' : 'scar', pts: rangePts(b, b.front, b.tip) });
+      for (let k = 0; k < b.edges.length; k++) if (b.arcs[k] < b.tip) V.edges[b.edges[k]].used = 1;
+    }
+    // bake this crack's seams, then re-cut holes so scars never paint over them
+    const fresh = V.seams.filter(sm => !sm.baked);
+    for (const sm of fresh) { bakeSeam(g, sm); sm.baked = true; }
+    for (const ci of V.chipped) eraseCell(g, ci);
+    V.marks[c.idx] = c.hadChip ? 'c' : c.branches.some(b => b.state === 'caught') ? 'g' : 's';
+    cracks.splice(cracks.indexOf(c), 1);
+    if (c.tut && (G.tut === 1 || G.tut === 2)) {
+      G.tut++;
+      store.set('tutStage', G.tut);
+      V.nextSpawn = gt + 1.2;
+      if (G.tut === 2) flash('Lovely. Gold seals the crack', 1.6);
+    } else {
+      if (!V.wave) V.nextSpawn = Math.max(V.nextSpawn, gt + V.diff.rest);
+    }
+    if (phase === 'play' && V.spawned >= V.total && !cracks.length) completeVessel();
+  }
+
+  function completeVessel() {
+    phase = 'sweep';
+    phaseT = 0;
+    const whole = V.chips === 0;
+    G.mended++;
+    store.set('mended', (store.get('mended', 0) | 0) + 1);
+    if (whole) {
+      G.whole++;
+      addScore(500);
+      Sound.whole();
+    }
+    Sound.sweep();
+    Sound.chord(V.tings);
+    buzz([10, 50, 10, 50, 18]);
+    Arcade.track('level_complete', { vessel: V.n, chips: V.chips, whole });
+    G.sweepWhole = whole;
+    for (const tx of texts) tx.dur = Math.min(tx.dur, gt - tx.t0 + 0.2);
+    G.toast = { title: whole ? 'Whole' : 'Mended', line: whole ? 'No chips  ·  +500' : `${V.chips} ${V.chips === 1 ? 'chip' : 'chips'}, kept on your shelf`, gold: whole, t0: gt };
+  }
+  function snapshot() {
+    const h = 88, k = h / cacheBox.h, w = Math.max(1, Math.round(cacheBox.w * k));
+    const c = document.createElement('canvas');
+    c.width = w * 2;
+    c.height = h * 2;
+    c.getContext('2d').drawImage(cache, 0, 0, c.width, c.height);
+    G.shelf.push({ c, w, h, chips: V.chips });
+  }
+  function nextVessel() {
+    const prev = V.glaze;
+    G.n++;
+    V = makeVessel(G.n, (G.rng() * 4294967296) >>> 0, prev);
+    fitVessel();
+    buildCache();
+    phase = 'enter';
+    phaseT = 0;
+    updateHud();
+  }
+  function breakRun() {
+    phase = 'broken';
+    phaseT = 0;
+    brush.down = false;
+    for (const c of cracks.slice()) {
+      for (const b of c.branches) if (b.state === 'grow' || b.state === 'wait') b.state = b.state === 'wait' ? 'cancel' : 'stopped';
+      resolveCrack(c);
+    }
+    snapshot();
+    G.running = false;
+    Arcade.runEnd(runProps('lose'));
+    setTimeout(() => { Sound.over(); buzz([30, 60, 30]); }, 500);
+  }
+  function showOver() {
+    G.overShown = true;
+    phase = 'over';
+    const isBest = G.score > G.startBest && G.score > 0;
+    $('overScore').textContent = fmt(G.score);
+    $('overVessels').textContent = fmt(G.mended);
+    $('overCatches').textContent = fmt(G.catches);
+    $('overFine').textContent = fmt(G.fine);
+    $('newBest').hidden = !isBest;
+    $('overTitle').textContent = isBest ? 'Your best yet' : G.mended ? `${G.mended} ${G.mended === 1 ? 'vessel' : 'vessels'} mended` : 'Three chips';
+    $('overEyebrow').textContent = isBest ? 'Three chips' : 'Run over';
+    overEl.hidden = false;
+    drawShelf();
+    if (isBest) setTimeout(() => Sound.best(), 300);
+    $('againBtn').focus({ preventScroll: true });
+    updateHud();
+  }
+  function drawShelf() {
+    const el = $('shelf');
+    const r = el.getBoundingClientRect();
+    const w = Math.max(10, r.width || 300), h = Math.max(10, r.height || 96);
+    const k = Math.min(3, window.devicePixelRatio || 1);
+    el.width = Math.round(w * k);
+    el.height = Math.round(h * k);
+    const g = el.getContext('2d');
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = T.track;
+    rrect(g, 0, h - 12, w, 8, 4);
+    g.fill();
+    const items = G.shelf.slice(-6);
+    const extra = G.shelf.length - items.length;
+    const th = h - 16;
+    let total = 0;
+    for (const it of items) total += (it.w * th) / it.h;
+    const gap = 6, avail = w - (extra ? 34 : 0);
+    const sc = Math.min(1, (avail - gap * (items.length - 1)) / Math.max(1, total));
+    let x = (extra ? 34 : 0) + (avail - (total * sc + gap * (items.length - 1))) / 2;
+    for (const it of items) {
+      const iw = ((it.w * th) / it.h) * sc, ih = th * sc;
+      g.drawImage(it.c, x, h - 8 - ih, iw, ih);
+      x += iw + gap;
+    }
+    if (extra) {
+      g.fillStyle = T.inkSoft;
+      g.font = `700 12px ${FONT_B}`;
+      g.textBaseline = 'middle';
+      g.fillText('+' + extra, 4, h / 2);
+    }
+  }
+
+  /* ---------- hints ---------- */
+  function flash(text, dur) { G.hint = text; G.hintUntil = gt + dur; }
+  function tutHint() {
+    if (!G.tut) return '';
+    const c = cracks[0];
+    if (G.tut === 1) {
+      if (!c) return '';
+      if (c.state === 'tele') return c.wait ? 'Put your finger where the crack starts' : 'Here it comes…';
+      return 'Trace along it to catch the tip';
+    }
+    if (G.tut === 2) {
+      if (!c) return '';
+      if (c.state === 'tele') return 'This one will fork. Start at the glow';
+      const kids = c.branches.filter(b => b.parent);
+      const growing = kids.filter(k => k.state === 'grow');
+      if (growing.length && c.branches.some(b => b.state === 'caught')) return 'Follow your gold back to the fork';
+      if (growing.length) return 'It forked! Catch both tips';
+      return 'Trace from where it started';
+    }
+    return phase === 'ready' ? '' : 'Now on your own. Keep it off the edge';
+  }
+  function currentHint() {
+    if (G.hint && gt < G.hintUntil) return G.hint;
+    const t = tutHint();
+    if (t) return t;
+    if (phase === 'ready') return 'Touch the vessel to begin';
+    return '';
+  }
+
+  /* ---------- HUD ---------- */
+  let subKey = '', chipsShown = -1, leafShown = -1, leafCls = '';
+  function setBest() {
+    const t = fmt(best);
+    if (bestEl.textContent !== t) { bestEl.textContent = t; bestPill.classList.toggle('long', t.length >= 7); }
+  }
+  function updateHud() {
+    setBest();
+    renderSub();
+    syncChips();
+    syncLeaf();
+  }
+  function renderSub() {
+    if (!G) return;
+    const h = currentHint();
+    let key = '';
+    if (h) key = 'h|' + h;
+    else if (V && phase !== 'ready' && phase !== 'over') key = 's|' + V.n + '|' + V.marks.join(',') + '|' + G.streak;
+    if (key === subKey) return;
+    subKey = key;
+    if (!key) { sub.replaceChildren(); return; }
+    if (h) {
+      const s = document.createElement('span');
+      s.className = 'hint';
+      s.textContent = h;
+      sub.replaceChildren(s);
+      return;
+    }
+    const vl = document.createElement('span');
+    vl.className = 'vl';
+    vl.textContent = 'Vessel ' + V.n;
+    const items = [vl];
+    if (V.total <= 12) {
+      const pd = document.createElement('span');
+      pd.className = 'pd';
+      const done = V.marks.filter(m => m === 'g' || m === 'c' || m === 's').length;
+      pd.setAttribute('aria-label', `${done} of ${V.total} cracks done`);
+      for (let i = 0; i < V.total; i++) { const d = document.createElement('i'); if (V.marks[i]) d.className = V.marks[i]; pd.append(d); }
+      items.push(pd);
+    } else {
+      const pc = document.createElement('span');
+      pc.className = 'pc';
+      pc.textContent = `${V.marks.filter(m => m === 'g' || m === 'c' || m === 's').length}/${V.total}`;
+      items.push(pc);
+    }
+    if (G.streak >= 2) {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.setAttribute('aria-label', `Combo multiplier ${comboMult().toFixed(1)}`);
+      const w = document.createElement('span');
+      w.className = 'w';
+      w.textContent = 'Combo';
+      chip.append(w, `×${comboMult().toFixed(1)}`);
+      items.push(chip);
+    }
+    sub.replaceChildren(...items);
+  }
+  function syncChips() {
+    const n = V ? V.chips : 0;
+    if (n === chipsShown) return;
+    chipsShown = n;
+    chipsEl.querySelectorAll('i').forEach((el, i) => el.classList.toggle('on', i < n));
+    chipsEl.setAttribute('aria-label', n ? `${n} of ${CHIPS_MAX} chips on this vessel` : 'No chips yet');
+  }
+  function syncLeaf() {
+    const v = Math.round(leaf * 2) / 2;
+    if (v !== leafShown) {
+      leafShown = v;
+      leafFill.style.transform = `scaleX(${(leaf / LEAF_MAX).toFixed(3)})`;
+      leafEl.setAttribute('aria-valuenow', String(Math.round(leaf)));
+    }
+    const cls = dry ? 'leaf dry' : leaf < 25 ? 'leaf low' : 'leaf';
+    if (cls !== leafCls) { leafCls = cls; leafEl.className = cls; }
+  }
+
+  /* ---------- effects ---------- */
+  function burst(x, y, n, color, speed, kind) {
+    if (reduceMotion.matches) n = Math.ceil(n / 3);
+    for (let k = 0; k < n; k++) {
+      const a = rand() * TAU, v = speed * (0.35 + rand() * 0.75);
+      parts.push({ kind, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.25, size: 1.2 + rand() * 2.2, age: 0, life: 0.45 + rand() * 0.4, rot: rand() * 3, color });
+    }
+  }
+  function pushText(kind, text, x, y, dur, color) {
+    for (let k = 0; k < 4; k++) {
+      const hit = texts.find(t => t.kind === kind && gt - t.t0 < 0.6 && Math.abs(t.x - x) < 70 && Math.abs(t.y - y) < 30);
+      if (!hit) break;
+      y = hit.y - 44;
+    }
+    texts.push({ kind, text, x: clamp(x, 40, W - 40), y: Math.max(20, y), t0: gt, dur, color });
+  }
+
+  /* ---------- update ---------- */
+  function update(dt) {
+    let ts = 1;
+    if (G.slowUntil > gt) ts = 0.3;
+    if (G.ramp < 0.6) { G.ramp += dt; ts *= 0.3 + 0.7 * Math.min(1, G.ramp / 0.6); }
+    const sdt = dt * ts;
+    gt += sdt;
+    switch (phase) {
+      case 'enter':
+        phaseT += sdt;
+        if (phaseT >= 1.35) { phase = 'play'; V.nextSpawn = gt + 0.5; }
+        break;
+      case 'play':
+        spawnTick();
+        updateCracks(sdt);
+        if (phase === 'play' && V.spawned >= V.total && !cracks.length) completeVessel();
+        if (brush.down && phase === 'play') brushSample(brush.x, brush.y, 0);
+        leaf = Math.min(LEAF_MAX, leaf + LEAF_REGEN * sdt);
+        if (dry && leaf >= LEAF_WAKE) { dry = false; Sound.wake(); }
+        break;
+      case 'sweep':
+        phaseT += sdt;
+        if (phaseT >= 1.9) { snapshot(); phase = 'exit'; phaseT = 0; }
+        break;
+      case 'exit':
+        phaseT += sdt;
+        if (phaseT >= 0.5) nextVessel();
+        break;
+      case 'broken':
+        phaseT += sdt;
+        if (phaseT >= 1.6 && !G.overShown) showOver();
+        break;
+      default:
+        break;
+    }
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.age += sdt;
+      if (p.age >= p.life) { parts.splice(i, 1); continue; }
+      if (p.kind === 'ring') continue;
+      const grav = p.kind === 'shard' ? 900 : p.kind === 'spark' ? 160 : 40;
+      p.vy += grav * sdt;
+      if (p.kind !== 'shard') { p.vx *= 1 - 2.5 * sdt; p.vy *= 1 - 2.5 * sdt; }
+      p.x += p.vx * sdt;
+      p.y += p.vy * sdt;
+      p.rot += (p.vr || 2) * sdt;
+    }
+    for (let i = falling.length - 1; i >= 0; i--) {
+      const f = falling[i];
+      f.age += sdt;
+      if (f.age >= f.life) { falling.splice(i, 1); continue; }
+      f.vy += 900 * sdt;
+      f.x += f.vx * sdt;
+      f.y += f.vy * sdt;
+      f.rot += f.vr * sdt;
+    }
+    for (let i = texts.length - 1; i >= 0; i--) if (gt - texts[i].t0 > texts[i].dur) texts.splice(i, 1);
+    const cut = gt - 0.28;
+    while (brush.trail.length && brush.trail[0].t < cut) brush.trail.shift();
+    if (dispScore !== G.score) {
+      dispScore += (G.score - dispScore) * (1 - Math.exp(-dt * 9));
+      if (Math.abs(G.score - dispScore) < 0.6) dispScore = G.score;
+      const shown = fmt(Math.round(dispScore));
+      if (scoreEl.textContent !== shown) {
+        scoreEl.textContent = shown;
+        scoreEl.classList.toggle('long', shown.length >= 7 && shown.length < 9);
+        scoreEl.classList.toggle('xlong', shown.length >= 9);
+      }
+    }
+    renderSub();
+    syncChips();
+    syncLeaf();
+  }
+
+  /* ---------- render ---------- */
+  function vesselXform() {
+    const cx = wx(V.bbox.x + V.bbox.w / 2), cy = wy(V.bbox.y + V.bbox.h / 2);
+    if (phase === 'exit') {
+      const t = easeInCubic(clamp(phaseT / 0.5, 0, 1));
+      return { cx, cy, dx: reduceMotion.matches ? 0 : W * 0.75 * t, sc: 1 - 0.3 * t, a: 1 - t };
+    }
+    if (phase === 'enter') {
+      const t = clamp(phaseT / 0.55, 0, 1);
+      return { cx, cy, dx: reduceMotion.matches ? 0 : -W * 0.75 * (1 - easeOutCubic(t)), sc: 0.82 + 0.18 * clamp(easeOutBack(t), 0, 1.2), a: Math.min(1, t * 2) };
+    }
+    return null;
+  }
+  function render() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (!V || !cache) return;
+    ctx.save();
+    if (shake.amp) {
+      const t = (gt - shake.t0) / shake.dur;
+      if (t < 1 && t >= 0) { const a = shake.amp * (1 - t) * (1 - t); ctx.translate((rand() * 2 - 1) * a, (rand() * 2 - 1) * a); }
+      else shake.amp = 0;
+    }
+    const vt = vesselXform();
+    if (vt) {
+      ctx.translate(vt.cx + vt.dx, vt.cy);
+      ctx.scale(vt.sc, vt.sc);
+      ctx.translate(-vt.cx, -vt.cy);
+      ctx.globalAlpha = clamp(vt.a, 0, 1);
+    }
+    ctx.drawImage(cache, wx(cacheBox.x), wy(cacheBox.y), cacheBox.w * L.s, cacheBox.h * L.s);
+    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.translate(L.ox, L.oy);
+    ctx.scale(L.s, L.s);
+    drawWarnings();
+    for (const c of cracks) drawCrackBase(c);
+    for (const c of cracks) drawCrackGold(c);
+    for (const c of cracks) drawCrackTop(c);
+    if (phase === 'sweep') drawSweep();
+    drawFalling();
+    drawParts();
+    drawBrush();
+    const guided = G.tut === 1 || G.tut === 2;
+    if (guided) drawGhost();
+    if (phase === 'ready' && !guided) drawReady();
+    ctx.restore();
+    ctx.restore();
+    drawTexts();
+    if (phase === 'enter') drawBanner();
+    if (phase === 'sweep') drawToast();
+  }
+
+  function glow(a) { const c = V.glowRGB; return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+  function timeToRim(c, b) { return b.rimEnd ? (b.len - b.tip) / Math.max(20, b.tip < b.snapLen ? 340 : c.speed) : Infinity; }
+
+  function drawWarnings() {
+    for (const c of cracks) {
+      if (c.state !== 'run' || c.tut) continue;
+      for (const b of c.branches) {
+        if (b.state !== 'grow' || timeToRim(c, b) > 1.0) continue;
+        if (b.warnCell === undefined) b.warnCell = chipCellFor(c, b);
+        if (b.warnCell < 0) continue;
+        const pulse = 0.5 + 0.5 * Math.sin(gt * 16);
+        ctx.save();
+        bodyPath(ctx);
+        ctx.clip();
+        polyPath(ctx, V.cells[b.warnCell].poly);
+        ctx.fillStyle = T.danger;
+        ctx.globalAlpha = 0.14 + 0.14 * pulse;
+        ctx.fill();
+        ctx.globalAlpha = 0.5 + 0.3 * pulse;
+        ctx.strokeStyle = T.danger;
+        ctx.lineWidth = lineW(1.6);
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
+  }
+  function drawCrackBase(c) {
+    if (c.state === 'tele') return;
+    for (const b of c.branches) {
+      if (b.state === 'wait' || b.state === 'cancel' || b.tip <= 0) continue;
+      hairStroke(ctx, (ox, oy) => rangePath(ctx, b, 0, b.tip, ox, oy), c.kind === 'craze' ? 0.85 : 1, c.kind === 'craze' ? 1.2 : 1.6);
+      if (b.state !== 'grow') continue;
+      // stress line: where the tip will be over the next 0.6 s, forks included
+      const reach = Math.max(c.speed, 40) * AHEAD;
+      const s1 = Math.min(b.len, b.tip + reach);
+      if (s1 > b.tip + 0.5) {
+        ctx.lineCap = 'round';
+        const chunks = 3;
+        for (let k = 0; k < chunks; k++) {
+          const a0 = b.tip + ((s1 - b.tip) * k) / chunks, a1 = b.tip + ((s1 - b.tip) * (k + 1)) / chunks;
+          rangePath(ctx, b, a0, a1);
+          ctx.strokeStyle = glow(0.26 - k * 0.07);
+          ctx.lineWidth = lineW(4);
+          ctx.stroke();
+        }
+        rangePath(ctx, b, b.tip, s1);
+        ctx.setLineDash([2, 4]);
+        ctx.strokeStyle = glow(0.6);
+        ctx.lineWidth = lineW(1.1);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      for (const kb of c.branches) {
+        if (kb.parent !== b || kb.state !== 'wait' || kb.jLen > s1) continue;
+        const ks = Math.min(kb.len, s1 - kb.jLen);
+        if (ks <= 0.5) continue;
+        rangePath(ctx, kb, 0, ks);
+        ctx.strokeStyle = glow(0.22);
+        ctx.lineWidth = lineW(4);
+        ctx.stroke();
+        ctx.setLineDash([2, 4]);
+        ctx.strokeStyle = glow(0.6);
+        ctx.lineWidth = lineW(1.1);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  }
+  function drawCrackGold(c) {
+    if (c.state === 'tele') return;
+    for (const b of c.branches) {
+      if (b.front <= 0.3) continue;
+      goldStroke(ctx, (ox, oy) => rangePath(ctx, b, 0, b.front, ox, oy));
+      const gt0 = gt - b.gleam;
+      if (gt0 >= 0 && gt0 < 0.5) {
+        // a glint runs down the fresh seam after a catch
+        const s = b.front * easeOutCubic(gt0 / 0.5);
+        const p = at(b, s);
+        const gr = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 12);
+        gr.addColorStop(0, 'rgba(255,255,240,0.95)');
+        gr.addColorStop(1, 'rgba(255,240,180,0)');
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 12, 0, TAU);
+        ctx.fill();
+      }
+      if (b.state === 'grow') {
+        const p = at(b, b.front);
+        const gr = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 7);
+        gr.addColorStop(0, 'rgba(255,250,225,0.95)');
+        gr.addColorStop(1, 'rgba(255,230,150,0)');
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 7, 0, TAU);
+        ctx.fill();
+      }
+    }
+  }
+  function drawCrackTop(c) {
+    if (c.state === 'tele') {
+      // telegraph: impact flash, the first fracture edges glowing, and a countdown ring
+      const k = c.wait ? 0 : clamp((gt - c.t0) / c.tele, 0, 1);
+      const pulse = 0.5 + 0.5 * Math.sin(gt * 9);
+      const { x, y } = c.origin;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (const b of c.branches) {
+        if (b.parent && b.jLen > c.preLen) continue;
+        const len = c.kind === 'craze' ? Math.min(b.len, c.preLen) : b.parent ? Math.min(b.len, 24) : c.preLen;
+        rangePath(ctx, b, 0, len);
+        ctx.strokeStyle = glow(0.22 + 0.2 * pulse);
+        ctx.lineWidth = lineW(7);
+        ctx.stroke();
+        ctx.setLineDash([2.5, 3.5]);
+        ctx.strokeStyle = glow(0.9);
+        ctx.lineWidth = lineW(1.3);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      const fr = (gt * 1.4) % 1;
+      ctx.beginPath();
+      ctx.arc(x, y, 6 + 26 * fr, 0, TAU);
+      ctx.strokeStyle = glow(0.75 * (1 - fr));
+      ctx.lineWidth = lineW(2);
+      ctx.stroke();
+      const gr = ctx.createRadialGradient(x, y, 0, x, y, 16);
+      gr.addColorStop(0, glow(0.95));
+      gr.addColorStop(0.4, glow(0.45));
+      gr.addColorStop(1, glow(0));
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.arc(x, y, 16, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, y, 12, -Math.PI / 2, -Math.PI / 2 + TAU * (c.wait ? 1 : k));
+      ctx.strokeStyle = glow(c.wait ? 0.5 + 0.4 * pulse : 0.95);
+      ctx.lineWidth = lineW(2.4);
+      ctx.stroke();
+      return;
+    }
+    for (const b of c.branches) {
+      if (b.state !== 'grow') continue;
+      const p = at(b, b.tip);
+      const px = p.x, py = p.y;
+      const danger = timeToRim(c, b) < 1.0 && !c.tut;
+      const pulse = 0.5 + 0.5 * Math.sin(gt * (danger ? 18 : 9) + b.id);
+      const col = danger ? parseHex(T.danger) : V.glowRGB;
+      const gr = ctx.createRadialGradient(px, py, 0, px, py, 24);
+      gr.addColorStop(0, rgb(col, 0.9));
+      gr.addColorStop(0.3, rgb(col, 0.38));
+      gr.addColorStop(1, rgb(col, 0));
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.arc(px, py, 24, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px, py, 10 + pulse * 3, 0, TAU);
+      ctx.strokeStyle = rgb(col, 0.85);
+      ctx.lineWidth = lineW(1.8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(px, py, 2.2, 0, TAU);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fill();
+      if (danger) {
+        const e = at(b, b.len);
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 5 + pulse * 3, 0, TAU);
+        ctx.strokeStyle = rgb(col, 0.9);
+        ctx.lineWidth = lineW(2);
+        ctx.stroke();
+      }
+    }
+  }
+  function drawSweep() {
+    const t = clamp(phaseT / 1.4, 0, 1);
+    const b = V.bbox;
+    const dMin = b.x + 0.5 * b.y, dMax = b.x + b.w + 0.5 * (b.y + b.h);
+    const c = dMin + (dMax - dMin) * (-0.15 + 1.3 * easeInOut(t)), hw = 34;
+    ctx.save();
+    bodyPath(ctx);
+    ctx.clip();
+    const p0 = (c - hw) / 1.25, p1 = (c + hw) / 1.25;
+    const gr = ctx.createLinearGradient(p0, p0 * 0.5, p1, p1 * 0.5);
+    gr.addColorStop(0, 'rgba(255,255,255,0)');
+    gr.addColorStop(0.5, `rgba(255,255,255,${G.sweepWhole ? 0.32 : 0.22})`);
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.beginPath();
+    ctx.moveTo(c - hw - 0.5 * b.y, b.y);
+    ctx.lineTo(c + hw - 0.5 * b.y, b.y);
+    ctx.lineTo(c + hw - 0.5 * (b.y + b.h), b.y + b.h);
+    ctx.lineTo(c - hw - 0.5 * (b.y + b.h), b.y + b.h);
+    ctx.closePath();
+    ctx.clip();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const sm of V.seams) {
+      if (sm.kind !== 'gold') continue;
+      flatPath(ctx, sm.pts);
+      ctx.strokeStyle = T.goldHi;
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = lineW(4.4);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawFalling() {
+    for (const f of falling) {
+      const a = f.age > f.life * 0.6 ? 1 - (f.age - f.life * 0.6) / (f.life * 0.4) : 1;
+      ctx.save();
+      ctx.globalAlpha = clamp(a, 0, 1);
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.rot);
+      ctx.drawImage(f.spr, -f.w / 2, -f.h / 2, f.w, f.h);
+      ctx.restore();
+    }
+  }
+  function drawParts() {
+    for (const p of parts) {
+      const t = p.age / p.life;
+      if (p.kind === 'ring') {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r0 + (p.r1 - p.r0) * easeOutCubic(t), 0, TAU);
+        ctx.strokeStyle = p.gold ? T.goldHi : rgb(p.color);
+        ctx.globalAlpha = (1 - t) * 0.9;
+        ctx.lineWidth = lineW(2.4 * (1 - t) + 0.5);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = 1 - Math.pow(t, 3);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      if (p.kind === 'shard') {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.moveTo(-p.size * 0.5, -p.size * 0.35);
+        ctx.lineTo(p.size * 0.55, -p.size * 0.15);
+        ctx.lineTo(-p.size * 0.1, p.size * 0.45);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.kind === 'dust') {
+        ctx.fillStyle = rgb(p.color || V.glowRGB);
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      } else {
+        const s = p.size * (1.2 - t * 0.6);
+        ctx.fillStyle = t < 0.3 ? '#FFF8DC' : T.gold;
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 1.6);
+        ctx.lineTo(s * 0.45, 0);
+        ctx.lineTo(0, s * 1.6);
+        ctx.lineTo(-s * 0.45, 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+  function drawBrush() {
+    const tr = brush.trail;
+    if (tr.length > 1) {
+      ctx.lineCap = 'round';
+      for (let i = 1; i < tr.length; i++) {
+        const a = clamp(1 - (gt - tr[i].t) / 0.28, 0, 1);
+        ctx.beginPath();
+        ctx.moveTo(tr[i - 1].x, tr[i - 1].y);
+        ctx.lineTo(tr[i].x, tr[i].y);
+        ctx.strokeStyle = dry ? `rgba(128,128,128,${0.45 * a})` : `rgba(214,170,60,${0.5 * a})`;
+        ctx.lineWidth = lineW(2.4 * a + 0.4);
+        ctx.stroke();
+      }
+    }
+    if (!brush.down || phase !== 'play') return;
+    if (pen && brush.type !== 'mouse') {
+      ctx.beginPath();
+      ctx.moveTo(brush.fx, brush.fy);
+      ctx.lineTo(brush.x, brush.y);
+      ctx.strokeStyle = 'rgba(214,170,60,0.4)';
+      ctx.lineWidth = lineW(1);
+      ctx.setLineDash([2, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.beginPath();
+    ctx.arc(brush.x, brush.y, REACH, 0, TAU);
+    ctx.strokeStyle = dry ? 'rgba(130,130,130,0.5)' : 'rgba(226,176,58,0.45)';
+    ctx.lineWidth = lineW(1.4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(brush.x, brush.y, 3, 0, TAU);
+    ctx.fillStyle = dry ? 'rgba(130,130,130,0.8)' : T.gold;
+    ctx.fill();
+  }
+  function fingertip(x, y, press) {
+    const r = ((L.s > 1.4 ? 16 : 13) / L.s) * (1 - 0.12 * press);
+    ctx.beginPath();
+    ctx.arc(x + 2, y + 3, r, 0, TAU);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(22,37,58,0.5)';
+    ctx.lineWidth = lineW(1.5);
+    ctx.stroke();
+  }
+  function drawGhost() {
+    const c = cracks[0];
+    if (!c || brush.down && c.state === 'tele') return;
+    if (c.state === 'tele') {
+      if (!c.wait) return;
+      const k = (gt % 1.4) / 1.4;
+      const press = k < 0.3 ? easeOutCubic(k / 0.3) : k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45;
+      if (k > 0.25 && k < 0.7) {
+        ctx.beginPath();
+        ctx.arc(c.origin.x, c.origin.y, 10 + 30 * ((k - 0.25) / 0.45), 0, TAU);
+        ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - (k - 0.25) / 0.45)})`;
+        ctx.lineWidth = lineW(2);
+        ctx.stroke();
+      }
+      fingertip(c.origin.x, c.origin.y - 8 * (1 - press), press);
+      return;
+    }
+    if (c.state !== 'run' || gt - G.lastGild < 1.3 || gt - c.runAt < 0.6) return;
+    const b = c.branches.find(x => x.state === 'grow' && avail(x)) || c.branches.find(x => x.state === 'grow');
+    if (!b) return;
+    const startS = avail(b) ? b.front : 0;
+    const k = ((gt - G.lastGild - 1.3) % 1.9) / 1.5;
+    if (k > 1) return;
+    const s = lerp(startS, b.tip, easeInOut(k));
+    ctx.lineCap = 'round';
+    rangePath(ctx, b, startS, s);
+    ctx.setLineDash([1, 5]);
+    ctx.strokeStyle = 'rgba(255,236,170,0.9)';
+    ctx.lineWidth = lineW(3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const p = at(b, s);
+    fingertip(p.x, p.y, 1);
+  }
+  function drawReady() {
+    const cx = V.bbox.x + V.bbox.w / 2, cy = V.bbox.y + V.bbox.h * 0.55;
+    const k = (gt % 1.8) / 1.8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10 + 40 * k, 0, TAU);
+    ctx.strokeStyle = `rgba(255,236,170,${0.6 * (1 - k)})`;
+    ctx.lineWidth = lineW(2);
+    ctx.stroke();
+    fingertip(cx, cy, k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8);
+  }
+  function drawTexts() {
+    for (const tx of texts) {
+      const t = (gt - tx.t0) / tx.dur;
+      if (t < 0 || t > 1) continue;
+      ctx.save();
+      ctx.globalAlpha = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      let fs, font, y = tx.y;
+      if (tx.kind === 'pts') {
+        fs = 19; font = `800 ${fs}px ${FONT_D}`;
+        y -= 26 * easeOutCubic(Math.min(1, t * 1.6));
+      } else {
+        fs = 13; font = `700 ${fs}px ${FONT_B}`;
+        y -= 18 * easeOutCubic(Math.min(1, t * 1.4));
+      }
+      const sc = t < 0.15 ? Math.max(0.01, easeOutBack(t / 0.15)) : 1;
+      ctx.translate(tx.x, y);
+      ctx.scale(sc, sc);
+      ctx.font = font;
+      ctx.lineWidth = fs * 0.3;
+      ctx.strokeStyle = T.plaster;
+      ctx.strokeText(tx.text, 0, 0);
+      ctx.fillStyle = tx.color || T.ink;
+      ctx.fillText(tx.text, 0, 0);
+      ctx.restore();
+    }
+  }
+  // A centred card: the vessel intro and the end-of-vessel verdict share it.
+  function drawCard(title, line, titleColor, lineColor, a, sc, y = H * 0.46) {
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.translate(W / 2, y);
+    ctx.scale(sc, sc);
+    ctx.font = `800 26px ${FONT_D}`;
+    const w1 = ctx.measureText(title).width;
+    ctx.font = `700 14px ${FONT_B}`;
+    const w2 = ctx.measureText(line).width;
+    const pw = Math.min(W - 24, Math.max(w1, w2) + 44), ph = 82;
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    rrect(ctx, -pw / 2, -ph / 2 + 5, pw, ph, 22);
+    ctx.fill();
+    ctx.fillStyle = T.card;
+    rrect(ctx, -pw / 2, -ph / 2, pw, ph, 22);
+    ctx.fill();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = titleColor;
+    ctx.font = `800 26px ${FONT_D}`;
+    ctx.fillText(title, 0, -11);
+    ctx.fillStyle = lineColor;
+    ctx.font = `700 14px ${FONT_B}`;
+    ctx.fillText(line, 0, 21);
+    ctx.restore();
+  }
+  function cardFade(t, tIn, tOut) {
+    const a = t < tIn ? 0 : t < tIn + 0.2 ? (t - tIn) / 0.2 : t > tOut ? Math.max(0, 1 - (t - tOut) / 0.2) : 1;
+    const sc = t < tIn + 0.2 ? 0.85 + 0.15 * easeOutBack(clamp((t - tIn) / 0.2, 0, 1)) : 1;
+    return { a, sc };
+  }
+  function drawBanner() {
+    const { a, sc } = cardFade(phaseT, 0.25, 1.15);
+    if (a <= 0) return;
+    const line = NEWS[V.n] || GLAZES[V.glaze].name + ' ' + V.F.name;
+    drawCard('Vessel ' + V.n, line, T.ink, NEWS[V.n] ? T.goldText : T.inkSoft, a, sc);
+  }
+  function drawToast() {
+    const tt = G.toast;
+    if (!tt) return;
+    const { a, sc } = cardFade(gt - tt.t0, 0.35, 1.55);
+    if (a <= 0) return;
+    // sits above the vessel where there is room, so the light sweep over the seams stays in view
+    drawCard(tt.title, tt.line, tt.gold ? T.goldText : T.ink, T.inkSoft, a, sc, clamp(wy(V.bbox.y) - 52, 46, H * 0.46));
+  }
+
+  /* ---------- frame loop ---------- */
+  let raf = 0, lastT = 0, manual = false;
+  function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+  function frame(now) {
+    raf = 0;
+    const dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 1 / 60;
+    lastT = now;
+    if (!paused && !manual) update(dt);
+    render();
+    if (needsLoop()) raf = requestAnimationFrame(frame);
+    else lastT = 0;
+  }
+  function needsLoop() {
+    if (paused || manual) return false;
+    if (phase === 'over') return parts.length > 0 || falling.length > 0 || texts.length > 0;
+    return true;
+  }
+
+  /* ---------- input ---------- */
+  const blocked = () => !pauseEl.hidden || !overEl.hidden;
+  function toWorld(e) {
+    const r = cv.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const fx = (sx - L.ox) / L.s, fy = (sy - L.oy) / L.s;
+    const off = pen && e.pointerType !== 'mouse' ? PEN_PX / L.s : 0;
+    return { x: fx, y: fy - off, fx, fy };
+  }
+  function brushTo(x, y, fx, fy) {
+    const dx = x - brush.x, dy = y - brush.y, d = Math.hypot(dx, dy);
+    if (d < 0.01) return;
+    const steps = Math.max(1, Math.ceil(d / 3));
+    for (let k = 1; k <= steps; k++) brushSample(brush.x + (dx * k) / steps, brush.y + (dy * k) / steps, d / steps);
+    brush.x = x; brush.y = y; brush.fx = fx; brush.fy = fy;
+    brush.trail.push({ x, y, t: gt });
+    if (brush.trail.length > 40) brush.trail.shift();
+  }
+  function brushDown(x, y, fx, fy, type) {
+    Sound.unlock();
+    if (phase === 'ready') beginRun(false);
+    brush.down = true;
+    brush.type = type;
+    brush.x = x; brush.y = y; brush.fx = fx; brush.fy = fy;
+    brush.trail.length = 0;
+    brush.trail.push({ x, y, t: gt });
+    brushSample(x, y, 0);
+    tipTapHint(x, y);
+    kick();
+  }
+  function brushUp() { brush.down = false; }
+  // A poke at a running tip does nothing; say so, once in a while.
+  function tipTapHint(x, y) {
+    if (gt - G.tipHintAt < 12) return;
+    for (const c of cracks) for (const b of c.branches) {
+      if (b.state !== 'grow' || b.front > 2 || b.parent) continue;
+      const p = at(b, b.tip);
+      if (Math.hypot(p.x - x, p.y - y) < 28 && Math.hypot(c.origin.x - x, c.origin.y - y) > 40) {
+        G.tipHintAt = gt;
+        flash('Trace from where it started, not the tip', 2.6);
+        return;
+      }
+    }
+  }
+  cv.addEventListener('pointerdown', e => {
+    Sound.unlock();
+    if (blocked() || phase === 'over' || phase === 'broken') return;
+    if (brush.down && e.pointerId !== brush.id) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* capture unsupported */ }
+    brush.id = e.pointerId;
+    const w = toWorld(e);
+    brushDown(w.x, w.y, w.fx, w.fy, e.pointerType);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!brush.down || e.pointerId !== brush.id) return;
+    const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+    for (const ev of list && list.length ? list : [e]) { const w = toWorld(ev); brushTo(w.x, w.y, w.fx, w.fy); }
+  });
+  const endPointer = e => { if (e.pointerId === brush.id) brushUp(); };
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('pointercancel', endPointer);
+  cv.addEventListener('lostpointercapture', endPointer);
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('keydown', e => {
+    if (!overEl.hidden) return;
+    if (!pauseEl.hidden) {
+      if (e.key === 'Escape') { e.preventDefault(); closePause(); }
+      return;
+    }
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { e.preventDefault(); openPause(); }
+  });
+
+  /* ---------- menus ---------- */
+  function syncSwitches() {
+    $('sndSw').setAttribute('aria-checked', String(settings.sound));
+    $('vibSw').setAttribute('aria-checked', String(settings.vib));
+    $('penSw').setAttribute('aria-checked', String(pen));
+  }
+  function inPlay() { return phase === 'play' || phase === 'enter' || phase === 'sweep' || phase === 'exit' || phase === 'broken'; }
+  function openPause() {
+    if (phase === 'over' || !pauseEl.hidden) return;
+    brushUp();
+    paused = true;
+    $('pauseMain').hidden = false;
+    $('pauseConfirm').hidden = true;
+    syncSwitches();
+    pauseEl.hidden = false;
+    $('resumeBtn').focus({ preventScroll: true });
+  }
+  function closePause() {
+    pauseEl.hidden = true;
+    paused = false;
+    G.ramp = phase === 'play' ? 0 : 9;
+    lastT = 0;
+    kick();
+    cv.focus({ preventScroll: true });
+  }
+  $('menuBtn').addEventListener('click', () => { Sound.unlock(); Sound.ui(); openPause(); });
+  $('resumeBtn').addEventListener('click', closePause);
+  pauseEl.addEventListener('click', e => { if (e.target === pauseEl) closePause(); });
+  $('newBtn').addEventListener('click', () => {
+    if (!G.running || G.score === 0) { pauseEl.hidden = true; paused = false; newGame(); return; }
+    $('confirmScore').textContent = fmt(G.score);
+    $('pauseMain').hidden = true;
+    $('pauseConfirm').hidden = false;
+    $('confirmNo').focus({ preventScroll: true });
+  });
+  $('confirmNo').addEventListener('click', () => {
+    $('pauseConfirm').hidden = true;
+    $('pauseMain').hidden = false;
+    $('newBtn').focus({ preventScroll: true });
+  });
+  $('confirmYes').addEventListener('click', () => { pauseEl.hidden = true; paused = false; newGame(); });
+  $('sndSw').addEventListener('click', () => {
+    Arcade.setSetting('sound', !settings.sound);
+    if (settings.sound) { Sound.unlock(); Sound.ui(); }
+  });
+  $('vibSw').addEventListener('click', () => {
+    Arcade.setSetting('vibration', !settings.vib);
+    buzz(20);
+  });
+  $('penSw').addEventListener('click', () => {
+    pen = !pen;
+    store.set('pen', pen);
+    syncSwitches();
+    Sound.ui();
+  });
+  if (Arcade.embedded) {
+    $('sndRow').hidden = true;
+    $('vibRow').hidden = true;
+    $('exitBtn').hidden = false;
+    $('exitBtn').addEventListener('click', () => { pauseEl.hidden = true; paused = false; Arcade.exit(); });
+  }
+  $('againBtn').addEventListener('click', () => { Sound.unlock(); Sound.ui(); newGame(); cv.focus({ preventScroll: true }); });
+  Arcade.on('settings', s => { settings.sound = s.sound; settings.vib = s.vibration; syncSwitches(); });
+  Arcade.on('pause', () => {
+    brushUp();
+    if (inPlay() && !paused) openPause();
+  });
+
+  /* ---------- lifecycle ---------- */
+  function onTheme() {
+    readTheme();
+    if (V) { buildCache(); kick(); }
+    if (!overEl.hidden) drawShelf();
+  }
+  const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  if (darkQuery.addEventListener) darkQuery.addEventListener('change', onTheme);
+  new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (window.ResizeObserver) new ResizeObserver(layout).observe(stage);
+  else window.addEventListener('resize', layout);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    brushUp();
+    try { if (Sound.ctx) Sound.ctx.suspend(); } catch (e) { /* ignore */ }
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(kick);
+
+  function boot() {
+    readTheme();
+    syncSwitches();
+    prepareRun();
+    layout();
+    render();
+    requestAnimationFrame(() => Arcade.ready());
+  }
+
+  if (DEBUG) {
+    window.__goldmend = {
+      get G() { return G; }, get V() { return V; }, get cracks() { return cracks; }, get phase() { return phase; },
+      get leaf() { return leaf; }, get dry() { return dry; }, get gt() { return gt; }, get paused() { return paused; },
+      get best() { return best; }, get layout() { return { s: L.s, ox: L.ox, oy: L.oy, W, H }; },
+      REACH, SNAP, STEP, Sound,
+      manual(on) { manual = !!on; if (!on) { lastT = 0; kick(); } },
+      advance(sec, step = 1 / 60, draw = true) { const n = Math.max(1, Math.round(sec / step)); for (let i = 0; i < n; i++) if (!paused) update(step); if (draw) render(); },
+      toClient(x, y) { const r = cv.getBoundingClientRect(); return { x: r.left + wx(x), y: r.top + wy(y) }; },
+      at(b, s) { const p = at(b, s); return { x: p.x, y: p.y }; },
+      down(x, y) { brushDown(x, y, x, y, 'mouse'); },
+      move(x, y) { if (brush.down) brushTo(x, y, x, y); },
+      up() { brushUp(); },
+      begin() { if (phase === 'ready') beginRun(false); },
+      newGame, openPause, closePause,
+      skipTutorial() { tutorialDone = true; store.set('tutorial', 1); if (G) G.tut = 0; },
+      resetTutorial() { tutorialDone = false; store.set('tutorial', 0); store.set('tutStage', 1); },
+      setLeaf(v) { leaf = v; },
+      warp(n) {
+        if (phase === 'ready') beginRun(false);
+        cracks = [];
+        G.n = n - 1;
+        nextVessel();
+        phase = 'play';
+        V.nextSpawn = gt + 0.3;
+      },
+      summary() {
+        return {
+          phase, n: V.n, score: G.score, chips: V.chips, chipsTotal: G.chipsTotal, catches: G.catches, mended: G.mended, tut: G.tut,
+          leaf, dry, spawned: V.spawned, total: V.total, active: cracks.length, streak: G.streak, best,
+        };
+      },
+    };
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
