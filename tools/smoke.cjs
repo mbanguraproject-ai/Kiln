@@ -1,6 +1,8 @@
-// Smoke test for the Kiln hub and its games, in headless Chromium.
+// Smoke test for the Kiln hub and its games, in headless Chromium: every playable game is launched from the hub
+// and opened standalone. Waits are on conditions, not fixed sleeps, so the full run stays quick with many games.
 // Usage: node tools/smoke.cjs [--game <id>] [--port 8790] [--shots <dir>] [--bundle dist/kiln.html]
 // Needs playwright (npm i -D playwright, or a global install on NODE_PATH).
+// tools/game-check.cjs is the deeper per-game check.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -42,19 +44,23 @@ function serve() {
   page.on('console', m => { if (m.type() === 'error') problems.push(`console error: ${m.text()}`); });
   page.on('pageerror', e => problems.push(`page error: ${e.message}`));
   await page.goto(base + '?debug');
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => window.__kiln);
   const games = await page.evaluate(() => window.__kiln.GAMES.filter(g => g.status !== 'soon').map(g => g.id));
+  if (ONLY && !games.includes(ONLY)) problems.push(`${ONLY}: not a playable game in the registry`);
   const cards = await page.locator('.card').count();
   if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, 'hub-home.png') }); }
   for (const id of games) {
     if (ONLY && id !== ONLY) continue;
     const before = await page.evaluate(() => window.__kiln.Log.all().length);
-    // The real path: a card opens the game's page, and Play on the page launches it.
-    await page.click(`.game-card[data-id="${id}"]`);
+    // The real path: a card opens the game's page, and Play on the page launches it. A game whose card is not
+    // on screen right now (Home shows a selection) has its page opened the way a link would.
+    const card = page.locator(`.game-card[data-id="${id}"]`).filter({ visible: true }).first();
+    if (await card.count()) await card.click();
+    else await page.evaluate(id => window.__kiln.openDetail(id, 'link'), id);
     await page.click(`#detail [data-play="${id}"]`);
     let ready = true;
     try { await page.waitForSelector('#loading', { state: 'hidden', timeout: 6500 }); } catch (e) { ready = false; }
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(250);
     const box = await page.locator('#frame iframe').boundingBox();
     // A few taps and a drag in the middle of the game, as a player would.
     if (box) {
@@ -64,13 +70,20 @@ function serve() {
       await page.mouse.down();
       await page.mouse.move(cx + 40, cy - 60, { steps: 8 });
       await page.mouse.up();
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(250);
+      // A title screen whose Play button is not under the tap: Enter is its keyboard path (docs/KIT.md shell).
+      const started = await page.evaluate(([n, id]) => window.__kiln.Log.all().slice(n).some(e => e.ev === 'run_start' && e.game === id), [before, id]);
+      if (!started) {
+        await page.locator('#frame iframe').focus();
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(250);
+      }
     }
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `hub-${id}.png`) });
     await page.click('#backBtn');
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => !window.__kiln.game);
     await page.click('#detailBack');
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => !window.__kiln.detail);
     const evs = await page.evaluate(n => window.__kiln.Log.all().slice(n).map(e => e.ev + (e.game ? ':' + e.game : '')), before);
     const need = [`game_detail_open:${id}`, `game_launch:${id}`, `launch_result:${id}`, `game_open:${id}`, `game_close:${id}`];
     const missing = need.filter(x => !evs.includes(x));
@@ -89,7 +102,9 @@ function serve() {
       p2.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
       p2.on('pageerror', e => errs.push(e.message));
       await p2.goto(`http://localhost:${PORT}/games/${id}/index.html`);
-      await p2.waitForTimeout(900);
+      const ready = await p2.waitForFunction(() => document.documentElement.dataset.kilnReady === '1', null, { timeout: 6500 }).then(() => true, () => false);
+      if (!ready) problems.push(`${id} standalone: never sent Arcade.ready() within 6.5s`);
+      await p2.waitForTimeout(300);
       if (SHOTS) await p2.screenshot({ path: path.join(SHOTS, `standalone-${id}.png`) });
       errs.forEach(t => problems.push(`${id} standalone: ${t}`));
       await p2.close();

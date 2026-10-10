@@ -1,4 +1,4 @@
-// Copies the web app (hub, SDK, games, icons) into www/ for Capacitor.
+// Copies the web app (hub, SDK, kit, games, icons) into www/ for Capacitor.
 // Test files and tools are left out.
 const fs = require('fs');
 const path = require('path');

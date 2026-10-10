@@ -14,6 +14,9 @@
   // Key-art mode (tools/make-art.cjs): the game shows only its play surface, for card art. Nothing is logged.
   var keyart = /[?&]keyart\b/.test(location.search);
   if (keyart) document.documentElement.classList.add('kiln-keyart');
+  // Capture and test hooks (tools/make-art.cjs, make-shots.cjs, game-check.cjs) only act with these in the URL.
+  var debug = /[?&]debug\b/.test(location.search);
+  var sceneWanted = (location.search.match(/[?&]scene=([\w-]+)/) || [])[1] || null;
   var embedded = false;
   try { embedded = window.parent !== window; } catch (e) { embedded = true; }
 
@@ -100,6 +103,31 @@
     settings: Object.assign({}, DEFAULT_SETTINGS, ls.get('settings', {})),
   };
   var listeners = {};
+  var sceneFns = {};
+  var sceneRan = false;
+  var testApi = null;
+
+  // Runs the scene named in ?scene= once the game is ready and has registered it, then flags the page
+  // so the capture tools know the frame is worth taking.
+  function runScene() {
+    if (sceneRan || !sceneWanted || !state.ready || !Object.keys(sceneFns).length) return;
+    sceneRan = true;
+    var root = document.documentElement;
+    var fn = sceneFns[sceneWanted];
+    if (!fn) {
+      root.dataset.sceneError = 'no scene named ' + sceneWanted;
+      root.dataset.sceneDone = 'error';
+      return;
+    }
+    setTimeout(function () {
+      new Promise(function (resolve) { resolve(fn()); }).then(function () {
+        root.dataset.sceneDone = '1';
+      }, function (err) {
+        root.dataset.sceneError = String(err && err.message || err);
+        root.dataset.sceneDone = 'error';
+      });
+    }, 0);
+  }
 
   function emit(type, payload) {
     var list = listeners[type] || [];
@@ -178,7 +206,9 @@
     ready: function () {
       if (state.ready) return;
       state.ready = true;
+      document.documentElement.dataset.kilnReady = '1';
       post({ type: 'ready', id: state.id });
+      runScene();
     },
 
     // A run is one attempt: from the start of play to game over (or restart/quit).
@@ -205,16 +235,33 @@
     track: function (name, props) { record(String(name), props); },
 
     // Tell Kiln whether there is a saved run to come back to, so Home can offer Resume truthfully.
-    // p: { label: 'Pond 6' } while a run is saved, or null once it is over. Games without saves never call it.
+    // p: { label: 'Pond 6', pct?: 20 } while a run is saved, or null once it is over. Games without saves never call it.
+    // pct (0..100) only when it is a true completion measure, such as level 6 of 30; Home then shows a progress bar.
     progress: function (p) {
       if (keyart) return;
-      var v = p && p.label ? { label: String(p.label).slice(0, 40), ts: Date.now() } : null;
+      var v = p && p.label ? { label: String(p.label).slice(0, 40) } : null;
+      if (v && typeof p.pct === 'number' && isFinite(p.pct)) v.pct = Math.round(Math.max(0, Math.min(100, p.pct)));
       var prev = ls.get(state.id + ':progress', null);
       if (!v && !prev) return;
-      if (v && prev && prev.label === v.label) return;
-      if (v) ls.set(state.id + ':progress', v);
+      if (v && prev && prev.label === v.label && prev.pct === v.pct) return;
+      if (v) ls.set(state.id + ':progress', Object.assign({ ts: Date.now() }, v));
       else ls.del(state.id + ':progress');
       post({ type: 'progress', id: state.id, progress: v });
+    },
+
+    // Capture scenes for the card art and screenshots: { art, shot1, shot2 }, each a function (may return a
+    // promise) that puts the game into a representative, seeded state. Run by the SDK only with ?scene=<name>.
+    scenes: function (map) {
+      for (var k in map) if (typeof map[k] === 'function') sceneFns[k] = map[k];
+      runScene();
+    },
+
+    // Test hook for tools/game-check.cjs: { start(), lose(), state() -> { phase, score, paused } }.
+    // Later calls add to or override earlier ones (the kit's shell registers defaults a game can extend).
+    // Exposed as window.__kilnTest only with ?debug.
+    test: function (api) {
+      testApi = Object.assign(testApi || {}, api);
+      if (debug) window.__kilnTest = testApi;
     },
 
     // Per-game saved data.
@@ -242,6 +289,8 @@
     _rid: rid,
     _buzz: buzz,
     _defaults: DEFAULT_SETTINGS,
+    // Used by the capture tools to tell scene-driven games from legacy ones.
+    _scenes: function () { return Object.keys(sceneFns); },
   };
 
   window.Arcade = Arcade;
