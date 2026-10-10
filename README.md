@@ -17,7 +17,7 @@ Everything is plain HTML, CSS and JavaScript with no build step and no dependenc
 | `docs/concepts/` | Design briefs for each game |
 | `tools/smoke.cjs` | Headless test: hub plus every game, inside and outside the hub |
 | `tools/bundle.cjs` | Packs hub and games into one HTML file (`dist/kiln.html`) |
-| `tools/make-covers.cjs` | Screenshots each game's first frame for the hub cards |
+| `tools/make-art.cjs` | Renders each game's card art (16:9 and 4:5) from the real game in key-art mode |
 | `tools/make-icons.cjs` | Renders the app icons, Android launcher icons and splash screens |
 | `tools/build-web.cjs` | Copies the web app into `www/` for Capacitor |
 | `tools/setup-android.sh` | Installs the Android SDK in a Codespace or on Linux |
@@ -73,4 +73,4 @@ To compare games across all players, set `analyticsEndpoint` in `hub/config.js` 
 1. Read `docs/GAME_CONTRACT.md`.
 2. Build `games/<id>/index.html` (see `games/tessera/` for a complete example).
 3. Add it to `games/registry.js` with `status: 'beta'`.
-4. Run `node tools/smoke.cjs --game <id>` until it reports no problems, then `node tools/make-covers.cjs`.
+4. Add a key-art scene for it in `tools/make-art.cjs`, then run `node tools/smoke.cjs --game <id>` until it reports no problems and `node tools/make-art.cjs --game <id>`.

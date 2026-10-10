@@ -49,7 +49,7 @@ function serve() {
   for (const id of games) {
     if (ONLY && id !== ONLY) continue;
     const before = await page.evaluate(() => window.__kiln.Log.all().length);
-    await page.click(`.card[data-id="${id}"]`);
+    await page.click(`.game-card[data-id="${id}"]`);
     let ready = true;
     try { await page.waitForSelector('#loading', { state: 'hidden', timeout: 6500 }); } catch (e) { ready = false; }
     await page.waitForTimeout(600);

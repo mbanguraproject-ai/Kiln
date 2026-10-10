@@ -1,6 +1,9 @@
 /* The games in the hub, in display order. Each entry points at a self-contained page under games/<id>/.
- * status: 'live' (polished), 'beta' (playable, still being tuned) or 'soon' (card only).
- * accent: one of the house glaze tokens (--g1 ... --g6) used for the card. */
+ * status: 'live' (polished), 'beta' (playable, still being tuned) or 'soon' (card only, not playable).
+ * accent: a glaze token (--g1 ... --g6) used behind the card art while it loads.
+ * artWide / artTall: card art rendered from the real game by tools/make-art.cjs (16:9 and 4:5).
+ * added: date the game joined Kiln; drives the time-aware "New" label.
+ * featured: the game shown in the feature card at the top of Home (one at a time). */
 window.KILN_GAMES = [
   {
     id: 'tessera',
@@ -10,7 +13,9 @@ window.KILN_GAMES = [
     accent: '--g1',
     status: 'live',
     path: 'games/tessera/index.html',
-    cover: 'games/tessera/cover.jpg',
+    added: '2026-10-09',
+    artWide: 'games/tessera/art-wide.jpg',
+    artTall: 'games/tessera/art-tall.jpg',
   },
   {
     id: 'goldmend',
@@ -20,7 +25,9 @@ window.KILN_GAMES = [
     accent: '--g2',
     status: 'beta',
     path: 'games/goldmend/index.html',
-    cover: 'games/goldmend/cover.jpg',
+    added: '2026-10-09',
+    artWide: 'games/goldmend/art-wide.jpg',
+    artTall: 'games/goldmend/art-tall.jpg',
   },
   {
     id: 'lariat',
@@ -30,7 +37,9 @@ window.KILN_GAMES = [
     accent: '--g5',
     status: 'beta',
     path: 'games/lariat/index.html',
-    cover: 'games/lariat/cover.jpg',
+    added: '2026-10-10',
+    artWide: 'games/lariat/art-wide.jpg',
+    artTall: 'games/lariat/art-tall.jpg',
   },
   {
     id: 'crosswake',
@@ -40,7 +49,10 @@ window.KILN_GAMES = [
     accent: '--g6',
     status: 'beta',
     path: 'games/crosswake/index.html',
-    cover: 'games/crosswake/cover.jpg',
+    added: '2026-10-10',
+    featured: true,
+    artWide: 'games/crosswake/art-wide.jpg',
+    artTall: 'games/crosswake/art-tall.jpg',
   },
   {
     id: 'span',

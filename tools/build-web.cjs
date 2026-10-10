@@ -6,7 +6,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'www');
 const INCLUDE = ['index.html', 'manifest.webmanifest', 'hub', 'games', 'icons'];
-const SKIP = /(^|\/)(test|qa)\.cjs$/;
+const SKIP = /(^|\/)((test|qa)\.cjs|bot\.js)$/;
 
 fs.rmSync(OUT, { recursive: true, force: true });
 let files = 0;

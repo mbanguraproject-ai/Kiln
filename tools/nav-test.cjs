@@ -66,7 +66,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   check(before > 0 && after === before, 'Home keeps its scroll position across tab switches', `${before} -> ${after}`);
 
   // Game, sheet, Back
-  await tap('.card[data-id="lariat"]');
+  await tap('.game-card[data-id="lariat"]');
   await page.waitForTimeout(500);
   s = await state();
   check(s.game === 'lariat', 'a card opens its game');
@@ -105,7 +105,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   s = await state();
   check(!s.insights && s.tab === 'settings', 'Back from insights returns to Settings', JSON.stringify(s));
   await tap('.tab[data-tab="home"]');
-  await tap('.card[data-id="tessera"]');
+  await tap('.game-card[data-id="tessera"]');
   await page.waitForTimeout(400);
   await tap('#playerSettingsBtn');
   const sheetSound = await page.getAttribute('#sheet [data-set="sound"]', 'aria-checked');

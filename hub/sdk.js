@@ -11,6 +11,9 @@
 
   var PROTOCOL = 1;
   var PREFIX = 'kiln:';
+  // Key-art mode (tools/make-art.cjs): the game shows only its play surface, for card art. Nothing is logged.
+  var keyart = /[?&]keyart\b/.test(location.search);
+  if (keyart) document.documentElement.classList.add('kiln-keyart');
   var embedded = false;
   try { embedded = window.parent !== window; } catch (e) { embedded = true; }
 
@@ -108,6 +111,7 @@
     safe(function () { window.parent.postMessage(msg, '*'); });
   }
   function record(ev, props) {
+    if (keyart) return;
     var e = Object.assign({ ts: Date.now(), ev: ev, game: state.id }, props || {});
     if (embedded) post({ type: 'event', event: e });
     else Log.append([Object.assign(e, { uid: Log.uid(), sid: state.sid, src: 'standalone' })]);
@@ -139,6 +143,7 @@
   var Arcade = {
     protocol: PROTOCOL,
     embedded: embedded,
+    keyart: keyart,
 
     // Call once at boot. meta: { id, title, version }
     init: function (meta) {
