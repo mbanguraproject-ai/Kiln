@@ -27,6 +27,7 @@
   --reward-ink: #1A1405;
   --text: #F5F7FC;        /* headings and key labels */
   --text-2: #AAB8CC;      /* descriptions and metadata */
+  --text-on-art: #D3DCE8; /* hook text over a feature card's shade */
   --line: rgba(170, 184, 204, 0.14);
   --line-strong: rgba(170, 184, 204, 0.26);
   --scrim: rgba(3, 7, 15, 0.66);
@@ -173,6 +174,8 @@ h1, h2, h3 { text-wrap: balance; }
 .list { display: grid; gap: var(--s2); }
 .lib-row {
   width: 100%;
+  color: inherit;
+  font: inherit;
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: var(--r-card);
@@ -194,7 +197,8 @@ h1, h2, h3 { text-wrap: balance; }
   overflow: hidden;
   background: var(--c);
 }
-.lib-art img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.lib-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lib-play { flex: none; min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
 .lib-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
 .lib-title { font: 700 var(--t-card)/1.2 var(--font-body); }
 .lib-meta { font-size: var(--t-meta); color: var(--text-2); }
@@ -241,71 +245,125 @@ h1, h2, h3 { text-wrap: balance; }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 158px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
   gap: var(--s3);
-  padding-bottom: var(--s6);
+  padding-bottom: var(--s5);
 }
+
+/* Feature card: wide art, a controlled shade over the lower part only, title, one-line hook, one action. */
+.feature {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: 440px;
+  margin: var(--s2) 0 var(--s4);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-hero);
+  overflow: hidden;
+  background: var(--c);
+  background-clip: padding-box;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+}
+@media (min-width: 700px) { .feature { aspect-ratio: 16 / 9; } }
+.feature:active { transform: scale(0.99); border-color: var(--line-strong); }
+.feature-art, .feature-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.feature-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(7, 16, 30, 0.96) 0%, rgba(7, 16, 30, 0.82) 42%, rgba(7, 16, 30, 0.35) 66%, rgba(7, 16, 30, 0) 84%);
+}
+.feature-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--s4);
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.feature-eyebrow { font: 700 11px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--secondary); }
+.feature-title { font: 800 26px/1.05 var(--font-display); letter-spacing: -0.03em; color: var(--text); }
+.feature-hook {
+  max-width: 40ch;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text-on-art);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.feature-cta, .lib-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--s4) 0 var(--s3);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: 700 14px/1 var(--font-body);
+}
+.feature-cta { margin-top: var(--s1); }
+.feature-cta svg, .lib-play svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* Compact portrait card: tall art, title and genre; one optional label on the art. */
 .card {
   appearance: none;
   border: 1px solid var(--line);
   padding: 0;
   text-align: left;
-  cursor: pointer;
   background: var(--surface);
+  background-clip: padding-box;
   border-radius: var(--r-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  transition: transform 0.12s var(--ease), border-color 0.15s var(--ease);
+  color: inherit;
+  font: inherit;
 }
-.card:active { transform: scale(0.98); border-color: var(--line-strong); }
-.card[aria-disabled="true"] { cursor: default; }
-.card[aria-disabled="true"] .cover { filter: saturate(0.35) brightness(0.8); }
+button.card { cursor: pointer; transition: transform 0.12s var(--ease), border-color 0.15s var(--ease); }
+button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .cover {
+  display: block;
   aspect-ratio: 4 / 5;
   max-width: 100%;
   background: var(--c);
   position: relative;
   overflow: hidden;
 }
-.cover img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
-.cover .tiles {
-  position: absolute;
-  inset: 18% 18%;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8%;
-}
-.cover .tiles i { border-radius: 22%; background: rgba(255, 255, 255, 0.2); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15); }
-.cover .tiles i:nth-child(odd) { background: rgba(255, 255, 255, 0.36); }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .status {
   position: absolute;
   top: var(--s2);
   left: var(--s2);
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(7, 16, 30, 0.78);
+  background: rgba(7, 16, 30, 0.8);
   color: var(--text);
   font: 700 11px/1 var(--font-body);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.card-body { padding: var(--s3) var(--s3) var(--s4); display: grid; gap: var(--s1); min-width: 0; }
-.genre { font: 700 11px/1.2 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--secondary); }
-.card h3 { margin: 2px 0 0; font: 700 var(--t-card)/1.2 var(--font-body); letter-spacing: -0.01em; }
-.card p {
-  margin: 0;
-  font-size: var(--t-meta);
-  line-height: 1.4;
-  color: var(--text-2);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.card-body { padding: var(--s3) var(--s3) var(--s4); display: grid; gap: 3px; min-width: 0; }
+.card-title { font: 700 var(--t-card)/1.2 var(--font-body); letter-spacing: -0.01em; }
+.card-genre { font-size: var(--t-meta); color: var(--text-2); }
+
+/* Coming soon: a distinct unavailable state with no play action. */
+.card.soon { border-style: dashed; border-color: var(--line-strong); background: transparent; }
+.card.soon .cover {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
-.card .best { margin-top: var(--s2); font-size: 12px; font-weight: 700; color: var(--text-2); }
-.card .best b { color: var(--reward); font-variant-numeric: tabular-nums; }
+.card.soon .card-title { color: var(--text-2); }
+
 .foot { padding-block: var(--s2) var(--s6); color: var(--text-2); font-size: 12px; }
 
 /* ---------- player ---------- */
@@ -478,7 +536,7 @@ h1, h2, h3 { text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) {
   .overlay, .sheet, .view, .player { animation: none; }
   .tab .pill { transition: none; }
-  .card, .icon-btn, .btn, .switch, .switch::after { transition: none; }
+  .card, .feature, .lib-row, .icon-btn, .btn, .switch, .switch::after { transition: none; }
 }
 </style>
 </head>
@@ -490,11 +548,9 @@ h1, h2, h3 { text-wrap: balance; }
       <header class="top">
         <div class="brand"><span class="logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="word">Kiln</span></div>
       </header>
-      <section class="intro">
-        <h1>Original games, made by hand</h1>
-        <p id="introLine">Play offline. Your progress stays on this device.</p>
-      </section>
-      <section class="grid" id="grid" aria-label="Games"></section>
+      <div id="featured"></div>
+      <h2 class="section-title" id="allTitle">All games</h2>
+      <section class="grid" id="grid" aria-labelledby="allTitle"></section>
       <footer class="foot" id="foot">Kiln</footer>
     </div>
   </section>
@@ -766,63 +822,86 @@ h1, h2, h3 { text-wrap: balance; }
     const stored = ls.get(id + ':best', 0);
     return Math.max(typeof stored === 'number' ? stored : 0, bestMem[id] || 0);
   }
+  // Card families (blueprint section 5). Art leads; metadata supports; the action is obvious.
+  const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+  function launchedGames() {
+    const seen = new Set();
+    for (const e of Log.all()) if (e && e.game && (e.ev === 'game_launch' || (e.ev === 'game_open' && e.src === 'standalone'))) seen.add(e.game);
+    return seen;
+  }
+  // "New" only for games added in the last 14 days that this player has not opened yet.
+  function isNew(g, launched) {
+    if (!g.added || launched.has(g.id)) return false;
+    const t = Date.parse(g.added);
+    return isFinite(t) && Date.now() - t < 14 * 864e5;
+  }
+  function artImg(src, w, h) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    img.width = w;
+    img.height = h;
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    return img;
+  }
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function featureCard(g) {
+    const card = el('button', 'feature game-card');
+    card.type = 'button';
+    card.dataset.id = g.id;
+    card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+    card.setAttribute('aria-label', `${g.title}. ${g.genre || 'Game'}. ${g.pitch || ''} Play`);
+    const art = el('span', 'feature-art');
+    if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
+    const body = el('span', 'feature-body');
+    const cta = el('span', 'feature-cta');
+    cta.innerHTML = PLAY_ICON;
+    cta.append('Play');
+    body.append(el('span', 'feature-eyebrow', `Featured · ${g.genre || 'Game'}`), el('span', 'feature-title', g.title), el('span', 'feature-hook', g.pitch || ''), cta);
+    card.append(art, el('span', 'feature-shade'), body);
+    card.addEventListener('click', () => openGame(g.id));
+    return card;
+  }
+  function portraitCard(g, launched) {
+    const soon = g.status === 'soon';
+    const card = el(soon ? 'div' : 'button', soon ? 'card soon' : 'card game-card');
+    card.dataset.id = g.id;
+    card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
+    const cover = el('span', 'cover');
+    if (!soon && g.artTall) cover.append(artImg(g.artTall, 800, 1000));
+    const label = soon ? 'Coming soon' : isNew(g, launched) ? 'New' : '';
+    if (label) cover.append(el('span', 'status', label));
+    const body = el('span', 'card-body');
+    body.append(el('span', 'card-title', g.title), el('span', 'card-genre', soon ? 'In development' : g.genre || 'Game'));
+    card.append(cover, body);
+    if (soon) {
+      card.setAttribute('role', 'group');
+      card.setAttribute('aria-label', `${g.title}, coming soon`);
+    } else {
+      card.type = 'button';
+      card.addEventListener('click', () => openGame(g.id));
+    }
+    return card;
+  }
   function renderHome() {
+    const launched = launchedGames();
+    const playable = GAMES.filter(g => g.status !== 'soon');
+    const featured = playable.find(g => g.featured) || playable[0];
+    const slot = $('featured');
+    slot.replaceChildren();
+    if (featured) slot.append(featureCard(featured));
     const grid = $('grid');
     grid.replaceChildren();
-    for (const g of GAMES) {
-      const soon = g.status === 'soon';
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'card';
-      card.dataset.id = g.id;
-      card.style.setProperty('--c', `var(${g.accent || '--g1'})`);
-      if (soon) card.setAttribute('aria-disabled', 'true');
-
-      const cover = document.createElement('div');
-      cover.className = 'cover';
-      if (g.cover) {
-        const img = document.createElement('img');
-        img.src = g.cover;
-        img.alt = '';
-        img.loading = 'lazy';
-        cover.append(img);
-      } else {
-        const tiles = document.createElement('div');
-        tiles.className = 'tiles';
-        for (let i = 0; i < 9; i++) tiles.append(document.createElement('i'));
-        cover.append(tiles);
-      }
-      if (g.status === 'beta' || soon) {
-        const st = document.createElement('span');
-        st.className = 'status';
-        st.textContent = soon ? 'Coming soon' : 'New';
-        cover.append(st);
-      }
-
-      const body = document.createElement('div');
-      body.className = 'card-body';
-      const genre = document.createElement('span');
-      genre.className = 'genre';
-      genre.textContent = g.genre || 'Game';
-      const h = document.createElement('h3');
-      h.textContent = g.title;
-      const p = document.createElement('p');
-      p.textContent = g.pitch || '';
-      const best = document.createElement('div');
-      best.className = 'best';
-      const b = bestOf(g.id);
-      if (soon) best.textContent = 'In the kiln';
-      else if (b > 0) { best.textContent = 'Best '; const bb = document.createElement('b'); bb.textContent = fmt(b); best.append(bb); }
-      else best.textContent = 'Not played yet';
-      body.append(genre, h, p, best);
-
-      card.append(cover, body);
-      if (!soon) card.addEventListener('click', () => openGame(g.id));
-      grid.append(card);
-    }
-    const playable = GAMES.filter(g => g.status !== 'soon').length;
-    $('introLine').textContent = `${playable} ${playable === 1 ? 'game' : 'games'} so far. Play offline; your progress stays on this device.`;
-    $('foot').textContent = `Kiln ${APP_VERSION} · working title`;
+    // The featured game is not repeated in the grid; coming-soon games go last.
+    const rest = GAMES.filter(g => g !== featured).sort((a, b) => (a.status === 'soon') - (b.status === 'soon'));
+    for (const g of rest) grid.append(portraitCard(g, launched));
+    $('foot').textContent = `Kiln ${APP_VERSION} · ${playable.length} games · working title`;
   }
 
   /* ---------- player ---------- */
@@ -947,7 +1026,7 @@ h1, h2, h3 { text-wrap: balance; }
       row.style.setProperty('--c', `var(${g.accent || '--g1'})`);
       const art = document.createElement('span');
       art.className = 'lib-art';
-      if (g.cover) { const img = document.createElement('img'); img.src = g.cover; img.alt = ''; art.append(img); }
+      if (g.artTall) art.append(artImg(g.artTall, 800, 1000));
       const text = document.createElement('span');
       text.className = 'lib-text';
       const h = document.createElement('span');
@@ -963,7 +1042,10 @@ h1, h2, h3 { text-wrap: balance; }
       if (time[g.id]) stats.append(document.createTextNode((b > 0 ? ' · ' : '') + dur(time[g.id]) + ' played'));
       text.append(h, meta, stats);
       row.append(art, text);
-      row.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
+      const play = el('span', 'lib-play');
+      play.innerHTML = PLAY_ICON;
+      play.append('Play');
+      row.append(play);
       row.addEventListener('click', () => openGame(g.id));
       list.append(row);
     }

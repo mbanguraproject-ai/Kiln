@@ -1,5 +1,5 @@
 // Packs the hub and every playable game into one self-contained HTML file.
-// Games are embedded as iframe srcdoc, the SDK and registry are inlined, covers become data URIs.
+// Games are embedded as iframe srcdoc, the SDK and registry are inlined, card art becomes data URIs.
 // Usage: node tools/bundle.cjs [--out dist/kiln.html] [--artifact]
 //   --artifact  also strips the document skeleton and PWA links (for hosts that add their own <head>).
 const fs = require('fs');
@@ -32,10 +32,11 @@ for (const g of games) {
   if (!html.includes(tag)) throw new Error(`${g.id}: SDK script tag not found (${tag})`);
   html = html.replace(tag, () => inlineScript(sdk));
   g.srcdoc = html;
-  if (g.cover) {
-    const c = path.join(ROOT, g.cover);
-    if (fs.existsSync(c)) g.cover = `data:${MIME[path.extname(c)] || 'image/jpeg'};base64,` + fs.readFileSync(c).toString('base64');
-    else delete g.cover;
+  for (const key of ['artWide', 'artTall']) {
+    if (!g[key]) continue;
+    const c = path.join(ROOT, g[key]);
+    if (fs.existsSync(c)) g[key] = `data:${MIME[path.extname(c)] || 'image/jpeg'};base64,` + fs.readFileSync(c).toString('base64');
+    else delete g[key];
   }
 }
 

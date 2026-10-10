@@ -62,7 +62,8 @@ Save the best score with `Arcade.store.set('best', n)`. The hub reads `best` for
 - House tokens worth reusing: `--plaster`, `--grout`, `--slot`, `--card`, `--ink`, `--ink-soft`, `--accent`, and the six glazes `--g1`..`--g6` (see Tessera). A game may add its own palette on top.
 - Juice is required, not optional: anticipation, impact, particles, a little screen shake on big moments, count-up scores, satisfying synthesised sound, haptics. Respect `prefers-reduced-motion` (no shake, fewer particles).
 - 60fps on a mid-range phone. Cap `devicePixelRatio` at 2–3. Pre-render static layers to offscreen canvases. Stop the animation loop when nothing moves.
-- The first frame must look good: it becomes the game's cover in the hub. Show a live board, a demo state or an attract animation, never an empty screen.
+- The first frame must look good: show a live board, a demo state or an attract animation, never an empty screen.
+- Key-art mode: with `?keyart` the SDK adds the class `kiln-keyart` to `<html>` and sets `Arcade.keyart`. Hide every control and text overlay in that mode (`.kiln-keyart .hud { display: none }` and so on), skip floating text, and let the play surface fill the page. `tools/make-art.cjs` drives a representative scene through your `?debug` hook and captures the card art.
 
 ## Teaching
 

@@ -253,6 +253,9 @@ canvas:focus:not(:focus-visible) { outline: none; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
 @media (prefers-reduced-motion: reduce) { .overlay, .card { animation: none; } }
+/* Key-art mode (tools/make-art.cjs): only the play surface, no controls or text, for the hub's card art. */
+.kiln-keyart .hud, .kiln-keyart .controls, .kiln-keyart .foot, .kiln-keyart .overlay { display: none !important; }
+.kiln-keyart #app { padding: 0 !important; max-width: none !important; }
 </style>
 </head>
 <body>
@@ -1038,7 +1041,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
     ctx.globalAlpha = 1;
 
     // Text
-    for (const tx of texts) {
+    if (!Arcade.keyart) for (const tx of texts) {
       const t = (gt - tx.t) / tx.dur;
       if (t < 0) continue;
       if (tx.kind === 'word') wordPlaque(tx, t);

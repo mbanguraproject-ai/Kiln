@@ -277,6 +277,9 @@ input[type="range"]:disabled { opacity: 0.4; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
 @media (prefers-reduced-motion: reduce) { .overlay, .card { animation: none; } }
+/* Key-art mode (tools/make-art.cjs): only the play surface, no controls or text, for the hub's card art. */
+.kiln-keyart .hud, .kiln-keyart .controls, .kiln-keyart .foot, .kiln-keyart .overlay { display: none !important; }
+.kiln-keyart #app { padding: 0 !important; max-width: none !important; }
 </style>
 </head>
 <body>
@@ -688,7 +691,7 @@ input[type="range"]:disabled { opacity: 0.4; }
   function pondHeightFor() {
     const r = stage.getBoundingClientRect();
     const ratio = r.width > 0 ? r.height / r.width : 1.4;
-    return clamp(PW * ratio, PW * 1.0, PW * 1.9);
+    return clamp(PW * ratio, Arcade.keyart ? PW * 0.5 : PW * 1.0, PW * 1.9);
   }
 
   function hintText() {
@@ -1011,7 +1014,7 @@ input[type="range"]:disabled { opacity: 0.4; }
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    for (const tx of texts) {
+    if (!Arcade.keyart) for (const tx of texts) {
       const k = (t - tx.t) / tx.dur;
       if (k < 0) continue;
       if (tx.kind === 'pts') floatText(tx, k);

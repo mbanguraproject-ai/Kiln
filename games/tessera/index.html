@@ -432,6 +432,9 @@ canvas:focus:not(:focus-visible) { outline: none; }
   .best span { display: none; }
   .best b { font-size: 12.5px; }
 }
+/* Key-art mode (tools/make-art.cjs): only the play surface, no controls or text, for the hub's card art. */
+.kiln-keyart .hud, .kiln-keyart .controls, .kiln-keyart .foot, .kiln-keyart .overlay { display: none !important; }
+.kiln-keyart #app { padding: 0 !important; max-width: none !important; }
 </style>
 </head>
 <body>
@@ -2474,7 +2477,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
       }
     }
 
-    for (const tx of texts) {
+    if (!Arcade.keyart) for (const tx of texts) {
       const t = (now - tx.t0) / tx.dur;
       if (t < 0) continue;
       if (tx.kind === 'pts') drawPoints(tx, t);

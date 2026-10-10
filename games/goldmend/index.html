@@ -351,6 +351,9 @@ canvas:focus:not(:focus-visible) { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .overlay, .card, .chip, .best.bump, .chips i.on, .hint, .pd i.a, .leaf.low .fill { animation: none; }
 }
+/* Key-art mode (tools/make-art.cjs): only the play surface, no controls or text, for the hub's card art. */
+.kiln-keyart .hud, .kiln-keyart .controls, .kiln-keyart .foot, .kiln-keyart .overlay { display: none !important; }
+.kiln-keyart #app { padding: 0 !important; max-width: none !important; }
 </style>
 </head>
 <body>
@@ -2660,6 +2663,7 @@ canvas:focus:not(:focus-visible) { outline: none; }
     fingertip(cx, cy, k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8);
   }
   function drawTexts() {
+    if (Arcade.keyart) return;
     for (const tx of texts) {
       const t = (gt - tx.t0) / tx.dur;
       if (t < 0 || t > 1) continue;
