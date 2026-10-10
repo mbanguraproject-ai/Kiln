@@ -58,6 +58,7 @@ The tools use Playwright (`npm i -D playwright`, or a global install on `NODE_PA
 ```sh
 node tools/smoke.cjs                 # hub + every game
 node tools/smoke.cjs --game tessera  # one game
+node tools/nav-test.cjs              # hub navigation: tabs, Back, scroll memory, sheets
 node tools/bundle.cjs && node tools/smoke.cjs --bundle dist/kiln.html
 ```
 
