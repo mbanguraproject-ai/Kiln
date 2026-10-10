@@ -42,7 +42,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
 
   let s = await state();
   check(s.tab === 'home' && s.current.join() === 'home', 'opens on Home, marked as the current tab', JSON.stringify(s));
-  check(await page.locator('.tab').count() === 3, 'three tabs: Home, Library, Settings (no empty destinations)');
+  check(await page.locator('.tab').count() === 4, 'four tabs: Home, Discover, Library, Settings (no empty destinations)');
 
   await tap('.tab[data-tab="library"]');
   s = await state();

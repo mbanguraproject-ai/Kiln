@@ -64,11 +64,22 @@ Targets from blueprint §14, measured on the reference devices: cold start p95 �
 - Events are logged on the device. They leave the device only when an endpoint is configured in `hub/config.js` **and** the player turns on "Share anonymous play stats".
 - North-star metric: weekly players who launch a game successfully and return to play again.
 - Event names follow blueprint §16 as features land: `home_view`, `game_impression`, `game_detail_open`, `play_tap`, `launch_result`, `favourite_change`, `search_submit`, `session_end`, `report_issue`.
-- No contacts, precise location, keystrokes or other sensitive data. *Open:* privacy policy URL and the "report a problem" contact address, both needed before the Play listing.
+- No contacts, precise location, keystrokes or other sensitive data. `search_submit` records what kind of thing matched (title, genre, mood...) and how many games did, never the words typed. Recent searches stay on the device, and Discover can erase them.
+- *Open:* privacy policy URL and the "report a problem" contact address, both needed before the Play listing.
 
 ## D10. Visual system
 
 The hub adopts the blueprint's dark foundation (§10): background `#07101E`, surface `#101C31`, raised `#192841`, primary violet `#6557FF`, secondary cyan `#45C4D7`, reward gold `#F0C75E` for rare highlights only, text `#F5F7FC` and `#AAB8CC`, radii 12 / 18 / 26, spacing 4 / 8 / 12 / 16 / 24 / 32. One display family and one body family. Game art supplies most of the colour; the games keep their own look.
+
+## D11. Discover: search and filters
+
+Discover searches titles, genres, mechanics, moods, collections, controls and each game's pitch. It matches while a word is still being typed, and allows one typo in a word of four letters or more (two from eight), but only when the word matches nothing as typed, so a real word is never widened into a different one.
+
+A filter is shown only when it splits the catalogue. Today that is genre and keyboard play. Every game plays offline, in portrait, with no ads or purchases and no download, so Discover says that once instead of offering filters that change nothing (blueprint section 2: remove what does not improve comprehension).
+
+- Search tags (`mechanics`, `moods` in `games/registry.js`) describe the game as it plays now and must agree with the collections it is in (`tools/discover-test.cjs` checks this).
+- *Open:* a session-length filter (blueprint section 7: quick, medium, long). It needs measured play on the reference devices, not an estimate.
+- Revisit the filter set when a game adds controller support, landscape play or a download.
 
 ## Open items
 
@@ -81,7 +92,7 @@ The hub adopts the blueprint's dark foundation (§10): background `#07101E`, sur
 | Phase | State |
 | --- | --- |
 | 0. Decisions | Done (this document) |
-| 1. Design foundation: tokens, navigation, card families, home, detail, discover and library | In progress: visual system, navigation, card families, Home and game detail done |
+| 1. Design foundation: tokens, navigation, card families, home, detail, discover and library | In progress: visual system, navigation, card families, Home, game detail and Discover done; Library next |
 | 2. Vertical slice: discover → detail → launch → return → history | Not started |
 | 3. Catalogue foundation: metadata, categories, favourites, search, image pipeline | Not started |
 | 4. Private beta | Not started |
