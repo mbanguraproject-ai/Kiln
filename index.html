@@ -296,6 +296,11 @@ h1, h2, h3 { text-wrap: balance; }
 .word { font: 800 30px/0.9 var(--font-display); letter-spacing: -0.04em; }
 .tagline { margin: 0; font: 600 10.5px/1 var(--font-body); letter-spacing: 0.34em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
 .actions { display: flex; gap: var(--s3); }
+/* The smallest phones: the tagline tightens so both header buttons keep their full size. */
+@media (max-width: 359px) {
+  .tagline { font-size: 9px; letter-spacing: 0.2em; }
+  .actions { gap: var(--s2); }
+}
 .intro { padding-block: var(--s4) var(--s5); display: grid; gap: var(--s2); }
 .intro h1 { margin: 0; font: 800 var(--t-hero)/1.12 var(--font-display); letter-spacing: -0.03em; max-width: 16ch; }
 .intro p { margin: 0; color: var(--text-2); font-size: var(--t-body); max-width: 46ch; }
@@ -400,7 +405,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 @media (min-width: 700px) {
   /* Wide screens: the art keeps to the right at close to its own shape, and the text gets a quiet ground. */
-  .feature { background: var(--card); }
+  .feature { background: var(--card); max-height: 360px; }
   .feature-art { left: auto; width: 76%; }
   .feature-body { padding: var(--s6) var(--s6) calc(var(--s6) + 56px); gap: 10px; }
   .feature-title { font-size: 44px; }
@@ -1610,19 +1615,19 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     if (g.artWide) art.append(artImg(g.artWide, 1280, 720));
     const body = el('span', 'cont-body');
     body.append(el('span', 'cont-title', g.title), genreLine('card-genre', g));
-    if (p && p.pct != null) {
-      const row = el('span', 'cont-progress');
-      const bar = el('span', 'bar');
-      const fill = el('i');
-      fill.style.width = p.pct + '%';
-      bar.append(fill);
-      row.append(bar, p.pct + '%');
-      body.append(row);
-    } else {
-      body.append(el('span', 'cont-meta', meta));
-    }
+    body.append(p && p.pct != null ? progressBar(p.pct) : el('span', 'cont-meta', meta));
     card.append(art, body);
     return card;
+  }
+  // Only for a percentage the game itself reported.
+  function progressBar(pct) {
+    const row = el('span', 'cont-progress');
+    const bar = el('span', 'bar');
+    const fill = el('i');
+    fill.style.width = pct + '%';
+    bar.append(fill);
+    row.append(bar, pct + '%');
+    return row;
   }
   function pickCard(g, shelf, pos, fresh) {
     const soon = g.status === 'soon';
@@ -2560,8 +2565,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     const b = bestOf(g.id);
     if (b > 0) stats.append(el('b', null, 'Best ' + fmt(b)));
     if (time[g.id]) stats.append(document.createTextNode((b > 0 ? ' · ' : '') + dur(time[g.id]) + ' played'));
-    const meta = p ? `${p.label}${p.pct != null ? ` · ${p.pct}%` : ''} · ${when.replace(/^Played /, '')}` : when;
-    text.append(el('span', 'lib-title', g.title), genreLine('card-genre', g), el('span', 'lib-meta', meta), stats);
+    const meta = p ? `${p.label} · ${when.replace(/^Played /, '')}` : when;
+    text.append(el('span', 'lib-title', g.title), genreLine('card-genre', g), el('span', 'lib-meta', meta));
+    if (p && p.pct != null) text.append(progressBar(p.pct));
+    text.append(stats);
     open.append(art, text);
     open.addEventListener('click', () => openDetail(g.id, shelf));
     row.append(open, playButton('lib-play', g, shelf, p ? 'Resume' : 'Play'));

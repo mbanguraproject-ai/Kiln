@@ -120,8 +120,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ['tense', 'goldmend'],
     ['crosswkae', 'crosswake'],
     ['lariet', 'lariat'],
-    ['puzzle', 'tessera,crosswake'],
-    ['puzle', 'tessera,crosswake'],
+    // Span (coming soon) is a puzzle game too; it is found, after every game that can be played now.
+    ['puzzle', 'tessera,crosswake,span'],
+    ['puzle', 'tessera,crosswake,span'],
     ['arcade', 'goldmend,lariat'],
     ['calm', 'crosswake'],
     ['relaxing', 'tessera'],
@@ -205,7 +206,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await wait(150);
   d = await readDiscover();
   const checkShown = await page.evaluate(() => getComputedStyle(document.querySelector('#filters .chip[aria-pressed="true"] svg')).display !== 'none');
-  check(d.rows.join() === 'tessera,crosswake' && d.filters.join() === 'Puzzle*,Arcade,Keyboard' && d.heading === '2 games' && d.headAction === 'Clear filters', 'Puzzle shows the puzzle games, with Clear filters', `${d.rows.join()} / ${d.filters.join()}`);
+  check(d.rows.join() === 'tessera,crosswake,span' && d.filters.join() === 'Puzzle*,Arcade,Keyboard' && d.heading === '3 games' && d.headAction === 'Clear filters', 'Puzzle shows the puzzle games, coming soon last, with Clear filters', `${d.rows.join()} / ${d.filters.join()}`);
   check(checkShown, 'a chosen filter shows a check mark, not colour alone');
   await page.click('#filters [data-filter="keyboard"]');
   await wait(150);

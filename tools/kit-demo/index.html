@@ -109,7 +109,7 @@ body {
   }
 
   /* ---------- background: sky, stars, moon, three depths of canopy, fog ---------- */
-  const stars = gfx.starfield({ count: 150, seed: 9, layers: 3, size: [0.5, 2] });
+  const stars = gfx.starfield({ count: 110, seed: 9, layers: 3, size: [0.5, 2] });
 
   // Paints one depth of the forest for both sides of the shaft into a tile that repeats vertically.
   function paintCanopy(o) {
@@ -219,14 +219,19 @@ body {
     g.restore();
   });
   // The dark that closes in around your light: clear in the middle, the palette's dark at the rim and
-  // beyond. One unit-radius gradient, scaled into place each frame, so there are no seams and no garbage.
-  let darkGrad = null;
+  // beyond. A gradient rendered once into a sprite, stretched into place each frame and boxed in with
+  // solid fills: a blit costs a fraction of a full-screen gradient fill.
+  let darkSprite = null;
   function buildDark() {
-    darkGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-    darkGrad.addColorStop(0, gfx.alpha(pal.dark, 0));
-    darkGrad.addColorStop(0.45, gfx.alpha(pal.dark, 0.08));
-    darkGrad.addColorStop(0.75, gfx.alpha(pal.dark, 0.55));
-    darkGrad.addColorStop(1, pal.dark);
+    const S = 256;
+    darkSprite = gfx.offscreen(S, S);
+    const g = darkSprite.getContext('2d'), grad = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grad.addColorStop(0, gfx.alpha(pal.dark, 0));
+    grad.addColorStop(0.45, gfx.alpha(pal.dark, 0.08));
+    grad.addColorStop(0.75, gfx.alpha(pal.dark, 0.55));
+    grad.addColorStop(1, pal.dark);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, S, S);
   }
   const wingSprite = (key, c1, c2) => gfx.sprite(key, 34, 30, (g) => {
     const grad = g.createLinearGradient(0, 0, 34, 30);
@@ -405,7 +410,7 @@ body {
     Kit.music.duck(0.3);
     fx.burst(G.m.x, G.m.y, { count: 30, color: [pal.ember, pal.cream], glow: true, size: [1.5, 3], speed: [30, 140], gravity: -30, life: [0.8, 1.6] });
     shell.over({
-      score: G.score,
+      score: points(),
       delay: 1100,
       stats: [
         { label: 'Altitude', value: Kit.fmt(G.alt) + ' m' },
@@ -534,8 +539,8 @@ body {
     ctx.globalAlpha = 1;
 
     const mx = w / 2 + FIELD * zoom * 0.5, my = h * 0.16 - sy * 0.002;
-    gfx.light(ctx, mx, my, 260 * zoom, pal.moon, 0.28);
-    gfx.lightRays(ctx, mx, my, { angle: 2.05, spread: 0.9, length: h * 1.2, count: 6, color: pal.moon, alpha: 0.05, t });
+    gfx.light(ctx, mx, my, 190 * zoom, pal.moon, 0.32);
+    gfx.lightRays(ctx, mx, my, { angle: 2.05, spread: 0.9, length: h * 0.95, count: 6, color: pal.moon, alpha: 0.055, t });
     gfx.blit(ctx, moonSprite(), mx, my, zoom * 0.62);
 
     walls.draw(ctx, w, h, 0, sy);
@@ -582,12 +587,19 @@ body {
     const m = G.m;
     cam.toScreen(m.x, m.y, P);
     const R = (95 + Math.max(0, G.light) * 1.9) * zoom * (1 + 0.03 * Math.sin(t * 9) + 0.02 * Math.sin(t * 23));
+    // Device pixels, snapped, so the sprite and the fills around it meet without a seam.
+    const d = view.dpr, W = view.canvas.width, H = view.canvas.height;
+    const x0 = Math.round((P.x - R) * d), x1 = Math.round((P.x + R) * d), y0 = Math.round((P.y - R) * d), y1 = Math.round((P.y + R) * d);
     ctx.save();
-    ctx.globalAlpha = pal.darkA * (G.mode === 'play' || G.dead ? 1 : 0.55);
-    ctx.translate(P.x, P.y);
-    ctx.scale(R, R);
-    ctx.fillStyle = darkGrad;
-    ctx.fillRect(-P.x / R, -P.y / R, view.w / R, view.h / R);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Full dark in play; lifted on the title (attract run) and in key art, where the forest should read.
+    ctx.globalAlpha = pal.darkA * ((G.mode === 'play' && !Kit.keyart) || G.dead ? 1 : 0.55);
+    ctx.drawImage(darkSprite, x0, y0, x1 - x0, y1 - y0);
+    ctx.fillStyle = pal.dark;
+    if (y0 > 0) ctx.fillRect(0, 0, W, y0);
+    if (y1 < H) ctx.fillRect(0, y1, W, H - y1);
+    if (x0 > 0) ctx.fillRect(0, Math.max(0, y0), x0, Math.min(H, y1) - Math.max(0, y0));
+    if (x1 < W) ctx.fillRect(x1, Math.max(0, y0), W - x1, Math.min(H, y1) - Math.max(0, y0));
     ctx.restore();
   }
 
@@ -729,14 +741,16 @@ body {
   }
 
   const HUD_FONT = '800 30px ' + gfx.fonts.display;
+  // Climbing earns fractional points; the player only ever sees (and the hub only ever gets) whole ones.
+  const points = () => Math.floor(G.score);
   function drawHud(w, h) {
     if (Kit.keyart || G.mode !== 'play') return;
     const x = Math.max(18, (w - Math.min(w, 1100)) / 2 + 18);
-    gfx.text(ctx, Kit.fmt(G.score), x, 34, { size: 30, align: 'left', color: pal.cream, shadow: pal.emberSoft, shadowBlur: 16 });
+    gfx.text(ctx, Kit.fmt(points()), x, 34, { size: 30, align: 'left', color: pal.cream, shadow: pal.emberSoft, shadowBlur: 16 });
     gfx.text(ctx, Kit.fmt(G.alt) + ' m', x + 1, 64, { size: 13, font: 'body', weight: 700, align: 'left', color: pal.creamSoft });
     if (G.mult > 1) {
       ctx.font = HUD_FONT;
-      const sw = ctx.measureText(Kit.fmt(G.score)).width;
+      const sw = ctx.measureText(Kit.fmt(points())).width;
       const cx = x + sw + 30, s = G.comboPop;
       ctx.save();
       ctx.translate(cx, 34);
@@ -801,7 +815,7 @@ body {
     ],
     loop,
     focus: view.canvas,
-    score: () => (G ? Math.floor(G.score) : 0),
+    score: () => (G && G.mode === 'play' ? points() : 0),
     lose: () => die(),
     theme: {
       panel: 'glass',
@@ -821,7 +835,8 @@ body {
       Kit.sfx('select');
     },
   });
-  shell.test({
+  // The shell already registered start/lose/state (plus pause/resume); Arcade.test merges these extras in.
+  Arcade.test({
     seed(n) { nextSeed = n; },
     step(n) { loop.step(n); },
     dash,
@@ -855,6 +870,7 @@ body {
       const m = G.m, luna = { kind: 'luna', x: m.x + 20, y: m.y - 30, bx: 0, ph: 0, taken: false };
       G.combo = 17; G.mult = 4; G.chainT = 1.4;
       G.items.push(luna);
+      fx.clear(); // the autopilot's own +10s would pile up under the luna's +1,000
       collect(luna);
       loop.step(9);
     }),

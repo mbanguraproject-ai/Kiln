@@ -47,8 +47,9 @@ const EMBED = `<!doctype html><html><head><meta charset="utf-8"><style>html,body
 async function newPage(browser, ctxOpts, name) {
   const ctx = await browser.newContext(Object.assign({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 }, ctxOpts));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
-  await ctx.route(`${BASE}/__kit/fixture.html`, r => r.fulfill({ status: 200, contentType: 'text/html', body: FIXTURE }));
-  await ctx.route(`${BASE}/__kit/embed.html`, r => r.fulfill({ status: 200, contentType: 'text/html', body: EMBED }));
+  // Match on the path alone: a glob would miss the URL once it carries ?debug.
+  await ctx.route(u => u.pathname === '/__kit/fixture.html', r => r.fulfill({ status: 200, contentType: 'text/html', body: FIXTURE }));
+  await ctx.route(u => u.pathname === '/__kit/embed.html', r => r.fulfill({ status: 200, contentType: 'text/html', body: EMBED }));
   const page = await ctx.newPage();
   page.on('console', m => { if (m.type() === 'error') errors.push(`${name}: console error: ${m.text()}`); });
   page.on('pageerror', e => errors.push(`${name}: page error: ${e.message}`));
@@ -75,10 +76,11 @@ async function units(browser) {
     return { dpr: vv.dpr, px: c.width * c.height };
   });
   check(big.px <= 4.1e5 && big.dpr >= 1, 'view: maxPixels lowers the DPR for huge canvases', big);
-  await page.evaluate(() => { document.getElementById('c').style.inset = '0 190px 0 0'; });
+  // view() sizes the canvas to 100% of its box, so change the box size itself.
+  await page.evaluate(() => { document.getElementById('c').style.width = '200px'; });
   await page.waitForFunction(() => V.w === 200);
   const rs = await page.evaluate(() => ({ w: V.w, cw: V.canvas.width }));
-  await page.evaluate(() => { document.getElementById('c').style.inset = '0'; });
+  await page.evaluate(() => { document.getElementById('c').style.width = '100%'; });
   await page.waitForFunction(() => V.w === 390);
   check(rs.w === 200 && rs.cw === 400, 'view: follows its CSS box on resize', rs);
 
@@ -225,6 +227,9 @@ async function units(browser) {
   check(JSON.stringify(g.colors) === JSON.stringify(['rgb(127,127,127)', 'rgba(255,0,0,0.5)', 'rgb(255,255,255)', 'hsl(200,50%,40%)', 'rgba(0,128,255,0.25)']), 'gfx: colour helpers', g.colors);
   check(g.painted, 'gfx: sky, vignette, grain, sprites, lights, rays, text, starfield and layers draw');
 
+  // Checked before the input section below, whose clicks are the page's first gestures.
+  check(await page.evaluate(() => Kit.audio.ctx === null), 'audio: no AudioContext before a gesture');
+
   // input
   await page.evaluate(() => {
     window.EV = [];
@@ -287,7 +292,6 @@ async function units(browser) {
   check(multi.btn.down && multi.btn.space && multi.btn.pressed && multi.btnUp && multi.gameSaw === 0, 'input: on-screen button stands in for its key; controls swallow their touches', multi);
 
   // audio: lazily created on the first gesture, every preset and song style plays without errors
-  check(await page.evaluate(() => Kit.audio.ctx === null), 'audio: no AudioContext before a gesture');
   await page.mouse.click(30, 30);
   await page.waitForFunction(() => Kit.audio.ready, null, { timeout: 3000 }).catch(() => {});
   const au = await page.evaluate(async () => {
@@ -418,12 +422,17 @@ async function demoFlows(browser) {
   const ev = (await log()).slice(-2);
   check(ev[0] && ev[0].ev === 'run_end' && ev[0].reason === 'restart' && ev[1].ev === 'run_start', 'shell: Restart ends the run and starts a new one', ev);
 
+  // The restarted run's score already counts as a best (the SDK keeps every scored run_end); clear it so the
+  // next run is a new best whatever the two scores were.
+  const restartBest = await T(() => Kit.save.best());
+  check(restartBest === ev[0].score, 'shell: a restarted run still records its best', { restartBest, score: ev[0].score });
+  await T(() => Kit.save.set('best', 0));
   await T(() => __kilnTest.autopilot(true));
   await sleep(1200);
   await T(() => __kilnTest.lose());
   const over = await T(() => __kilnTest.state());
   const end = (await log()).pop();
-  check(over.phase === 'over' && end.ev === 'run_end' && typeof end.score === 'number' && end.score > 0, 'shell: lose() ends the run with a numeric score', { over, end });
+  check(over.phase === 'over' && end.ev === 'run_end' && Number.isInteger(end.score) && end.score > 0, 'shell: lose() ends the run with a whole-number score', { over, end });
   await page.waitForSelector('.k-over:not([hidden])', { timeout: 3000 });
   await page.keyboard.press('Enter'); // inside the lock window: must not restart
   check((await T(() => __kilnTest.state())).phase === 'over', 'shell: a stray key right after game over is ignored');

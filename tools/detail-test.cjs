@@ -43,9 +43,13 @@ function jpegSize(file) {
   const playable = GAMES.filter(g => g.status !== 'soon');
   for (const g of playable) {
     const src = fs.readFileSync(path.join(ROOT, g.path), 'utf8');
-    const reportsRuns = /Arcade\.progress\(/.test(src);
-    check(g.saves === (reportsRuns ? 'run' : 'best'), `${g.id}: "saves" matches whether the game keeps a run (Arcade.progress)`, g.saves);
-    const keyboard = /ArrowLeft/.test(src) && /ArrowUp/.test(src);
+    // The rules, read from the game's source: a game keeps a run when it reports one with progress(...) (Arcade.progress
+    // directly, or through a helper that ends in it). It plays by keyboard when it handles the arrow keys itself
+    // (ArrowLeft and ArrowUp), or reads keys through the kit's input (isDown, pressed, onKey, axisX, axisY); the kit
+    // shell's Enter/Space/Escape for menus alone does not count.
+    const reportsRuns = /\bprogress\(/.test(src);
+    check(g.saves === (reportsRuns ? 'run' : 'best'), `${g.id}: "saves" matches whether the game keeps a run (progress)`, g.saves);
+    const keyboard = (/ArrowLeft/.test(src) && /ArrowUp/.test(src)) || /\.(isDown|pressed|onKey|axisX|axisY)\(/.test(src);
     check(/keyboard/i.test(g.controls || '') === keyboard, `${g.id}: "controls" matches the game's keyboard support`, g.controls);
     const sentences = (g.about || '').split(/(?<=\.)\s+/).filter(Boolean).length;
     check(sentences >= 2 && sentences <= 4, `${g.id}: "about" is two to four sentences`, sentences);

@@ -280,6 +280,19 @@
   const noiseCache = new Map();
   const rayGrads = new Map();
   const grainPatterns = new WeakMap();
+  let grainTex = null;
+  function grainTexture() {
+    if (grainTex) return grainTex;
+    grainTex = offscreen(160, 160);
+    const g = grainTex.getContext('2d'), img = g.createImageData(160, 160), r = rng(7);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const n = r.next() * 2 - 1, v = n > 0 ? 255 : 0;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = Math.abs(n) * 255;
+    }
+    g.putImageData(img, 0, 0);
+    return grainTex;
+  }
 
   const gfx = {
     dpr: Math.min(2, window.devicePixelRatio || 1),
@@ -328,19 +341,22 @@
 
     // Fill the whole canvas with a vertical gradient. Pass the same stops array each frame: the gradient
     // is cached on it. stops: ['#top', '#mid', '#bottom'] or [[0, '#top'], [0.7, '#mid'], [1, '#bottom']].
+    // It is rendered once into a 1 px wide strip and stretched: a blit costs far less than a gradient fill.
     sky(ctx, stops, h0, h1) {
-      const H = ctx.canvas.height;
+      const W = ctx.canvas.width, H = ctx.canvas.height;
       let c = skyCache.get(stops);
       if (!c || c.H !== H || c.h0 !== h0 || c.h1 !== h1) {
-        const grad = ctx.createLinearGradient(0, (h0 || 0) * H, 0, (h1 === undefined ? 1 : h1) * H);
+        const strip = offscreen(1, H), g = strip.getContext('2d');
+        const grad = g.createLinearGradient(0, (h0 || 0) * H, 0, (h1 === undefined ? 1 : h1) * H);
         stops.forEach((s, i) => (Array.isArray(s) ? grad.addColorStop(s[0], s[1]) : grad.addColorStop(stops.length > 1 ? i / (stops.length - 1) : 0, s)));
-        c = { H, h0, h1, grad };
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 1, H);
+        c = { H, h0, h1, strip };
         skyCache.set(stops, c);
       }
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = c.grad;
-      ctx.fillRect(0, 0, ctx.canvas.width, H);
+      ctx.drawImage(c.strip, 0, 0, 1, H, 0, 0, W, H);
       ctx.restore();
     },
 
@@ -395,17 +411,18 @@
     },
 
     // Film grain over the whole canvas; `t` (seconds) jitters it so it shimmers instead of sitting still.
+    // Light and dark specks blended normally: an 'overlay' blend looks alike but costs several times more.
     grain(ctx, amount, t) {
       let pattern = grainPatterns.get(ctx);
       if (!pattern) {
-        pattern = ctx.createPattern(gfx.noiseTexture(160, 160, { alpha: 1, seed: 7 }), 'repeat');
+        pattern = ctx.createPattern(grainTexture(), 'repeat');
         grainPatterns.set(ctx, pattern);
       }
       const ox = ((t || 0) * 997) % 160 | 0, oy = ((t || 0) * 613) % 160 | 0;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, -ox, -oy);
       ctx.globalAlpha = amount === undefined ? 0.05 : amount;
-      ctx.globalCompositeOperation = 'overlay';
+      ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = pattern;
       ctx.fillRect(ox, oy, ctx.canvas.width, ctx.canvas.height);
       ctx.restore();
@@ -532,8 +549,10 @@
 
     // Parallax layers, each painted once into a tile and scrolled at its own depth.
     // defs: [{ depth, paint(g, w, h), axis: 'x'|'y', tile: px along the axis (default view size), alpha }]
+    // Only the painted part of a tile is drawn (hills fill the bottom of an x layer, walls the sides of a
+    // y layer), so stacking several layers costs far less fill rate than full-screen images would.
     layers(defs) {
-      const L = defs.map(d => Object.assign({ depth: 0.5, axis: 'x' }, d, { canvas: null, w: 0, h: 0, dpr: 0 }));
+      const L = defs.map(d => Object.assign({ depth: 0.5, axis: 'x' }, d, { canvas: null, w: 0, h: 0, dpr: 0, spans: null }));
       function ready(l, w, h) {
         const tw = l.axis === 'x' ? (l.tile || w) : w, th = l.axis === 'y' ? (l.tile || h) : h;
         if (l.canvas && l.w === tw && l.h === th && l.dpr === gfx.dpr) return;
@@ -542,6 +561,25 @@
         const g = l.canvas.getContext('2d');
         g.scale(gfx.dpr, gfx.dpr);
         l.paint(g, tw, th);
+        l.spans = paintedSpans(g, l.canvas.width, l.canvas.height, l.axis === 'x');
+      }
+      // Runs of device pixels across the scroll axis (rows for x layers, columns for y layers) that hold paint.
+      function paintedSpans(g, W, H, rows) {
+        const n = rows ? H : W;
+        let data;
+        try { data = g.getImageData(0, 0, W, H).data; } catch (e) { return [[0, n]]; }
+        const used = new Uint8Array(n);
+        for (let y = 0, i = 3; y < H; y++) {
+          for (let x = 0; x < W; x++, i += 4) if (data[i]) used[rows ? y : x] = 1;
+        }
+        const out = [];
+        for (let i = 0; i < n; i++) {
+          if (!used[i]) continue;
+          const last = out[out.length - 1];
+          // Bridge small gaps: one more draw call costs more than a few empty pixels.
+          if (last && i - last[1] < 24) last[1] = i + 1; else out.push([i, i + 1]);
+        }
+        return out;
       }
       return {
         layers: L,
@@ -553,13 +591,13 @@
             ready(l, w, h);
             if (l.alpha !== undefined) ctx.globalAlpha = pa * l.alpha;
             // Tiles land on whole device pixels and keep their exact pixel size, so the seams never show.
-            const dw = l.canvas.width / l.dpr, dh = l.canvas.height / l.dpr;
+            const c = l.canvas, d = l.dpr, dw = c.width / d, dh = c.height / d;
             if (l.axis === 'x') {
-              const off = Math.round(-wrap(sx * l.depth, 0, l.w) * l.dpr) / l.dpr;
-              for (let x = off; x < w; x += l.w) ctx.drawImage(l.canvas, x, 0, dw, dh);
+              const off = Math.round(-wrap(sx * l.depth, 0, l.w) * d) / d;
+              for (let x = off; x < w; x += l.w) for (const s of l.spans) ctx.drawImage(c, 0, s[0], c.width, s[1] - s[0], x, s[0] / d, dw, (s[1] - s[0]) / d);
             } else {
-              const off = Math.round(-wrap(sy * l.depth, 0, l.h) * l.dpr) / l.dpr;
-              for (let y = off; y < h; y += l.h) ctx.drawImage(l.canvas, 0, y, dw, dh);
+              const off = Math.round(-wrap(sy * l.depth, 0, l.h) * d) / d;
+              for (let y = off; y < h; y += l.h) for (const s of l.spans) ctx.drawImage(c, s[0], 0, s[1] - s[0], c.height, s[0] / d, y, (s[1] - s[0]) / d, dh);
             }
             ctx.globalAlpha = pa;
           }
@@ -602,7 +640,7 @@
   const views = [];
   function view(canvas, o) {
     o = o || {};
-    const maxDpr = o.maxDpr || 2, maxPixels = o.maxPixels || 2.6e6;
+    const maxDpr = o.maxDpr || 2, maxPixels = o.maxPixels || 3.4e6;
     if (o.fill !== false) {
       canvas.style.display = 'block';
       canvas.style.width = '100%';
@@ -626,7 +664,8 @@
     function resize() {
       const w = Math.max(1, canvas.clientWidth), h = Math.max(1, canvas.clientHeight);
       let dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
-      // Huge desktop canvases get a lower DPR so fill-rate stays inside the frame budget.
+      // Huge canvases (tablets, desktops) get a lower DPR so fill rate stays inside the frame budget; 3.4 MP
+      // keeps a 1280x800 window at 0.9x sharpness or better.
       if (w * h * dpr * dpr > maxPixels) dpr = Math.max(1, Math.sqrt(maxPixels / (w * h)));
       const W = Math.round(w * dpr), H = Math.round(h * dpr);
       if (w === v.w && h === v.h && canvas.width === W && canvas.height === H) return;
@@ -1482,7 +1521,7 @@
       if (lp !== undefined && now - lp < 0.03) return false;
       lastPlayed.set(name, now);
     }
-    if (au.voices > 48) return false;
+    if (au.voices > 48 && !o.force) return false; // a pile-up costs CPU and is mud anyway
     const when = now + (o.delay || 0) / 1000 + 0.005;
     if (Array.isArray(p)) for (const l of p) voice(l, o, when);
     else voice(p, o, when);
@@ -2152,7 +2191,9 @@
     const L = o.loop || null;
     if (L) L.autoPause = false; // the shell decides: pause menu in play, plain freeze elsewhere
     const format = o.format || fmt;
-    const scoreOf = () => (o.score ? +o.score() || 0 : 0);
+    // Scores are whole numbers everywhere the player or the hub sees them (HUD, best, run_end).
+    const whole = n => Math.round(+n || 0);
+    const scoreOf = () => (o.score ? whole(o.score()) : 0);
     const how = o.how ? (Array.isArray(o.how) ? o.how : [o.how]) : [];
     let phase = 'title', overTimer = 0, unlockTimer = 0, toastTimer = 0;
 
@@ -2304,7 +2345,7 @@
     function over(r) {
       if (phase !== 'play' && phase !== 'paused') return;
       r = r || {};
-      const score = r.score === undefined ? scoreOf() : +r.score || 0;
+      const score = r.score === undefined ? scoreOf() : whole(r.score);
       const prev = save.best();
       const isBest = score > prev && score > 0;
       if (isBest) save.setBest(score);

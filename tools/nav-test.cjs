@@ -75,13 +75,28 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   check((await state()).tab === 'home', 'Back from Settings (reached through Library) goes Home, not to Library');
   check(await page.evaluate(() => history.state && history.state.tab === 'home'), 'at Home the history is at its root, so Android Back leaves the app');
 
-  // Scroll memory per tab
-  await page.evaluate(() => { const v = document.getElementById('view-home'); v.scrollTop = 260; });
-  const before = await page.evaluate(() => document.getElementById('view-home').scrollTop);
-  await tap(profile);
+  // Scroll memory: each tab is its own scroll view, so leaving one for another tab or for Settings and coming back
+  // finds it where it was. The profile button is clicked from script, because Playwright would scroll it into view.
+  const scrollOf = t => page.evaluate(t => document.getElementById('view-' + t).scrollTop, t);
+  const scrollTo = (t, y) => page.evaluate(([t, y]) => { document.getElementById('view-' + t).scrollTop = y; }, [t, y]);
+  await scrollTo('home', 260);
+  let before = await scrollOf('home');
+  await tap('.tab[data-tab="library"]');
   await tap('.tab[data-tab="home"]');
-  const after = await page.evaluate(() => document.getElementById('view-home').scrollTop);
-  check(before > 0 && after === before, 'Home keeps its scroll position across tab switches', `${before} -> ${after}`);
+  check(before > 0 && await scrollOf('home') === before, 'Home keeps its scroll position across tab switches', `${before} -> ${await scrollOf('home')}`);
+  await page.evaluate(() => document.querySelector('#view-home .profile-btn').click());
+  await page.waitForTimeout(150);
+  await back();
+  check((await state()).tab === 'home' && await scrollOf('home') === before, 'Home keeps its scroll position after Settings and Back', `${before} -> ${await scrollOf('home')}`);
+  await tap('.tab[data-tab="discover"]');
+  await scrollTo('discover', 200);
+  before = await scrollOf('discover');
+  await tap('.tab[data-tab="library"]');
+  await tap('.tab[data-tab="discover"]');
+  check(before > 0 && await scrollOf('discover') === before, 'Discover keeps its scroll position across tab switches', `${before} -> ${await scrollOf('discover')}`);
+  await tap('.tab[data-tab="home"]');
+  check(await scrollOf('home') > 0, 'Home is still where it was after visiting Discover and Library');
+  await scrollTo('home', 0);
 
   // Card, game page, game, sheet, then Back through all of them
   await tap('.game-card[data-shelf="picks"][data-id="lariat"]');
