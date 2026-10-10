@@ -22,7 +22,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript' };
     fs.createReadStream(f).pipe(res);
   }).listen(PORT);
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 400, height: 500 }, deviceScaleFactor: 2, colorScheme: 'light', isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width: 400, height: 500 }, deviceScaleFactor: 2, colorScheme: 'dark', isMobile: true, hasTouch: true });
   for (const g of games) {
     if (!fs.existsSync(path.join(ROOT, g.path))) { console.warn('skip', g.id); continue; }
     const page = await ctx.newPage();

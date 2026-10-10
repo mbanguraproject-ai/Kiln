@@ -3,12 +3,13 @@
   "appName": "Kiln",
   "webDir": "www",
   "android": {
-    "backgroundColor": "#E6EBEF"
+    "backgroundColor": "#07101E"
   },
   "plugins": {
     "SystemBars": {
       "insetsHandling": "native",
-      "initialViewportFitValueHint": "cover"
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
     }
   }
 }

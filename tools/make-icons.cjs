@@ -15,7 +15,7 @@ const SPECS = [
 ].map(s => Object.assign({ out: path.join(OUT, s.file) }, s));
 
 // Android: legacy square and round icons, adaptive foreground (tiles only, inside the 66/108 safe zone),
-// and splash images on the plaster ground.
+// and splash images on Kiln's dark canvas.
 if (fs.existsSync(RES)) {
   const dens = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
   for (const [d, k] of Object.entries(dens)) {
@@ -25,8 +25,8 @@ if (fs.existsSync(RES)) {
   }
   const splash = { 'port-mdpi': [320, 480], 'port-hdpi': [480, 800], 'port-xhdpi': [720, 1280], 'port-xxhdpi': [960, 1600], 'port-xxxhdpi': [1280, 1920],
     'land-mdpi': [480, 320], 'land-hdpi': [800, 480], 'land-xhdpi': [1280, 720], 'land-xxhdpi': [1600, 960], 'land-xxxhdpi': [1920, 1280] };
-  for (const [d, [w, h]] of Object.entries(splash)) SPECS.push({ out: path.join(RES, `drawable-${d}`, 'splash.png'), w, h, grid: 0.2, plaster: true });
-  SPECS.push({ out: path.join(RES, 'drawable', 'splash.png'), w: 480, h: 320, grid: 0.2, plaster: true });
+  for (const [d, [w, h]] of Object.entries(splash)) SPECS.push({ out: path.join(RES, `drawable-${d}`, 'splash.png'), w, h, grid: 0.2, splash: true });
+  SPECS.push({ out: path.join(RES, 'drawable', 'splash.png'), w: 480, h: 320, grid: 0.2, splash: true });
 }
 
 // Same glazed-tile drawing as the game (index.html, makeTile).
@@ -64,8 +64,8 @@ function draw(spec) {
   c.width = CW;
   c.height = CH;
   const g = c.getContext('2d');
-  if (spec.plaster) {
-    g.fillStyle = '#E6EBEF';
+  if (spec.splash) {
+    g.fillStyle = '#07101E';
     g.fillRect(0, 0, CW, CH);
   } else if (!spec.transparent) {
     const bg = g.createRadialGradient(S * 0.35, S * 0.3, S * 0.05, S * 0.5, S * 0.5, S * 0.75);
@@ -82,9 +82,9 @@ function draw(spec) {
   // empty slot, bottom right
   const m = cell * 0.055, w = cell - 2 * m;
   const sg = g.createLinearGradient(0, oy + cell + m, 0, oy + cell + m + w);
-  sg.addColorStop(0, spec.plaster ? '#A9B6C2' : '#0B1422');
-  sg.addColorStop(0.3, spec.plaster ? '#BCC8D3' : '#18263A');
-  sg.addColorStop(1, spec.plaster ? '#BCC8D3' : '#18263A');
+  sg.addColorStop(0, spec.splash ? '#0B1526' : '#0B1422');
+  sg.addColorStop(0.3, spec.splash ? '#192841' : '#18263A');
+  sg.addColorStop(1, spec.splash ? '#192841' : '#18263A');
   g.fillStyle = sg; rrect(g, ox + cell + m, oy + cell + m, w, w, w * 0.2); g.fill();
   tile(g, '#2E5BD0', 0, ox, oy, cell);
   tile(g, '#E39C1A', 1, ox + cell, oy, cell);

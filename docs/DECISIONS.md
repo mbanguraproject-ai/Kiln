@@ -81,7 +81,7 @@ The hub adopts the blueprint's dark foundation (§10): background `#07101E`, sur
 | Phase | State |
 | --- | --- |
 | 0. Decisions | Done (this document) |
-| 1. Design foundation: tokens, navigation, card families, home, detail, discover and library | Next |
+| 1. Design foundation: tokens, navigation, card families, home, detail, discover and library | In progress: visual system done |
 | 2. Vertical slice: discover → detail → launch → return → history | Not started |
 | 3. Catalogue foundation: metadata, categories, favourites, search, image pipeline | Not started |
 | 4. Private beta | Not started |
