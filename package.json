@@ -7,7 +7,7 @@
     "build:web": "node tools/build-web.cjs",
     "android:sync": "npm run build:web && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
-    "test": "node tools/smoke.cjs"
+    "test": "node tools/smoke.cjs && node tools/nav-test.cjs && node tools/home-test.cjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",

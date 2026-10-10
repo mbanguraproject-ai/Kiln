@@ -785,6 +785,7 @@ input[type="range"]:disabled { opacity: 0.4; }
       $('overTitle').textContent = isBest ? 'Your best yet' : 'Out of stones';
       setTimeout(() => { if (phase === 'over') { overEl.hidden = false; $('againBtn').focus({ preventScroll: true }); } }, 1100);
       store.del('run');
+      Arcade.progress(null);
       updateHud();
     } else {
       phase = 'place';
@@ -801,6 +802,7 @@ input[type="range"]:disabled { opacity: 0.4; }
   function save() {
     if (!run || phase === 'over') return;
     store.set('run', { v: 1, ph: pondH, seed: run.seed, n: P.n, teach: P.teach, score: run.score, ponds: run.ponds, lanterns: run.lanterns, pairs: run.pairs, stones: stonesLeft, lit: [...lit], started: run.started });
+    Arcade.progress(run.started ? { label: 'Pond ' + P.n } : null);
   }
   function restore() {
     const d = store.get('run', null);

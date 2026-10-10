@@ -41,7 +41,8 @@ for (const g of games) {
 }
 
 // JSON with every "<" escaped, so nothing inside can close the surrounding <script>.
-const registry = 'window.KILN_GAMES = ' + JSON.stringify(games).replace(/</g, '\\u003c') + ';';
+const json = v => JSON.stringify(v).replace(/</g, '\\u003c');
+const registry = 'window.KILN_GAMES = ' + json(games) + ';\nwindow.KILN_COLLECTIONS = ' + json(sandbox.window.KILN_COLLECTIONS || []) + ';';
 
 let hub = read('index.html');
 const swap = (from, to) => {

@@ -204,6 +204,19 @@
     // Key moments worth counting: 'tutorial_complete', 'level_complete', 'share', ...
     track: function (name, props) { record(String(name), props); },
 
+    // Tell Kiln whether there is a saved run to come back to, so Home can offer Resume truthfully.
+    // p: { label: 'Pond 6' } while a run is saved, or null once it is over. Games without saves never call it.
+    progress: function (p) {
+      if (keyart) return;
+      var v = p && p.label ? { label: String(p.label).slice(0, 40), ts: Date.now() } : null;
+      var prev = ls.get(state.id + ':progress', null);
+      if (!v && !prev) return;
+      if (v && prev && prev.label === v.label) return;
+      if (v) ls.set(state.id + ':progress', v);
+      else ls.del(state.id + ':progress');
+      post({ type: 'progress', id: state.id, progress: v });
+    },
+
     // Per-game saved data.
     store: {
       get: function (k, d) { return ls.get(state.id + ':' + k, d); },
