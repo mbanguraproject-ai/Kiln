@@ -24,6 +24,25 @@ window.KILN_CATEGORIES = [
  * true of the game as it plays now. Discover shows them on result rows and search matches them. */
 window.KILN_GAMES = [
   {
+    id: 'scrapwing',
+    title: 'Scrapwing',
+    pitch: 'Shoot down raiders and bolt their guns onto your hull. Lose them and you fly bare.',
+    genre: 'Action',
+    mechanics: ['Shooting', 'Ship building', 'Dodging'],
+    moods: ['Intense', 'Fast'],
+    accent: '--g4',
+    status: 'beta',
+    path: 'games/scrapwing/index.html',
+    added: '2026-10-11',
+    featured: true,
+    artWide: 'games/scrapwing/art-wide.jpg',
+    artTall: 'games/scrapwing/art-tall.jpg',
+    shots: ['games/scrapwing/shot-1.jpg', 'games/scrapwing/shot-2.jpg'],
+    about: 'A vertical shooter where your ship is a reactor core with hex sockets: wrecked raiders drop Blasters, Fans, Seekers and armour Plates that bolt on where you catch them, and three of a kind side by side fuse into a glowing tier-2 module. Enemy bullets knock parts off (catch them again within two seconds), and a hit on the core ends the run. Every sector flies through a new stretch of nebula, adds a new enemy type and ends in a seeded boss whose pods drop tier-2 parts; the run is saved at each sector start.',
+    controls: 'Touch or keyboard',
+    saves: 'run',
+  },
+  {
     id: 'tessera',
     title: 'Tessera',
     pitch: 'Lay glazed tiles on the grid. Fill a row or column to clear it.',
@@ -119,7 +138,7 @@ window.KILN_COLLECTIONS = [
     id: 'one-more-run',
     title: 'One more run',
     why: 'Fast arcade runs. When one ends, go again in a tap.',
-    games: ['goldmend', 'lariat'],
+    games: ['goldmend', 'lariat', 'scrapwing'],
   },
   {
     id: 'think-it-through',

@@ -100,7 +100,7 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
     const f = document.querySelector('#heroTrack .feature');
     return { pill: f.querySelector('.feature-pill').textContent, star: !!f.querySelector('.feature-pill svg'), title: f.querySelector('.feature-title').textContent, cta: f.querySelector('.feature-cta').textContent, art: !!f.querySelector('.feature-art img') };
   });
-  check(slide.pill === 'Featured' && slide.star && slide.title === 'Tessera' && slide.cta === 'Play Now' && slide.art, 'a slide: art, FEATURED pill with a star, title and Play Now', JSON.stringify(slide));
+  check(slide.pill === 'Featured' && slide.star && slide.title === reg.firstTitle && slide.cta === 'Play Now' && slide.art, 'a slide: art, FEATURED pill with a star, title and Play Now', JSON.stringify(slide));
   check(h.cats.join() === ['All Games*'].concat(reg.cats).join(), 'category tiles: All Games selected, then each category with games, in order', h.cats.join());
   check(await page.evaluate(() => [...document.querySelectorAll('#chips .cat')].every(c => c.querySelector('svg.ico'))), 'every category tile has its icon');
   check(!h.blocks.some(b => b.id === 'continue'), 'no Continue playing before anything was played');
@@ -196,8 +196,10 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   check(h.blocks[0].id === 'continue' && h.blocks[0].more && h.cont.length === 1 && c.id === 'lariat', 'Continue playing appears first, with only the game just played', h.cont.map(x => x.id).join());
   check(c.artFirst && c.genre === 'Arcade' && c.icon && c.meta === 'Played today' && !c.pct && c.buttons === 0,
     'a Continue card: art on top, category icon and name, an honest "Played today", no bar and no play button', JSON.stringify(c));
-  check(h.blocks[1].id === 'picks' && h.blocks[1].title === 'Picked for you' && h.blocks[1].cards[h.blocks[1].cards.length - 1] === 'lariat',
-    'Top picks becomes Picked for you, with played games only filling in at the end', h.blocks[1].title + ': ' + h.blocks[1].cards.join());
+  // A played game may only fill in after every unplayed one, so with enough unplayed games it is left out.
+  const picked = h.blocks[1].cards, at = picked.indexOf('lariat');
+  check(h.blocks[1].id === 'picks' && h.blocks[1].title === 'Picked for you' && picked.length > 0 && (at === -1 || at === picked.length - 1),
+    'Top picks becomes Picked for you, with played games only filling in at the end', h.blocks[1].title + ': ' + picked.join());
   check(await page.getAttribute('#playFab', 'aria-label') === 'Play Lariat', 'the Play button now resumes the game played last');
 
   // Tapping the card launches the game straight away, from the continue shelf

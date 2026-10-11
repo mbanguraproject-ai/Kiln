@@ -35,8 +35,9 @@ for (const g of games) {
   const tag = '<script src="../../hub/sdk.js"></script>';
   if (!html.includes(tag)) throw new Error(`${g.id}: SDK script tag not found (${tag})`);
   html = html.replace(tag, () => inlineScript(sdk));
+  // Checked before inlining: the kit's own source mentions its path.
+  if (html.replace(kitTag, '').includes('hub/kit.js')) throw new Error(`${g.id}: hub/kit.js is referenced but not as <script src="../../hub/kit.js"></script>`);
   html = html.replace(kitTag, () => inlineScript(kit === null ? (kit = read('hub/kit.js')) : kit));
-  if (html.includes('hub/kit.js')) throw new Error(`${g.id}: hub/kit.js is referenced but not as <script src="../../hub/kit.js"></script>`);
   g.srcdoc = html;
   const dataUri = rel => {
     const c = path.join(ROOT, rel);
