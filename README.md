@@ -4,6 +4,8 @@ A collection of original, handmade games in one app. The hub lists the games, ru
 
 Everything is plain HTML, CSS and JavaScript with no build step and no dependencies at runtime. It installs as a PWA and plays offline.
 
+**Continuing the work in a new chat?** Read `docs/HANDOFF.md` first: status, the owner's standing instructions, and how to build the next batch of games.
+
 ## Get the latest build on your phone
 
 One command in the Codespace (after the one-time setup under "Android app"):
