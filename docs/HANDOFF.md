@@ -42,8 +42,19 @@ Every push to `main` (or a `claude/*` branch) also publishes
 | --- | --- |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
 | Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |
-| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | In progress, two at a time: Crosswake and Tessera first, then Lariat and Goldmend. A pair ships together, and nothing else ships while a live game is mid-edit |
-| Batches 2 to 10 | Not started; line-ups in `docs/CATALOGUE.md`. Build them one agent per game end to end (`.claude/workflows/` has the fast workflow pattern in this PR history), then ship each as it passes |
+| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | In progress, two at a time: Crosswake and Tessera first, then Lariat and Goldmend. A pair ships together |
+| Batch 2: Riposte, Thimblekeep, Bramble Cup, Orrery, Swellrider, Sunken Bell | In progress: Riposte and Thimblekeep building, the other four next |
+| Batches 3 to 10 | Not started; line-ups in `docs/CATALOGUE.md` |
+
+New games are built with `.claude/workflows/kiln-games-fast.js` (one agent per game, end to end; args
+`{ games: [{ id, title, category }], portBase }`, with a `portBase` other runs are not using). Ship each game as soon
+as it passes.
+
+**Shipping a new game while a live game is mid-overhaul**: the working branch may hold half-edited live games from
+the checkpoints. Stop the checkpoint loop, then stage the live game folders back to `main`'s version without
+touching the files on disk (`git restore --source=origin/main --staged games/<live-id>`), commit and push the new
+game, merge when green, restart the branch from `main` and the checkpoint loop. The pull request then carries only
+finished work.
 
 Work in progress is pushed to the working branch named in the latest pull request. A game folder in
 `games/<id>/` that is not yet in `games/registry.js` is unfinished: check it with `node tools/game-check.cjs --game
