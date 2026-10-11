@@ -206,8 +206,35 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   s = await ev(() => { __kilnTest.lose(); return __kilnTest.state().phase; });
   check(s === 'over', 'lose() ends the run');
   await page.waitForTimeout(1700);
-  s = await ev(() => { document.querySelectorAll('.sw-alt')[1].click(); return { sector: __kilnTest.info().sector, cp: __kilnTest.info().cp, phase: __kilnTest.state().phase }; });
+  s = await ev(() => { document.querySelector('.k-over .sw-alt').click(); return { sector: __kilnTest.info().sector, cp: __kilnTest.info().cp, phase: __kilnTest.state().phase }; });
   check(s.phase === 'play' && s.sector === 1 && !s.cp, '"Restart from sector 1" clears the saved run', JSON.stringify(s));
+
+  // ---- slow motion never leaks into the next run
+  s = await ev(() => {
+    const T = __kilnTest; T.clearSave();
+    T.startAt(31, 1, {}); T.step(0.5); T.lose(); T.step(0.1);
+    const during = T.info().timeScale;
+    T.startAt(32, 1, {});
+    const after = T.info().timeScale;
+    // boss-death slow motion, then a restart from pause in the middle of it
+    T.startAt(33, 1, { god: true }); T.wave(5); T.step(0.5);
+    T.killBoss();
+    let slow = 1; for (let i = 0; i < 200 && slow === 1; i++) { T.frames(1); slow = T.info().timeScale; }
+    T.pause(); T.startAt(34, 1, {});
+    return { during, after, slow, restarted: T.info().timeScale, phase: T.state().phase };
+  });
+  check(s.during < 1 && s.after === 1, 'a quick retry after death starts at full speed', JSON.stringify(s));
+  check(s.slow < 1 && s.restarted === 1 && s.phase === 'play', 'restarting from pause during boss-death slow motion starts at full speed', JSON.stringify(s));
+  s = await ev(() => { const T = __kilnTest; T.startAt(35, 1, {}); T.wave(5); T.win(); for (let i = 0; i < 400 && T.info().stage !== 'clear'; i++) T.frames(1); T.pause(); T.startAt(36, 1, {}); T.step(2); return document.querySelectorAll('.k-toast:not([hidden])').length ? document.querySelector('.k-toast').textContent : ''; });
+  check(!/hull expanded/i.test(s), 'the "Hull expanded" toast cannot fire into a new run', s);
+  // pause shows what Restart does when a checkpoint exists, plus a fresh start
+  s = await ev(() => { const T = __kilnTest; T.clearSave(); T.startAt(37, 1, { god: true }); T.wave(5); T.win(); for (let i = 0; i < 600 && T.info().sector < 2; i++) { T.frames(1); if (T.info().stage === 'clear') T.nextSector(); } T.pause();
+    const r = document.querySelector('.k-pause [data-k=restart]').textContent, alt = document.querySelector('.k-pause .sw-alt');
+    const out = { r, alt: alt && !alt.hidden ? alt.textContent : null }; alt.click(); out.sector = T.info().sector; out.phase = T.state().phase; return out; });
+  check(/retry sector 2/i.test(s.r) && /sector 1/i.test(s.alt || '') && s.sector === 1 && s.phase === 'play', 'pause labels Retry sector N and offers a fresh start from sector 1', JSON.stringify(s));
+  // the teaching wave is quick: wave 2 begins within about 10 seconds when the drones are shot
+  s = await ev(() => { const T = __kilnTest; T.startAt(38, 1, {}); T.give('blaster', 1, 0); T.give('blaster', 1, 3); T.autopilot(true); let t = 0; while (t < 20 && T.info().wave === 1) { T.step(0.25); t += 0.25; } T.autopilot(false); return t; });
+  check(s <= 11, 'wave 2 starts about 10 s into a first run', s);
 
   // ---- pause freezes the simulation
   s = await ev(() => { const T = __kilnTest; T.pause(); const f = T.state().frame; return new Promise(r => setTimeout(() => { r({ paused: T.state().paused, moved: T.state().frame - f }); T.resume(); }, 400)); });

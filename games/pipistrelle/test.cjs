@@ -80,7 +80,7 @@ const check = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if
     // 4. Holding still shrieks (twice the reach, 3 s cooldown).
     await T(() => window.__kilnTest.step(1));
     await page.mouse.move(200, 650); await page.mouse.down();
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(1050);
     await T(() => window.__kilnTest.step(1 / 60));
     await page.mouse.up();
     i = await info();

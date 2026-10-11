@@ -87,17 +87,20 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     threat: '#ff4f8b', hot: '#fff6f0', steel: '#a7adb8', steelDark: '#4b4f5a', gold: '#ffcf5a', hazard: '#f5a623',
   };
   const TCOL = { blaster: C.blaster, fan: C.fan, seeker: C.seeker, plate: '#b9bec8' };
-  // Each sector tints the nebula; all of them stay warm (scrapyard gas, never navy).
+  // Each sector has its own sky, nebula gas and far body, so a long run travels somewhere:
+  // neb = [gas, dark lanes, glow lanes, hot streaks], dust = mote tint, body = the far object.
   const SECTORS = [
-    { name: 'The Scrapyard', intro: 'Drones and raiders', sky: ['#2a0f2e', '#4c1538', '#6e2340'], tint: '#f08a3c' },
-    { name: 'Sweeper Lanes', intro: 'Sweepers cross low', sky: ['#2c0d22', '#5a1634', '#7d2a36'], tint: '#ff7a4a' },
-    { name: 'Minefield Drift', intro: 'Mines burst into rings', sky: ['#21102f', '#45204f', '#6a2c58'], tint: '#e0705a' },
-    { name: 'The Gates', intro: 'Laser gates: move when they glow', sky: ['#2e1020', '#561b2a', '#7a3228'], tint: '#ffb347' },
-    { name: 'Carrier Wake', intro: 'Carriers: shields face down', sky: ['#1c0f2c', '#3e1f50', '#62305e'], tint: '#d0607a' },
-    { name: 'Splinter Field', intro: 'Splitters break apart', sky: ['#2a1216', '#52241e', '#7a3c24'], tint: '#f0b060' },
-    { name: 'Sniper Alley', intro: 'Snipers aim at your parts', sky: ['#22091c', '#4a1230', '#721e34'], tint: '#ff6a5a' },
-    { name: 'The Dead Fleet', intro: 'Everything at once', sky: ['#180b1c', '#33182c', '#562a34'], tint: '#c07050' },
+    { name: 'The Scrapyard', intro: 'Drones and raiders', sky: ['#2a0f2e', '#4c1538', '#6e2340'], tint: '#f08a3c', neb: ['#8a2f4a', '#120514', '#f08a3c', '#ff9f6a'], dust: '#ffb27a', body: 'giant' },
+    { name: 'Sweeper Lanes', intro: 'Sweepers cross low', sky: ['#2a0a12', '#5c1422', '#8c2a20'], tint: '#ff6a3a', neb: ['#9c2a28', '#160506', '#ff7038', '#ffb070'], dust: '#ff9a6a', body: 'giant' },
+    { name: 'Minefield Drift', intro: 'Mines burst into rings', sky: ['#04161e', '#0b2f3a', '#175056'], tint: '#5fe0c8', neb: ['#1c6a70', '#02080c', '#46d0bc', '#b8fff0'], dust: '#a8fff0', body: 'ice' },
+    { name: 'The Gates', intro: 'Laser gates: move when they glow', sky: ['#1c0626', '#44104a', '#7a1a5a'], tint: '#ff5fa0', neb: ['#a02a7a', '#0e0412', '#ff5f9a', '#ffb0d0'], dust: '#ffb0d8', body: 'station' },
+    { name: 'Carrier Wake', intro: 'Carriers: shields face down', sky: ['#130b2c', '#2c1c58', '#55387a'], tint: '#b48cff', neb: ['#5a3a9a', '#08051a', '#b890ff', '#ffd0f0'], dust: '#d8c0ff', body: 'station' },
+    { name: 'Splinter Field', intro: 'Splitters break apart', sky: ['#261206', '#56290e', '#8a4a18'], tint: '#ffb050', neb: ['#a0522a', '#140804', '#ffb050', '#ffe0a0'], dust: '#ffd090', body: 'moon', debris: true },
+    { name: 'Sniper Alley', intro: 'Snipers aim at your parts', sky: ['#10050e', '#2c0816', '#5a0e1e'], tint: '#ff4a5a', neb: ['#7a1a2a', '#050204', '#ff5a60', '#ffe0e0'], dust: '#ffd0d0', body: 'moon', debris: true },
+    { name: 'The Dead Fleet', intro: 'Everything at once', sky: ['#0c0e08', '#20241a', '#3c3820'], tint: '#d0c060', neb: ['#4c5a2a', '#060804', '#d0c060', '#f0f0b0'], dust: '#e8e0a0', body: 'eclipse', debris: true },
   ];
+  let palSi = 0; // the sector whose palette the painted layers use
+  const PAL = () => SECTORS[palSi];
 
   /* ================================================================ view and field */
   const view = Kit.view(document.getElementById('game'), { alpha: false });
@@ -326,7 +329,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       g.fillStyle = C.seeker; g.fillRect(-4, 4, 8, 3);
     }),
   };
-  const giantSprite = R => gfx.sprite('giant' + R, Math.ceil(R * 3.2), Math.ceil(R * 2.4), (g, w, h) => {
+  // The far body changes every couple of sectors: banded giant, teal ice giant, broken ring station,
+  // shattered moon, and an eclipsed dead world. All are lit from the top-right star.
+  const BODY_DRAW = { station: drawStation, moon: drawMoon, eclipse: drawEclipse };
+  const giantSprite = (R, kind) => gfx.sprite('giant' + (kind || 'giant') + R, Math.ceil(R * 3.2), Math.ceil(R * 2.4), (g, w, h) => {
+    if (BODY_DRAW[kind]) { g.translate(w / 2, h / 2); BODY_DRAW[kind](g, R); return; }
+    const ice = kind === 'ice';
     g.translate(w / 2, h / 2);
     g.rotate(-0.32);
     const ring = (front) => {
@@ -335,34 +343,134 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (front) g.rect(-R * 2, 0, R * 4, R * 2); else g.rect(-R * 2, -R * 2, R * 4, R * 2);
       g.clip();
       for (let i = 0; i < 5; i++) {
-        g.strokeStyle = gfx.alpha(i % 2 ? '#f6dfc0' : '#d9b48e', front ? 0.55 - i * 0.05 : 0.35 - i * 0.04);
+        g.strokeStyle = gfx.alpha(ice ? (i % 2 ? '#e0fff8' : '#8fd8d0') : (i % 2 ? '#f6dfc0' : '#d9b48e'), front ? 0.55 - i * 0.05 : 0.35 - i * 0.04);
         g.lineWidth = R * (0.05 + (i % 3) * 0.02);
         g.beginPath(); g.ellipse(0, 0, R * (1.32 + i * 0.09), R * (0.3 + i * 0.022), 0, 0, TAU); g.stroke();
       }
       g.restore();
     };
     const halo = g.createRadialGradient(0, 0, R * 0.9, 0, 0, R * 1.18);
-    halo.addColorStop(0, 'rgba(240,150,100,0.35)'); halo.addColorStop(1, 'rgba(240,150,100,0)');
+    halo.addColorStop(0, ice ? 'rgba(120,230,210,0.35)' : 'rgba(240,150,100,0.35)'); halo.addColorStop(1, ice ? 'rgba(120,230,210,0)' : 'rgba(240,150,100,0)');
     g.fillStyle = halo; g.beginPath(); g.arc(0, 0, R * 1.18, 0, TAU); g.fill();
     ring(false);
     g.save();
     g.beginPath(); g.arc(0, 0, R, 0, TAU); g.clip();
-    const bands = ['#d9774b', '#c46242', '#e89a68', '#b8573e', '#f0b080', '#cf6c46', '#a94c3a', '#e48a58', '#c4653f', '#dc8a5c', '#b0513c'];
+    const bands = ice ? ['#4fb8b0', '#3a9a98', '#7ad8c8', '#2e8088', '#a8ecdc', '#47a8a4', '#2a7078', '#68c8bc', '#3c9294', '#8ae0d0', '#30808a']
+      : ['#d9774b', '#c46242', '#e89a68', '#b8573e', '#f0b080', '#cf6c46', '#a94c3a', '#e48a58', '#c4653f', '#dc8a5c', '#b0513c'];
     const rr = Kit.rng(17);
     let y = -R;
     for (let i = 0; y < R; i++) { const bh = R * rr.range(0.08, 0.22); g.fillStyle = bands[i % bands.length]; g.fillRect(-R, y, R * 2, bh + 1); y += bh; }
     // storm swirls
     g.fillStyle = 'rgba(255,230,200,0.25)';
     for (let i = 0; i < 6; i++) { g.beginPath(); g.ellipse(rr.range(-R * 0.7, R * 0.7), rr.range(-R * 0.7, R * 0.7), R * rr.range(0.1, 0.24), R * 0.04, 0, 0, TAU); g.fill(); }
-    g.fillStyle = 'rgba(150,50,40,0.55)'; g.beginPath(); g.ellipse(R * 0.25, R * 0.32, R * 0.14, R * 0.07, 0, 0, TAU); g.fill();
+    g.fillStyle = ice ? 'rgba(20,70,90,0.55)' : 'rgba(150,50,40,0.55)'; g.beginPath(); g.ellipse(R * 0.25, R * 0.32, R * 0.14, R * 0.07, 0, 0, TAU); g.fill();
     // terminator: lit from the top-right
     const sh = g.createRadialGradient(R * 0.55, -R * 0.55, R * 0.2, R * 0.2, -R * 0.2, R * 1.75);
     sh.addColorStop(0, 'rgba(255,240,210,0.25)'); sh.addColorStop(0.45, 'rgba(40,10,30,0)'); sh.addColorStop(0.8, 'rgba(30,6,26,0.72)'); sh.addColorStop(1, 'rgba(20,4,20,0.92)');
     g.fillStyle = sh; g.fillRect(-R, -R, R * 2, R * 2);
     g.restore();
-    g.strokeStyle = 'rgba(255,200,150,0.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R - 0.5, -1.9, 0.3); g.stroke();
+    g.strokeStyle = ice ? 'rgba(200,255,240,0.4)' : 'rgba(255,200,150,0.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R - 0.5, -1.9, 0.3); g.stroke();
     ring(true);
   });
+  // a lit-edge silhouette helper for the far bodies
+  function shadeDisc(g, R, lightCol) {
+    const sh = g.createRadialGradient(R * 0.55, -R * 0.55, R * 0.15, R * 0.2, -R * 0.2, R * 1.75);
+    sh.addColorStop(0, gfx.alpha(lightCol, 0.3)); sh.addColorStop(0.45, 'rgba(30,10,30,0)'); sh.addColorStop(0.8, 'rgba(20,6,24,0.75)'); sh.addColorStop(1, 'rgba(12,4,16,0.94)');
+    g.fillStyle = sh; g.fillRect(-R * 1.2, -R * 1.2, R * 2.4, R * 2.4);
+  }
+  // A broken ring station: a torn torus on spokes round a lit hub, with a drifting severed arc.
+  function drawStation(g, R) {
+    const rim = '#ffc0e0', hull = '#3a2244', dark = '#1c0f24';
+    g.rotate(-0.22);
+    const ry = R * 0.42, a0 = 0.5, a1 = TAU - 0.35; // the gap
+    const band = (front) => {
+      g.save(); g.beginPath();
+      if (front) g.rect(-R * 2, 0, R * 4, R * 2); else g.rect(-R * 2, -R * 2, R * 4, R * 2);
+      g.clip();
+      g.lineCap = 'butt';
+      g.strokeStyle = front ? hull : dark; g.lineWidth = R * 0.16;
+      g.beginPath(); g.ellipse(0, 0, R * 1.2, ry, 0, a0, a1); g.stroke();
+      g.strokeStyle = gfx.alpha(rim, front ? 0.55 : 0.25); g.lineWidth = 1.6;
+      g.beginPath(); g.ellipse(0, -R * 0.06, R * 1.2, ry, 0, a0, a1); g.stroke();
+      // window strip
+      g.setLineDash([2, 5]); g.strokeStyle = gfx.alpha('#ffd8a0', front ? 0.8 : 0.35); g.lineWidth = 1.4;
+      g.beginPath(); g.ellipse(0, R * 0.02, R * 1.2, ry, 0, a0 + 0.1, a1 - 0.1); g.stroke(); g.setLineDash([]);
+      g.restore();
+    };
+    band(false);
+    // spokes
+    g.strokeStyle = hull; g.lineWidth = R * 0.05;
+    for (const a of [0.9, 2.3, 3.7, 5.2]) { g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * R * 1.15, Math.sin(a) * ry * 0.95); g.stroke(); }
+    // hub
+    const hub = g.createRadialGradient(R * 0.1, -R * 0.1, 0, 0, 0, R * 0.32);
+    hub.addColorStop(0, '#7a4a7a'); hub.addColorStop(1, '#24122c');
+    g.fillStyle = hub; g.beginPath(); g.arc(0, 0, R * 0.3, 0, TAU); g.fill();
+    g.strokeStyle = gfx.alpha(rim, 0.6); g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R * 0.3, -1.9, 0.2); g.stroke();
+    g.fillStyle = 'rgba(255,220,160,0.85)'; for (let i = 0; i < 5; i++) g.fillRect(-R * 0.18 + i * R * 0.08, -1, 2.5, 2);
+    // mast and blinking-light stub
+    g.fillStyle = hull; g.fillRect(-R * 0.03, -R * 0.75, R * 0.06, R * 0.45);
+    g.fillStyle = '#ff6a8a'; g.beginPath(); g.arc(0, -R * 0.76, 2.4, 0, TAU); g.fill();
+    band(true);
+    // the severed arc drifting away from the gap
+    g.save(); g.translate(R * 1.25, R * 0.38); g.rotate(0.5);
+    g.strokeStyle = hull; g.lineWidth = R * 0.14; g.beginPath(); g.ellipse(0, 0, R * 0.5, R * 0.18, 0, 0.2, 1.4); g.stroke();
+    g.strokeStyle = gfx.alpha(rim, 0.5); g.lineWidth = 1.2; g.beginPath(); g.ellipse(0, -R * 0.05, R * 0.5, R * 0.18, 0, 0.2, 1.4); g.stroke();
+    g.restore();
+    const r = Kit.rng(41);
+    for (let i = 0; i < 9; i++) { g.fillStyle = i % 3 ? hull : gfx.alpha(rim, 0.5); g.fillRect(R * r.range(0.9, 1.6), R * r.range(-0.1, 0.7), r.range(2, 5), r.range(1.5, 3)); }
+  }
+  // A shattered moon: a cratered disc with a bite blown out and the fragments drifting free.
+  function drawMoon(g, R) {
+    R *= 0.82;
+    g.rotate(0.3);
+    const bite = (gg) => { gg.beginPath(); gg.arc(R * 0.9, R * 0.55, R * 0.62, 0, TAU); };
+    g.save();
+    g.beginPath(); g.arc(0, 0, R, 0, TAU); g.clip();
+    // carve the bite
+    g.beginPath(); g.rect(-R, -R, R * 2, R * 2); g.arc(R * 0.9, R * 0.55, R * 0.62, 0, TAU, true); g.clip();
+    const base = g.createRadialGradient(-R * 0.2, -R * 0.2, R * 0.1, 0, 0, R);
+    base.addColorStop(0, '#b89a88'); base.addColorStop(1, '#6e5450');
+    g.fillStyle = base; g.fillRect(-R, -R, R * 2, R * 2);
+    const r = Kit.rng(23);
+    for (let i = 0; i < 16; i++) {
+      const x = r.range(-R, R), y = r.range(-R, R), cr = R * r.range(0.04, 0.16);
+      g.fillStyle = 'rgba(60,36,40,0.45)'; g.beginPath(); g.arc(x, y, cr, 0, TAU); g.fill();
+      g.strokeStyle = 'rgba(255,230,210,0.25)'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, cr, -1.9, 0.1); g.stroke();
+    }
+    shadeDisc(g, R, '#fff0d8');
+    g.restore();
+    // glowing molten edge of the wound
+    g.save(); g.beginPath(); g.arc(0, 0, R, 0, TAU); g.clip();
+    g.strokeStyle = 'rgba(255,150,70,0.85)'; g.lineWidth = 2.2; bite(g); g.stroke();
+    g.strokeStyle = 'rgba(255,200,120,0.35)'; g.lineWidth = 6; bite(g); g.stroke();
+    g.restore();
+    g.strokeStyle = 'rgba(255,230,200,0.4)'; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, R - 0.5, -1.9, 0.25); g.stroke();
+    // fragments spilling out of the bite
+    const r2 = Kit.rng(29);
+    for (let i = 0; i < 14; i++) {
+      const d = R * (1.05 + i * 0.07 + r2.range(0, 0.08)), a = 0.55 + r2.range(-0.35, 0.35), sz = R * r2.range(0.03, 0.12) * (1 - i / 20);
+      scrapChunk(g, r2, Math.cos(a) * d, Math.sin(a) * d, sz, '#5a4244', 'rgba(255,190,140,0.6)');
+    }
+  }
+  // An eclipsed dead world: a black disc with a hot rim, dim rings and a faint aurora.
+  function drawEclipse(g, R) {
+    g.rotate(-0.32);
+    const P = SECTORS[7];
+    const halo = g.createRadialGradient(R * 0.2, -R * 0.2, R * 0.85, 0, 0, R * 1.45);
+    halo.addColorStop(0, gfx.alpha(P.tint, 0.55)); halo.addColorStop(0.3, gfx.alpha(P.tint, 0.18)); halo.addColorStop(1, gfx.alpha(P.tint, 0));
+    g.fillStyle = halo; g.beginPath(); g.arc(0, 0, R * 1.45, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(200,190,120,0.18)'; g.lineWidth = R * 0.05;
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.ellipse(0, 0, R * (1.35 + i * 0.1), R * (0.3 + i * 0.025), 0, PI, TAU); g.stroke(); }
+    g.fillStyle = '#0a0b08'; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
+    // city-light scars on the night side
+    const r = Kit.rng(31);
+    g.fillStyle = 'rgba(255,170,80,0.5)';
+    for (let i = 0; i < 26; i++) { const a = r.range(1.6, 4.4), d = R * r.range(0.2, 0.92); g.fillRect(Math.cos(a) * d, Math.sin(a) * d, r.range(1, 2.5), 1); }
+    g.strokeStyle = '#fff6c8'; g.lineWidth = 2.2; g.beginPath(); g.arc(0, 0, R - 1, -1.6, 0.15); g.stroke();
+    g.strokeStyle = gfx.alpha(P.tint, 0.6); g.lineWidth = 6; g.beginPath(); g.arc(0, 0, R + 1, -1.8, 0.35); g.stroke();
+    g.strokeStyle = 'rgba(200,190,120,0.3)'; g.lineWidth = R * 0.05;
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.ellipse(0, 0, R * (1.35 + i * 0.1), R * (0.3 + i * 0.025), 0, 0, PI); g.stroke(); }
+  }
 
   /* ================================================================ background layers */
   const farStars = gfx.starfield({ count: 90, seed: 4, layers: 3, size: [0.5, 1.7], color: '#ffe3cc' });
@@ -378,12 +486,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     }
   }
   function paintNebula(g, w, h) {
-    const r = Kit.rng(5);
-    for (let i = 0; i < 16; i++) blobW(g, h, r.range(-0.1, 1.1) * w, r.range(0, h), r.range(110, 240), '#8a2f4a', r.range(0.25, 0.45), r.range(1, 1.8), r.range(0.6, 1.1), r.range(-0.6, 0.6));
-    for (let i = 0; i < 8; i++) blobW(g, h, r.range(0, 1) * w, r.range(0, h), r.range(80, 170), '#120514', r.range(0.35, 0.55), r.range(1, 2), r.range(0.5, 1), r.range(-0.5, 0.5));
-    // amber glow lanes, slanting down-left from the star
-    for (let i = 0; i < 9; i++) blobW(g, h, r.range(-0.1, 1.1) * w, r.range(0, h), r.range(90, 170), '#f08a3c', r.range(0.16, 0.3), r.range(2.2, 3.4), r.range(0.16, 0.3), -0.62 + r.range(-0.12, 0.12));
-    for (let i = 0; i < 7; i++) blobW(g, h, r.range(0, 1) * w, r.range(0, h), r.range(40, 90), '#ff9f6a', r.range(0.12, 0.22), r.range(1.6, 2.6), r.range(0.2, 0.4), -0.62);
+    const r = Kit.rng(5 + palSi * 7), N = PAL().neb;
+    for (let i = 0; i < 16; i++) blobW(g, h, r.range(-0.1, 1.1) * w, r.range(0, h), r.range(110, 240), N[0], r.range(0.25, 0.45), r.range(1, 1.8), r.range(0.6, 1.1), r.range(-0.6, 0.6));
+    for (let i = 0; i < 8; i++) blobW(g, h, r.range(0, 1) * w, r.range(0, h), r.range(80, 170), N[1], r.range(0.35, 0.55), r.range(1, 2), r.range(0.5, 1), r.range(-0.5, 0.5));
+    // glow lanes, slanting down-left from the star
+    for (let i = 0; i < 9; i++) blobW(g, h, r.range(-0.1, 1.1) * w, r.range(0, h), r.range(90, 170), N[2], r.range(0.16, 0.3), r.range(2.2, 3.4), r.range(0.16, 0.3), -0.62 + r.range(-0.12, 0.12));
+    for (let i = 0; i < 7; i++) blobW(g, h, r.range(0, 1) * w, r.range(0, h), r.range(40, 90), N[3], r.range(0.12, 0.22), r.range(1.6, 2.6), r.range(0.2, 0.4), -0.62);
   }
   function paintDust(seed, big) {
     return (g, w, h) => {
@@ -391,10 +499,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       const n = Math.round(w * h / (big ? 5200 : 2600));
       for (let i = 0; i < n; i++) {
         const s = big ? r.range(1, 2.3) : r.range(0.6, 1.4);
-        g.fillStyle = r.chance(0.3) ? gfx.alpha('#ffb27a', r.range(0.3, 0.7)) : gfx.alpha('#ffe9d6', r.range(0.25, 0.6));
+        g.fillStyle = r.chance(0.3) ? gfx.alpha(PAL().dust, r.range(0.3, 0.7)) : gfx.alpha('#ffe9d6', r.range(0.25, 0.6));
         g.fillRect(r.range(0, w), r.range(0, h), s, s);
       }
-      if (big) for (let i = 0; i < 5; i++) blobW(g, h, r.range(0, w), r.range(0, h), r.range(30, 60), '#ffb27a', 0.08, 2.4, 0.5, -0.6);
+      if (big) for (let i = 0; i < 5; i++) blobW(g, h, r.range(0, w), r.range(0, h), r.range(30, 60), PAL().dust, 0.08, 2.4, 0.5, -0.6);
     };
   }
   function scrapChunk(g, r, x, y, s, col, rimCol) {
@@ -403,18 +511,20 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     rimFill(g, poly(pts), col, rimCol, Math.max(1, s * 0.08));
   }
   function paintDebris(g, w, h) {
-    const r = Kit.rng(9);
-    for (let i = 0; i < 9; i++) {
-      const x = r.range(0, w), y = r.range(30, h - 30), s = r.range(5, 14);
-      scrapChunk(g, r, x, y, s, '#2a1226', 'rgba(255,160,100,0.55)');
-      if (r.chance(0.5)) { g.fillStyle = 'rgba(255,170,110,0.3)'; g.fillRect(x - s * 1.4, y + r.range(-2, 2), s * 0.7, 1); }
+    const r = Kit.rng(9), P = PAL(), rim = gfx.alpha(P.tint, 0.6);
+    // debris-field sectors are thick with tumbling scrap
+    const n = P.debris ? 26 : 9;
+    for (let i = 0; i < n; i++) {
+      const x = r.range(0, w), y = r.range(30, h - 30), s = r.range(5, P.debris && i % 5 === 0 ? 24 : 14);
+      scrapChunk(g, r, x, y, s, '#22101e', rim);
+      if (r.chance(0.5)) { g.fillStyle = gfx.alpha(P.tint, 0.3); g.fillRect(x - s * 1.4, y + r.range(-2, 2), s * 0.7, 1); }
     }
   }
   // Big wreck silhouettes in front of everything, at the screen edges (and out in the desktop margins).
   function paintWrecks(g, w, h) {
     const r = Kit.rng(13);
     const margin = Math.max(0, fieldL);
-    const lit = side => (side > 0 ? 'rgba(255,150,90,0.8)' : 'rgba(255,150,90,0.32)');
+    const tc = PAL().tint, lit = side => gfx.alpha(tc, side > 0 ? 0.8 : 0.32);
     for (const side of [-1, 1]) {
       let y = r.range(0, 120);
       while (y < h - 40) {
@@ -551,6 +661,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     rand = Kit.rng(seed);
     fx.clear();
     Kit.tween.clear();
+    // Tween.clear() also kills any slow-motion recovery tween: always start a run at full speed.
+    loop.timeScale = 1;
     const sector = o.sector || 1;
     G = {
       mode: o.mode || 'play', silent: !!o.silent, seed, sector, wave: 1, stage: 'wave', stageT: 0, waveT: 0, sched: [], schedI: 0,
@@ -582,7 +694,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
   function waveSpec(s, w) {
     const r = Kit.rng((G.seed * 7919 + s * 131 + w * 17) >>> 0);
-    if (s === 1 && w === 1) return [{ t: 0.4, type: 'droneV', n: 5, slow: true, nofire: true }];
+    if (s === 1 && w === 1) return [{ t: 0.3, type: 'droneV', n: 5, slow: true, nofire: true }];
     const a = ((s - 1) % 8) + 1, H = s > 8;
     const pool = H ? ORDER.slice() : ORDER.slice(0, Math.min(8, a + 1));
     const newest = !H && a >= 2 && a <= 7 ? ORDER[a] : null;
@@ -592,16 +704,17 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     let heavy = 0;
     for (let i = 0; i < groups; i++) {
       let type;
-      for (let k = 0; k < 6; k++) {
+      const isH = ty => ty === 'gate' || ty === 'carrier' || ty === 'miner';
+      if (i === 0 && newest && w === 1) { type = newest; if (isH(type)) heavy++; } // a new sector shows its new enemy first
+      else for (let k = 0; k < 6; k++) {
         const wts = pool.map(p => (p === newest ? 3 : p === 'drone' ? 1.6 : 1));
         let x = r.next() * wts.reduce((A, B) => A + B, 0);
         type = pool[pool.length - 1];
         for (let j = 0; j < pool.length; j++) { if ((x -= wts[j]) <= 0) { type = pool[j]; break; } }
-        const isHeavy = type === 'gate' || type === 'carrier' || type === 'miner';
+        const isHeavy = isH(type);
         if (!isHeavy || heavy < (s > 5 ? 2 : 1)) { if (isHeavy) heavy++; break; }
         type = 'drone';
       }
-      if (i === 0 && newest && w === 1) type = newest; // a new sector shows its new enemy first
       out.push({ t: 0.5 + i * (dur / groups) + r.range(-0.3, 0.3), type, n: 0, seed: r.int(1, 1e6), elite: false });
     }
     const elites = 1 + (w >= 3 ? 1 : 0) + (a === 8 ? 1 : 0) + (H ? 1 : 0);
@@ -625,7 +738,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       case 'droneV': {
         for (let i = 0; i < g.n; i++) {
           const k = i - (g.n - 1) / 2;
-          addEnemy('drone', W / 2 + k * 46, -30 - Math.abs(k) * 34, { mv: 'line', vy: 46, amp: 10, freq: 1.2, bx: W / 2 + k * 46, nofire: true, hp: 2.2 });
+          addEnemy('drone', W / 2 + k * 46, -18 - Math.abs(k) * 26, { mv: 'line', vy: 72, amp: 10, freq: 1.2, bx: W / 2 + k * 46, nofire: true, hp: 2.2 });
         }
         break;
       }
@@ -831,7 +944,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     addLight(tmp.x, tmp.y, 110, TCOL[type], 0.45);
     if (G.mode === 'play') {
       fx.flash('#ffffff', 120, 0.28);
-      loop.hitstop(60);
+      stopFor(60);
       floatText('FUSED · TIER 2', tmp.x, tmp.y - 28, TCOL[type], 17);
       Kit.music.duck(0.55, 350);
     }
@@ -871,7 +984,15 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   /* ---------------------------------------------------------------- scoring */
   function addScore(n) { if (G.mode === 'play') G.score += n; }
   function floatText(t, x, y, col, size) { if (G.mode !== 'play') return; fx.float(t, x, y, { color: col, size: size || 15, font: 'display', weight: 800, stroke: 'rgba(30,8,24,0.75)' }); }
-  function addLight(x, y, r, col, life) { G.lights.push({ x, y, r, col, t: 0, life }); }
+  // Additive lights are pure fill cost at DPR 2: keep at most 14, dropping the oldest.
+  function addLight(x, y, r, col, life) { if (G.lights.length >= 14) G.lights.shift(); G.lights.push({ x, y, r, col, t: 0, life }); }
+  // Impact frames and slow motion are motion effects: skipped for reduced motion, and only in a real run.
+  function stopFor(ms) { if (G.mode === 'play' && !Kit.reducedMotion) loop.hitstop(ms); }
+  function slowmo(scale, holdMs, rampMs) {
+    if (G.mode !== 'play' || Kit.reducedMotion) return;
+    loop.timeScale = scale;
+    Kit.tween(loop, { timeScale: 1 }, rampMs, 'quadIn', { delay: holdMs });
+  }
 
   /* ---------------------------------------------------------------- shooting */
   function shot(x, y, vx, vy, dmg, kind, o) {
@@ -1015,7 +1136,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     floatText('+' + pts, e.x, e.y - e.r, G.mult > 1 ? C.amber : C.cream, 13 + Math.min(8, G.mult));
     snd(size > 1.4 ? 'boomBig' : 'boom', { pitch: rand.range(-3, 3) - (e.elite ? 4 : 0), vol: size < 1 ? 0.6 : 1 });
     fx.shake(e.elite || size > 1.4 ? 7 : 2.5, e.elite ? 240 : 120);
-    if (e.elite && G.mode === 'play') loop.hitstop(35);
+    if (e.elite) stopFor(35);
     if (live()) Kit.haptic(e.elite ? 22 : 6);
     if (e.type === 'splitter') for (let k = 0; k < 3; k++) { const a = PI / 2 + (k - 1) * 0.7; addEnemy('mini', e.x, e.y, { mv: 'mini', vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, t: 0 }); }
     if (e.pair && !e.pair.dead) e.pair.orphan = true;
@@ -1047,7 +1168,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     floatText('+' + pts, x, y - 20, C.amber, 20);
     snd('boomBig', { pitch: rand.range(-2, 2) });
     fx.shake(9, 260);
-    if (G.mode === 'play') loop.hitstop(80);
+    stopFor(80);
     if (live()) Kit.haptic(30);
     dropPart(pickPart(), 2, x, y, false);
     if (G.boss.pods.every(q => q.dead)) { G.boss.core.ft = 1.4; snd('alarm', { pitch: 5, vol: 0.6 }); }
@@ -1251,11 +1372,11 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         explode(x, y, 1.6, C.seeker);
         snd('boom', { pitch: rand.range(-6, 0) });
         fx.shake(8, 200);
-        if (G.mode === 'play') loop.hitstop(80);
+        stopFor(80);
       }
       if (B.dying > 1.1 && !B.slow) {
         B.slow = true;
-        if (G.mode === 'play') { loop.timeScale = 0.3; Kit.tween(loop, { timeScale: 1 }, 400, 'quadIn', { delay: 400 }); }
+        slowmo(0.3, 400, 400);
         explode(B.x, B.y, 4, C.seeker);
         fx.shockwave(B.x, B.y, { radius: 260, color: '#ffffff', width: 8, ms: 700 });
         fx.burst(B.x, B.y, { count: 60, color: ['#ffffff', '#ffd23f', '#ff9a4a', C.seeker], shape: 'star', speed: [80, 420], life: [0.5, 1.3], size: [2, 5], glow: true, spin: [-8, 8] });
@@ -1321,16 +1442,18 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (first) {
       G.ring2 = true; G.ringAnim = 1;
       Kit.tween(G, { ringAnim: 0 }, 1400, 'cubicOut');
-      if (G.mode === 'play') setTimeout(() => { if (G && G.mode === 'play' && !G.dead) { snd('expand'); shell.toast('Hull expanded: 6 new sockets', 2400); } }, 900);
+      if (G.mode === 'play') G.expandT = 0.9; // announced from update(), so it can never fire into a new run or over the pause menu
       fx.shockwave(G.ship.x, G.ship.y, { radius: 90, color: C.reactor, width: 4, ms: 800 });
     }
   }
   function nextSector() {
     G.sector++;
     G.stage = 'wave';
+    G.secScroll = G.scroll; // the new sector's far body rises into view from its start position
     if (G.mode === 'play') {
       Kit.save.set('cp', { sector: G.sector, score: Math.floor(G.score) });
       Arcade.progress({ label: 'Sector ' + G.sector });
+      syncTitle();
       const S_ = SECTORS[(G.sector - 1) % 8];
       banner('Sector ' + G.sector + (G.sector > 8 ? ' · HARD' : ''), S_.intro.toUpperCase(), 2.8, 'sector');
       snd('whoosh');
@@ -1359,7 +1482,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     fx.shake(14, 600);
     snd('breach');
     Kit.music.duck(0.25);
-    if (G.mode === 'play') { loop.timeScale = 0.35; Kit.tween(loop, { timeScale: 1 }, 700, 'quadIn', { delay: 300 }); }
+    slowmo(0.35, 300, 700);
     if (live()) Kit.haptic([60, 40, 90]);
     if (G.mode !== 'play') return;
     const cp = cpGet();
@@ -1495,6 +1618,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     G.scroll += dt * (G.stage === 'boss' ? 26 : 60);
     if (G.banner && (G.banner.t += dt) > G.banner.dur) G.banner = null;
     G.hintT = Math.max(0, G.hintT - dt);
+    if (G.expandT > 0 && (G.expandT -= dt) <= 0 && G.mode === 'play' && !G.dead) { snd('expand'); shell.toast('Hull expanded: 6 new sockets', 2400); }
     G.shown = G.shown < G.score ? Math.min(G.score, G.shown + Math.max(1, (G.score - G.shown) * 8 * dt)) : G.score;
     for (const l of G.lights) l.t += dt;
     G.lights = G.lights.filter(l => l.t < l.life);
@@ -1533,6 +1657,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const w = view.w, h = view.h;
     if (!G) { view.clear(C.void); return; }
     const t = G.t, si = (G.sector - 1) % 8;
+    if (si !== palSi) { palSi = si; nebula.invalidate(); dust.invalidate(); fore.invalidate(); }
     view.clear();
     ctx.drawImage(skyCanvas(si, w, h), 0, 0, w, h);
     const sc = G.scroll * zoom;
@@ -1565,6 +1690,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     drawEnemyBullets();
     cam.restore(ctx);
 
+    if (G.mode === 'attract') drawTitleScrim(w, h);
     gfx.vignette(ctx, 0.5, '#12030f');
     drawHud(w, h, t);
   }
@@ -1605,14 +1731,20 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
   function drawGiant(w, h, t) {
     const R = Math.round(clamp(Math.min(w, 900) * 0.26, 76, 170));
-    const spr = giantSprite(R);
+    const spr = giantSprite(R, SECTORS[(G.sector - 1) % 8].body);
     // drifts slowly down the sky; wraps after a long while off-screen
     const span = h + R * 3;
-    const y = Kit.wrap(h * 0.34 + G.scroll * zoom * 0.045 + (G.sector - 1) * 260, -R * 1.5, -R * 1.5 + span);
+    const y = Kit.wrap(h * 0.34 + (G.scroll - (G.secScroll || 0)) * zoom * 0.045, -R * 1.5, -R * 1.5 + span);
     const x = w > 700 ? fieldL + R * 0.2 : w * 0.1;
     ctx.globalAlpha = 0.86;
     ctx.drawImage(spr, x - spr.w / 2, y - spr.h / 2, spr.w, spr.h);
     ctx.globalAlpha = 1;
+  }
+  // Under the title, a dark band keeps the logo and tagline readable over the attract fight.
+  function drawTitleScrim(w, h) {
+    const g = ctx.createLinearGradient(0, 0, 0, h * 0.56);
+    g.addColorStop(0, 'rgba(18,4,16,0.55)'); g.addColorStop(0.62, 'rgba(18,4,16,0.5)'); g.addColorStop(1, 'rgba(18,4,16,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h * 0.56);
   }
   function drawFieldEdges(w, h) {
     if (fieldL < 8) return;
@@ -1738,12 +1870,16 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
   function drawPlayerShots() {
     const S_ = { core: PB.core(), blaster1: PB.blaster1(), blaster2: PB.blaster2(), fan1: PB.fan1(), fan2: PB.fan2(), seeker: PB.seeker() };
+    const att = G.mode === 'attract';
     for (const b of G.pb) {
       const s = S_[b.kind];
-      if (b.kind === 'seeker') { gfx.light(ctx, b.x, b.y, 12, C.seeker, 0.5); gfx.blit(ctx, s, b.x, b.y, b.big ? 1.3 : 1, Math.atan2(b.vy, b.vx) + PI / 2); }
+      // attract mode: shots fade out before they reach the title block
+      if (att) { const a = clamp((b.y - FH * 0.3) / (FH * 0.22), 0, 1); if (a <= 0) continue; ctx.globalAlpha = a; }
+      if (b.kind === 'seeker') { gfx.blit(ctx, s, b.x, b.y, b.big ? 1.3 : 1, Math.atan2(b.vy, b.vx) + PI / 2); }
       else if (b.kind === 'fan1' || b.kind === 'fan2') gfx.blit(ctx, s, b.x, b.y, 1, Math.atan2(b.vy, b.vx) + PI / 2);
       else ctx.drawImage(s, b.x - s.w / 2, b.y - s.h / 2, s.w, s.h);
     }
+    ctx.globalAlpha = 1;
   }
   function drawEnemyBullets() {
     const a = EB(), bb = EBB();
@@ -1808,7 +1944,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctx.setLineDash([2.5, 2.5]); hexPath(ctx, 8 + pulse * 4); ctx.stroke(); ctx.setLineDash([]);
       ctx.restore();
     }
-    // modules (tier 2 last, they are bigger)
+    // modules (tier 2 last, they are bigger); a full hull skips the small tier-1 muzzle glows (pure fill cost)
+    let nMods = 0; for (const m of G.sockets) if (m) nMods++;
     for (const tier of [1, 2]) for (let i = 0; i < 12; i++) {
       const m = G.sockets[i];
       if (!m || m.tier !== tier) continue;
@@ -1827,7 +1964,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         if (m.hp <= (tier === 2 ? 2 : 1)) { ctx.moveTo(sk.x + 5, sk.y - 5); ctx.lineTo(sk.x + 1, sk.y); }
         ctx.stroke();
       }
-      if (m.flash > 0.05 && m.type !== 'plate') gfx.light(ctx, sk.x, sk.y - (m.type === 'blaster' ? 12 : 4), 10 + 8 * m.flash, TCOL[m.type], m.flash * 0.8);
+      if (m.flash > 0.05 && m.type !== 'plate' && (tier === 2 || nMods <= 6)) gfx.light(ctx, sk.x, sk.y - (m.type === 'blaster' ? 12 : 4), 10 + 8 * m.flash, TCOL[m.type], m.flash * 0.8);
       if (m.hitT > 0) gfx.light(ctx, sk.x, sk.y, 20, '#ffffff', m.hitT * 3);
     }
     // fusing parts slide together
@@ -1986,7 +2123,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function drawSchematic(x, y, t) {
     const S_ = 82;
     ctx.drawImage(plateSprite(S_, S_, 'h'), x, y, S_, S_);
-    const cx = x + S_ / 2, cy = y + S_ / 2 + 2, k = 0.62;
+    const cx = x + S_ / 2, cy = y + S_ / 2 + 4, k = 0.62;
     ctx.fillStyle = gfx.alpha(C.reactor, 0.9); ctx.beginPath(); ctx.arc(cx, cy, 5, 0, TAU); ctx.fill();
     for (let i = 0; i < 12; i++) {
       const sk = SOCK[i], m = G.sockets[i], open = i < 6 || G.ring2;
@@ -2003,7 +2140,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctx.restore();
     }
     ctx.font = '800 7px ' + HUDF; ctx.textAlign = 'left'; ctx.fillStyle = '#d0b29f'; ctx.textBaseline = 'middle';
-    ctx.fillText('HULL', x + 10, y + 11);
+    ctx.fillText('HULL', x + 9, y + 8.5);
   }
 
   /* ================================================================ loop, input, shell */
@@ -2016,7 +2153,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     G.dragged += Math.abs(p.dx) + Math.abs(p.dy);
   });
 
-  let titleExtra = null, overExtra = null;
+  let titleExtra = null, overExtra = null, pauseExtra = null;
   const shell = Kit.shell({
     title: 'Scrapwing',
     kicker: 'Salvage run',
@@ -2062,13 +2199,18 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function freshStart() { Kit.save.set('cp', null); Arcade.progress(null); syncTitle(); }
   titleExtra = addAltButton(shell.el.querySelector('.k-title-actions'), 'New run from sector 1', () => { freshStart(); shell.start(); });
   overExtra = addAltButton(shell.el.querySelector('.k-over .k-stack'), 'Restart from sector 1', () => { freshStart(); shell.start(); });
+  // Pause: "Restart" resumes the sector checkpoint, so say so, and offer a true fresh start beside it.
+  const pauseRestart = shell.el.querySelector('.k-pause [data-k=restart]');
+  pauseExtra = addAltButton(pauseRestart.parentNode, 'Restart from sector 1', () => { freshStart(); shell.restart(); });
+  pauseRestart.after(pauseExtra);
   function syncTitle() {
     const cp = cpGet();
     const label = shell.el.querySelector('[data-k=play] span');
     if (label) label.textContent = cp ? 'Continue · Sector ' + cp.sector : 'Launch';
     const again = shell.el.querySelector('[data-k=again]');
     if (again) again.textContent = cp ? 'Retry sector ' + cp.sector : 'Play again';
-    titleExtra.hidden = !cp; overExtra.hidden = !cp;
+    if (pauseRestart) pauseRestart.textContent = cp ? 'Retry sector ' + cp.sector : 'Restart';
+    titleExtra.hidden = !cp; overExtra.hidden = !cp; pauseExtra.hidden = !cp;
   }
   syncTitle();
   { const cp = cpGet(); if (cp) Arcade.progress({ label: 'Sector ' + cp.sector }); }
@@ -2103,6 +2245,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     spawn(type, x, y, o) { return G.enemies.indexOf(addEnemy(type, x == null ? FW / 2 : x, y == null ? 100 : y, Object.assign({ mv: 'line', vy: 0, amp: 0, freq: 0, bx: x == null ? FW / 2 : x, nofire: true }, o || {}))); },
     hitPod(i, dmg) { const B = G.boss; if (!B) return false; const p = B.pods[i]; if (!p || p.dead) return false; damagePod(p, dmg == null ? 1e6 : dmg, B.x + p.ox, B.y + p.oy); return true; },
     hit(i, dmg) { const e = G.enemies[i]; if (e) damage(e, dmg == null ? 999 : dmg, null); },
+    // start the boss's death sequence without running time (to test the slow motion and the clear)
+    killBoss() { if (!G.boss) return false; for (const p of G.boss.pods) p.dead = true; G.boss.core.open = 1; G.boss.core.hp = 0; bossDie(); return true; },
     win() {
       // finish the current wave (or kill the boss) at once
       if (G.boss) { for (const p of G.boss.pods) p.dead = true; G.boss.core.open = 1; G.boss.core.hp = 0; bossDie(); for (let i = 0; i < 600 && G.stage !== 'clear'; i++) loop.step(1); }
@@ -2111,7 +2255,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     nextSector() { if (G.stage === 'clear') nextSector(); },
     info: () => (G ? {
       mode: G.mode, sector: G.sector, wave: G.wave, stage: G.stage, score: Math.floor(G.score), mult: G.mult, chain: G.chain, kills: G.kills, fusions: G.fusions,
-      dead: G.dead, ring2: G.ring2, x: G.ship.x, y: G.ship.y, fw: FW, fh: FH,
+      dead: G.dead, ring2: G.ring2, timeScale: loop.timeScale, x: G.ship.x, y: G.ship.y, fw: FW, fh: FH,
       modules: G.sockets.map(m => (m ? { type: m.type, tier: m.tier, hp: m.hp } : null)),
       enemies: G.enemies.length, bullets: G.eb.length, parts: G.parts.map(p => ({ type: p.type, tier: p.tier, loose: p.loose, x: Math.round(p.x), y: Math.round(p.y) })),
       boss: G.boss ? { pods: G.boss.pods.length, alive: G.boss.pods.filter(p => !p.dead).length, core: G.boss.core.hp, open: G.boss.core.open } : null,

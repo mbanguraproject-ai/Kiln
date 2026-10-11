@@ -139,8 +139,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     return Object.assign(f, {
       n,
       screens: Math.min(10, 6 + Math.floor((n - 1) / 2)),
-      rad: Math.max(50, 118 - (n - 1) * 7),
-      moths: Math.max(12, Math.round(27 - (n - 1) * 1.5)),
+      rad: Math.max(54, 118 - (n - 1) * 5.5),
+      moths: Math.max(13, Math.round(22 - (n - 1) * 0.9)),
       H: Math.min(1500, 1000 + n * 40),
       pups: n === 1 ? 1 : Math.min(3, n < 4 ? 2 : 3),
     });
@@ -844,10 +844,11 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     for (const c of COL) {
       const S = 32, cv = gfx.offscreen(S, S), g = cv.getContext('2d');
       const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      // a tight sprite (drawn at ~0.7 of the old radius): the same core and glow, far fewer blended pixels per dot
       gr.addColorStop(0, gfx.mix(c, '#ffffff', 0.8));
-      gr.addColorStop(0.1, gfx.mix(c, '#ffffff', 0.45));
-      gr.addColorStop(0.2, gfx.alpha(c, 0.75));
-      gr.addColorStop(0.42, gfx.alpha(c, 0.18));
+      gr.addColorStop(0.14, gfx.mix(c, '#ffffff', 0.45));
+      gr.addColorStop(0.29, gfx.alpha(c, 0.75));
+      gr.addColorStop(0.6, gfx.alpha(c, 0.18));
       gr.addColorStop(1, gfx.alpha(c, 0));
       g.fillStyle = gr; g.fillRect(0, 0, S, S);
       dotSprites.push(cv);
@@ -905,9 +906,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (!opts.noFade) { G.fade = 1; G.fadeDir = -1; }
   }
 
-  function saveRun() {
-    if (!G || G.mode !== 'play') return;
-    Kit.save.set('run', { seed: G.runSeed, cave: G.cave, energy: Math.max(30, Math.round(G.energy)), score: G.score, pups: G.pupsTotal, moths: G.mothsEaten, chirps: G.chirps });
+  // The run resumes at the cave entrance with the energy you came in with; during the cave it is re-saved with the
+  // lower of that and your energy now (every 5 s, on pause and on leaving the page), so continuing never refills you.
+  function saveRun(mid) {
+    if (!G || G.mode !== 'play' || G.bat.dead || G.sub === 'dead') return;
+    if (mid && G.sub !== 'cave') return;
+    const now = Math.max(5, Math.round(G.energy));
+    const e = mid ? Math.min(G.saveE || E_MAX, now) : (G.saveE = now);
+    Kit.save.set('run', { seed: G.runSeed, cave: G.cave, energy: e, score: G.score, pups: G.pupsTotal, moths: G.mothsEaten, chirps: G.chirps });
     Arcade.progress({ label: 'Cave ' + G.cave });
   }
   function clearRun() { Kit.save.set('run', null); Arcade.progress(null); }
@@ -923,8 +929,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     G = newState('play', sv.seed);
     G.rng = Kit.rng(hash2(sv.seed, sv.cave * 31));
     G.score = sv.score | 0; G.pupsTotal = sv.pups | 0; G.mothsEaten = sv.moths | 0; G.chirps = sv.chirps | 0;
+    G.energy = clamp(sv.energy || E_MAX, 5, E_MAX);   // before enterCave, which re-saves it
     enterCave(sv.cave);
-    G.energy = clamp(sv.energy || E_MAX, 30, E_MAX);
   }
   function attract(seed) {
     G = newState('attract', seed);
@@ -1074,11 +1080,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
 
   // energy drains a little faster in every deeper cave
-  const drainRate = () => 1.25 + Math.min(1.15, (G.cave - 1) * 0.11);
+  const drainRate = () => 1.6 + Math.min(0.7, (G.cave - 1) * 0.06);
   function eatMoth(m) {
     m.dead = true;
     G.carried++; G.mothsEaten++;
-    const was = G.energy;
+    const was = G.energy, full = was >= E_MAX - 0.5;
+    if (full) G.carried++;   // already full: the bat feasts, and the spare moth goes into the haul
     G.energy = Math.min(E_MAX, G.energy + 5);
     const b = G.bat;
     b.puff = 1;
@@ -1086,7 +1093,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     fx.burst(m.x, m.y, { count: 16, color: [P.gold, '#fff2c0', '#ffa94d'], glow: true, size: [1.4, 3.4], speed: [40, 170], life: [0.35, 0.8], shape: 'star', spin: [-6, 6] });
     fx.shockwave(m.x, m.y, { radius: 30, color: P.gold, width: 2, ms: 280 });
     if (loud()) {
-      fx.float('+1', m.x, m.y - 14, { color: P.gold, size: 16, rise: 30, ms: 650 });
+      fx.float(full ? '+2 full' : '+1', m.x, m.y - 14, { color: full ? '#ffb22e' : P.gold, size: full ? 19 : 16, rise: 30, ms: full ? 850 : 650 });
       Kit.sfx('crunch', { pitch: G.rng.range(-1.5, 1.5) });
       Kit.haptic(8);
       G.pipPop = 1; G.pipFrom = was;
@@ -1163,10 +1170,21 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     Kit.music.duck(0.25);
     Kit.haptic([40, 60, 40]);
     fx.burst(b.x, b.y, { count: 26, color: [P.teal, P.warm], glow: true, size: [1.2, 3], speed: [20, 110], gravity: -20, life: [0.8, 1.6] });
+    if (G.mode !== 'play') return;
+    // one last, weak chirp: the cave shows itself a final time as the bat falls, in slow motion
+    const cd = G.sub; G.sub = 'cave'; sonar(b.x, b.y, 300, 90, 'chirp'); G.sub = cd;
+    b.rim = 1.4;
+    fx.shockwave(b.x, b.y, { radius: 120, color: P.teal, width: 2, ms: 900, glow: true });
+    fx.flash('#bfefff', 220, 0.18);
+    loop.hitstop(140);
+    if (!Kit.reducedMotion) { loop.timeScale = 0.35; Kit.tween(loop, { timeScale: 1 }, 1400, 'quadIn'); }
+    G.banner = { t: 0.15, a: 'Out of energy', b: 'Cave ' + G.cave + ' · ' + G.pupsTotal + (G.pupsTotal === 1 ? ' pup' : ' pups') + ' brought home' };
   }
+  function normalTime() { Kit.tween(loop, { timeScale: 1 }, 1); loop.timeScale = 1; }
   function finishRun() {
     if (G.overSent) return;
     G.overSent = true;
+    normalTime();
     clearRun();
     shell.over({
       title: 'The echoes fade',
@@ -1231,6 +1249,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
      UPDATE
      ===================================================================================== */
   const camTarget = { x: 0, y: 0 };
+  const HOLD_MS = 950;   // one finger held still this long shrieks (the charge ring fills first, so it is never a surprise)
   const touch = { id: null, ox: 0, oy: 0, x: 0, y: 0, t0: 0, moved: false, held: false, second: new Map() };
   let lastInput = 'touch';
 
@@ -1321,7 +1340,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       G.deadT += dt;
       b.vy += 380 * dt; b.vx *= Math.exp(-2 * dt);
       moveBat(dt);
-      if (G.deadT > 1.3 && play) finishRun();
+      if (G.deadT > 1.6 && play) finishRun();
       if (!play && G.deadT > 2) attract(G.runSeed + 1);
       updateWorld(dt);
       updateCam(dt);
@@ -1354,9 +1373,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (input.pressed('Space') || input.pressed('x') || input.pressed('j')) { lastInput = 'keys'; chirp(); }
       if (input.pressed('Shift') || input.pressed('ShiftLeft') || input.pressed('ShiftRight') || input.pressed('z') || input.pressed('k')) { lastInput = 'keys'; shriek(); }
       const now = performance.now();
-      if (touch.id !== null && !touch.moved && !touch.held && now - touch.t0 > 560) { touch.held = true; shriek(); }
+      if (touch.id !== null && !touch.moved && !touch.held && now - touch.t0 > HOLD_MS) { touch.held = true; shriek(); }
       for (const s of touch.second.values()) if (!s.fired && now - s.t0 > 500) { s.fired = true; shriek(); }
-      b.charge = touch.id !== null && !touch.moved && !touch.held ? clamp((now - touch.t0 - 180) / 380, 0, 1) : 0;
+      b.charge = touch.id !== null && !touch.moved && !touch.held ? clamp((now - touch.t0 - 300) / (HOLD_MS - 300), 0, 1) : 0;
       for (const s of touch.second.values()) if (!s.fired) b.charge = Math.max(b.charge, clamp((now - s.t0 - 120) / 380, 0, 1));
     } else if ((G.autoChirp -= dt) <= 0) {
       G.autoChirp = G.mode === 'attract' ? 1.25 : 0.9;
@@ -1396,6 +1415,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     // ---- energy ----
     if (play) {
       G.energy -= drainRate() * dt;
+      if ((G.saveT = (G.saveT || 0) + dt) > 5) { G.saveT = 0; saveRun(true); }
       if (G.energy < 25 && (G.lowBeat -= dt) <= 0) { Kit.sfx('heartbeat'); G.lowBeat = 0.55 + G.energy / 50; }
       if (safeFlag) G.energy = Math.max(G.energy, 40);
       if (G.energy <= 0) { die(); return; }
@@ -1656,7 +1676,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         m.dead = true;
         const v = m.gold ? 3 : 1;
         G.score += v; N.caught += v; G.mothsEaten++;
-        if (play) G.energy = Math.min(E_MAX, G.energy + 1.2);
+        if (play) G.energy = Math.min(E_MAX, G.energy + 0.8);
         b.puff = 1; Kit.tween(b, { puff: 0 }, 420, 'quadIn', { delay: 80 });
         fx.burst(m.x, m.y, { count: m.gold ? 22 : 12, color: [P.gold, '#fff2c0'], glow: true, size: [1.4, 3.2], speed: [40, 160], life: [0.35, 0.7], shape: 'star' });
         if (play) {
@@ -1676,25 +1696,32 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   // The backdrop, rock, darkness, memory and moonlight are dim and soft: they are composed in a buffer at
   // 1 CSS px per pixel and blitted once, which keeps a DPR 2 phone well inside its fill budget.
   let lowC = null, lowG = null;
+  const LOW_S = 0.6;
   function draw() {
     const w = view.w, h = view.h, t = G ? G.t : 0;
     if (!G || !L) { view.clear(P.void0); return; }
     if (G.sub === 'night' || (G.sub === 'dive' && G.night)) { view.clear(P.void0); drawNight(w, h, t); drawOverlays(w, h); drawHud(w, h); return; }
-    const lw = Math.ceil(w), lh = Math.ceil(h);
+    // The dim layers under the dark (sky, silhouettes, rock, the dark mask, memory lines) are soft by nature, so they
+    // render at a reduced scale and are stretched once: this keeps the frame inside budget on weak GPUs.
+    const lw = Math.ceil(w * LOW_S), lh = Math.ceil(h * LOW_S);
     if (!lowC || lowC.width !== lw || lowC.height !== lh) { lowC = gfx.offscreen(lw, lh); lowG = lowC.getContext('2d', { alpha: false }); }
     const hw = w / 2 / zoom, hh = h / 2 / zoom;
     const x0 = cam.x - hw - 30, y0 = cam.y - hh - 30, x1 = cam.x + hw + 30, y1 = cam.y + hh + 30;
     ctx = lowG;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(LOW_S, 0, 0, LOW_S, 0, 0);
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     drawBg(w, h, t);
     cam.apply(ctx);
+    // nearest-neighbour upscale: the smoothed 2x stretch of the half-res rock was the frame-time hog, and the
+    // whole layer is later upscaled smoothly to device pixels anyway, so it reads the same
+    ctx.imageSmoothingEnabled = false;
     blitCave(L.rock, x0, y0, x1, y1, 1, 'source-over');
+    ctx.imageSmoothingEnabled = true;
     drawOutside(x0, y0, x1, y1, t);
     cam.restore(ctx);
     drawDark(w, h, t);
     cam.apply(ctx);
-    blitCave(L.mem, x0, y0, x1, y1, 0.36, 'lighter');
+    blitCave(L.mem, x0, y0, x1, y1, 0.55, 'lighter');
     drawMoonlight(x0, x1, t);
     cam.restore(ctx);
     // near foreground: hanging tips at the top edge, darker than everything; then the vignette
@@ -1704,7 +1731,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx = mainCtx;
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(lowC, 0, 0, lw, lh, 0, 0, lw, lh);
+    ctx.drawImage(lowC, 0, 0, lw, lh, 0, 0, w, h);
     cam.apply(ctx);
     drawWater(x0, x1, t);
     drawProximity(t);
@@ -1734,7 +1761,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     g.globalCompositeOperation = 'source-over';
     g.clearRect(0, 0, dw, dh);
     g.fillStyle = '#020309';
-    g.globalAlpha = xray ? 0.15 : Kit.keyart ? 0.8 : G.mode === 'attract' ? 0.92 : 0.965;
+    g.globalAlpha = xray ? 0.15 : Kit.keyart ? 0.8 : G.mode === 'attract' ? 0.92 : 0.94;
     g.fillRect(0, 0, dw, dh);
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'destination-out';
@@ -2179,8 +2206,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
       const fresh = a < 0.12 ? 1 - a / 0.12 : 0;
       const v = a < 0.06 ? 1 : Math.pow(1 - (a - 0.06) / (ECHO_LIFE - 0.06), 1.4);
-      const r = es[i] * (6 + fresh * 6);
-      ctx.globalAlpha = Math.min(1, v * (0.75 + fresh * 0.5));
+      const al = Math.min(1, v * (0.75 + fresh * 0.5));
+      if (al < 0.03) continue;
+      const r = es[i] * (4.2 + fresh * 4.2);
+      ctx.globalAlpha = al;
       ctx.drawImage(dotSprites[ec[i]], x - r, y - r, r * 2, r * 2);
     }
     ctx.globalAlpha = 1;
@@ -2432,22 +2461,25 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const t = G.t, left = Math.max(16, (w - 1100) / 2 + 16), top = 14;
     const cx = left + 26, cy = top + 28;
     ctx.lineCap = 'round';
-    // sonar arcs: inner = chirp, outer = shriek; they fill as they recover
-    const arc = (r, k, col, wdt) => {
-      const a0 = Math.PI * 0.75, a1 = a0 + Math.PI * 1.5;
-      ctx.strokeStyle = gfx.alpha(col, 0.18); ctx.lineWidth = wdt;
-      ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.stroke();
-      ctx.strokeStyle = col; ctx.globalAlpha = k >= 1 ? 1 : 0.7;
-      ctx.beginPath(); ctx.arc(cx, cy, r, a0, a0 + (a1 - a0) * k); ctx.stroke();
+    // sonar waves ")))" spreading from a dot: the two inner waves are the chirp, the wide outer one the shriek.
+    // Each wave grows out from its middle as its cooldown recovers, and brightens when ready.
+    const ox = cx - 12;
+    const wave = (r, k, col, wdt, span) => {
+      ctx.strokeStyle = gfx.alpha(col, 0.2); ctx.lineWidth = wdt;
+      ctx.beginPath(); ctx.arc(ox, cy, r, -span, span); ctx.stroke();
+      if (k <= 0) return;
+      ctx.strokeStyle = col; ctx.globalAlpha = k >= 1 ? 1 : 0.75;
+      ctx.beginPath(); ctx.arc(ox, cy, r, -span * k, span * k); ctx.stroke();
       ctx.globalAlpha = 1;
     };
     const ck = 1 - G.cd / CHIRP_CD, sk = 1 - G.scd / SHRIEK_CD;
-    gfx.light(ctx, cx, cy, 34, P.teal, 0.12 + (ck >= 1 ? 0.06 : 0));
-    arc(11, ck, P.teal, 2.6);
-    arc(19, sk, sk >= 1 ? '#bff8ff' : '#58a8a0', 2);
-    arc(26, sk, gfx.alpha('#bff8ff', sk >= 1 ? 0.35 : 0.12), 1);
+    gfx.light(ctx, ox + 8, cy, 34, P.teal, 0.12 + (ck >= 1 ? 0.06 : 0));
+    wave(9, clamp(ck * 2, 0, 1), ck >= 1 ? '#bffff4' : P.teal, 3, 0.8);
+    wave(16, clamp(ck * 2 - 1, 0, 1), ck >= 1 ? '#bffff4' : P.teal, 3, 0.75);
+    wave(24, sk, sk >= 1 ? '#e6fbff' : '#58a8a0', 2.4, 0.72);
+    if (sk >= 1) { ctx.strokeStyle = gfx.alpha('#bff8ff', 0.25 + 0.15 * Math.sin(t * 3)); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox, cy, 30, -0.62, 0.62); ctx.stroke(); }
     ctx.fillStyle = ck >= 1 ? '#dffff9' : P.teal;
-    ctx.beginPath(); ctx.arc(cx, cy, 3, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(ox, cy, 3.4, 0, TAU); ctx.fill();
     // score: moths banked; below it what you carry and the pup multiplier
     const sx = cx + 38;
     gfx.text(ctx, Kit.fmt(G.score), sx, cy - 6, { size: 24, weight: 800, font: DISPLAY, align: 'left', color: '#eafffb', stroke: 'rgba(2,6,14,0.45)', strokeWidth: 4 });
@@ -2463,21 +2495,26 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     // energy: a row of moth-wing pips
     const py = cy + 36, low = G.energy < 25;
     for (let k = 0; k < 10; k++) {
-      const fill = clamp(G.energy / 10 - k, 0, 1), x = left + 6 + k * 15;
+      const fill = clamp(G.energy / 10 - k, 0, 1), x = left + 8 + k * 16;
       const pop = G.pipPop && k === Math.min(9, Math.floor(G.energy / 10)) ? 1 + G.pipPop * 0.4 : 1;
       ctx.save();
       ctx.translate(x, py);
       ctx.scale(pop, pop);
+      // a little moth seen from above: big forewings, small hindwings, a body
       ctx.beginPath();
-      ctx.moveTo(0, 0); ctx.bezierCurveTo(-1, -7, 6, -8, 6.5, -2); ctx.bezierCurveTo(6.5, 1, 3, 1.5, 0, 0);
-      ctx.moveTo(0, 0); ctx.bezierCurveTo(1.5, 2, 5, 3, 4, 6); ctx.bezierCurveTo(2.5, 7, 0, 5, 0, 0);
+      for (const sd of [-1, 1]) {
+        ctx.moveTo(0, -1); ctx.bezierCurveTo(sd * 2, -6.5, sd * 7.5, -5.5, sd * 6.6, -0.6); ctx.bezierCurveTo(sd * 4.5, 0.6, sd * 2, 0.4, 0, -1);
+        ctx.moveTo(0, 0.6); ctx.bezierCurveTo(sd * 4.6, 0.4, sd * 5, 4.6, sd * 2.2, 5); ctx.bezierCurveTo(sd * 1, 4.8, 0, 3, 0, 0.6);
+      }
       if (fill > 0) {
         const col = low ? (Math.sin(t * 10) > 0 ? P.red : '#ff8c9e') : P.gold;
         ctx.fillStyle = col; ctx.globalAlpha = 0.25 + 0.75 * fill; ctx.fill();
         ctx.globalAlpha = 1;
       }
-      ctx.strokeStyle = gfx.alpha(low ? P.red : P.gold, fill > 0 ? 0.9 : 0.3); ctx.lineWidth = 1;
+      ctx.strokeStyle = gfx.alpha(low ? P.red : P.gold, fill > 0 ? 0.9 : 0.35); ctx.lineWidth = 1;
       ctx.stroke();
+      ctx.fillStyle = gfx.alpha(fill > 0 ? '#3a2410' : P.gold, fill > 0 ? 0.9 : 0.35);
+      ctx.fillRect(-0.7, -2.4, 1.4, 6.4);
       ctx.restore();
     }
     if (G.pipPop) G.pipPop = Math.max(0, G.pipPop - 0.05);
@@ -2485,13 +2522,18 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (L && G.sub === 'cave') {
       const total = L.pups.length, have = G.trail.length, mp = G.multPop || 1;
       for (let k = 0; k < total; k++) {
-        const x = left + 172 + k * 15, y = py - 4;
+        // a hanging pup upside down: feet on a perch line, folded wings, ears pointing down
+        const x = left + 182 + k * 20, y = py - 6;
         ctx.save(); ctx.translate(x, y);
-        if (k === have - 1) ctx.scale(mp, mp);
-        ctx.strokeStyle = gfx.alpha(P.pink, k < have ? 1 : 0.35); ctx.fillStyle = k < have ? P.pink : 'transparent'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, -4); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(0, 1, 3, 4.5, 0, 0, TAU); if (k < have) ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-2.5, -1); ctx.lineTo(-6, 3); ctx.moveTo(2.5, -1); ctx.lineTo(6, 3); ctx.stroke();
+        ctx.scale(1.35 * (k === have - 1 ? mp : 1), 1.35 * (k === have - 1 ? mp : 1));
+        const on = k < have;
+        if (on) gfx.light(ctx, 0, 1, 12, P.pink, 0.35);
+        ctx.strokeStyle = gfx.alpha(P.pink, on ? 1 : 0.6); ctx.fillStyle = on ? P.pink : 'rgba(255,156,207,0.12)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-4, -6.5); ctx.lineTo(4, -6.5); ctx.moveTo(-1, -6.5); ctx.lineTo(-1, -4); ctx.moveTo(1, -6.5); ctx.lineTo(1, -4); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 0.5, 3.2, 4.4, 0, 0, TAU);
+        ctx.moveTo(-2.2, 4); ctx.lineTo(-2.8, 7); ctx.lineTo(-0.6, 4.8); ctx.moveTo(2.2, 4); ctx.lineTo(2.8, 7); ctx.lineTo(0.6, 4.8);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-3, -2.5); ctx.quadraticCurveTo(-6.5, 0.5, -3.4, 3.4); ctx.moveTo(3, -2.5); ctx.quadraticCurveTo(6.5, 0.5, 3.4, 3.4); ctx.stroke();
         ctx.restore();
       }
     }
@@ -2712,10 +2754,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     tagline: 'Chirp to see. Eat moths. Bring the lost pups home.',
     playLabel: 'Fly',
     how: [
-      'Drag anywhere to fly. Let go to glide. Bumping a wall stuns you, but never kills.',
-      'Tap to chirp: the echo paints the cave. Hold still (or hold a second finger) to shriek twice as far.',
-      'Fly through hanging pups to rescue them. Each one multiplies the moths you bank at the moonlit exit.',
-      'Moths keep your energy up. Webs, falling stalactites, rivers and owls are all telegraphed: listen.',
+      'Drag anywhere (or arrow keys) to fly; let go to glide. Walls stun you, never kill.',
+      'Tap (Space) to chirp and see. Hold still, or press Shift, to shriek twice as far.',
+      'Fly into hanging pups: each one multiplies the moths you bank at the moonlit exit.',
+      'Moths are energy. Webs, stalactites, rivers and owls all warn you first: listen.',
     ],
     loop,
     focus: view.canvas,
@@ -2728,6 +2770,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     onStart() {
       const sv = Kit.save.get('run', null);
       resetTouch();
+      normalTime();
       safeFlag = false; autopilotFlag = false;
       if (!forceNew && nextSeed == null && sv && sv.seed != null && sv.cave >= 1) continueRun(sv);
       else newRun(nextSeed);
@@ -2737,7 +2780,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       Kit.sfx('select');
       syncTitle();
     },
-    onPause() { resetTouch(); },
+    onPause() { resetTouch(); saveRun(true); },
     onOver() { Kit.music.duck(0.35); syncTitle(); },
   });
   // Title: continue a saved run, or start fresh
@@ -2754,6 +2797,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (has) Arcade.progress({ label: 'Cave ' + sv.cave });
   }
   syncTitle();
+  addEventListener('pagehide', () => { if (shell.phase === 'play' || shell.phase === 'paused') saveRun(true); });
 
   // Test hooks for tools/game-check.cjs, test.cjs and the playtester (on top of start/lose/state).
   Arcade.test({
