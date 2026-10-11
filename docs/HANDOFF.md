@@ -41,9 +41,9 @@ Every push to `main` (or a `claude/*` branch) also publishes
 | Work | State |
 | --- | --- |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
-| Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | In progress: Scrapwing, Pipistrelle, Tinplate GP and Napwalk shipped; Long Ball Night and Night Bloom being built, one agent per game end to end |
-| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Not started (after batch 1) |
-| Batches 2 to 10 | Not started; line-ups in `docs/CATALOGUE.md` |
+| Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |
+| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Next |
+| Batches 2 to 10 | Not started; line-ups in `docs/CATALOGUE.md`. Build them one agent per game end to end (`.claude/workflows/` has the fast workflow pattern in this PR history), then ship each as it passes |
 
 Work in progress is pushed to the working branch named in the latest pull request. A game folder in
 `games/<id>/` that is not yet in `games/registry.js` is unfinished: check it with `node tools/game-check.cjs --game

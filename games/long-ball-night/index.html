@@ -185,7 +185,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   const ZONE = { x: 0.83, y0: 1.6, y1: 3.4 };
   const LAG = 0.1;        // seconds from letting go to the bat reaching the zone
   const SWEET = 0.62;     // ft: the reticle's reach
-  const DRAG = 0.16, GRAV = 32.2, FLY_SPEED = 1.3;
+  const DRAG = 0.16, GRAV = 32.2, FLY_SPEED = 1.5;
 
   /* ---------- Saved ---------- */
   let tutDone = !!Kit.save.get('tut', false);
@@ -312,8 +312,8 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       if (q < 0.16) res = { type: 'foul', e, d, q, tip: true };
       else if (Math.abs(spray) > 46) res = { type: 'foul', e, d, q, spray };
       else {
-        const ev = 62 + 50 * Math.pow(q, 0.65) + (perfect ? 3 : 0);
-        const la = clamp(27 + clamp((b.y - ry) / SWEET, -1, 1) * 24 + (1 - q) * rand.range(-8, 8), -12, 68);
+        const ev = 68 + 47 * Math.pow(q, 0.58) + (perfect ? 3 : 0);
+        const la = clamp(27 + clamp((b.y - ry) / SWEET, -1, 1) * 19 + (1 - q) * rand.range(-8, 8), -12, 68);
         res = { type: 'hit', e, d, q, ev, la, spray, perfect };
       }
     }
@@ -497,7 +497,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     G.kiteFlare = Math.max(0, G.kiteFlare - dt * 0.7);
     G.stitchPop = Math.max(0, G.stitchPop - dt * 2);
     bulbPop = Math.max(0, bulbPop - dt * 2.5);
-    const nightGoal = G.nightLock !== undefined ? G.nightLock : clamp((G.pitchNo - 1) / 46, 0, 1);
+    const nightGoal = G.nightLock !== undefined ? G.nightLock : clamp((G.pitchNo - 1) / 34, 0, 1);
     G.night = Kit.approach(G.night, nightGoal, dt * 0.08);
     G.kite.x = Math.sin(G.t * 0.16 + G.kite.ph) * 95;
     if (G.label) { G.label.t -= dt; if (G.label.t <= 0) G.label = null; }
@@ -580,10 +580,10 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     if (G.ball && (G.phase === 'flight')) {
       const b = G.ball;
       pr(b.x, b.y, b.z, T0);
-      liftGoal = clamp(P.h * 0.2 - T0.y, 0, P.h * 0.55);
+      liftGoal = clamp(P.h * 0.34 - T0.y, 0, P.h * 1.1);
       if (G.flight && G.flight.landed) liftGoal = Math.min(G.lift, liftGoal + 40);
     }
-    G.lift = Kit.smooth(G.lift, liftGoal, liftGoal > G.lift ? 5 : 2.2, dt);
+    G.lift = Kit.smooth(G.lift, liftGoal, liftGoal > G.lift ? 7 : 2.2, dt);
     // fielders drift back to their spots
     for (const f of G.fielders) { f.x = Kit.approach(f.x, f.hx, dt * 30); f.z = Kit.approach(f.z, f.hz, dt * 30); f.run = Math.max(0, f.run - dt); }
     // fireworks
@@ -624,7 +624,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       b.t += dt;
       f.time += dt;
       G.dist = Math.round(Math.min(f.dist, Math.hypot(b.x, b.z)));
-      b.trail.push(b.x, b.y, b.z); if (b.trail.length > 66) b.trail.splice(0, 3);
+      b.trail.push(b.x, b.y, b.z); if (b.trail.length > 120) b.trail.splice(0, 3);
       // the nearest fielder chases a ball that stays in the park
       if (!f.hr && !f.chaser) { let best = null, bd = 1e9; for (const fl of G.fielders) { const d = Math.hypot(fl.x - b.pred.x, fl.z - b.pred.z); if (d < bd) { bd = d; best = fl; } } f.chaser = best; }
       if (f.chaser) { const fl = f.chaser; fl.hx = b.pred.x; fl.hz = b.pred.z; fl.run = 0.3; fl.x = Kit.approach(fl.x, b.pred.x, dt * 26); fl.z = Kit.approach(fl.z, b.pred.z, dt * 26); }
@@ -1445,7 +1445,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     tr.length = 0;
     for (let i = 0; i < b.trail.length; i += 3) { pr(b.trail[i], b.trail[i + 1], b.trail[i + 2], T2); tr.push(T2.x, T2.y); }
     tr.push(T0.x, T0.y);
-    ballSprite(T0.x, T0.y, Math.max(2.6, 0.125 * T0.k), b.golden, tr, t, true);
+    ballSprite(T0.x, T0.y, Math.max(3.6, 0.125 * T0.k), b.golden, tr, t, true);
   }
   const flightTrail = [];
   function ballSprite(x, y, r, gold, trail, t, flying) {
@@ -1462,7 +1462,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     gfx.light(ctx, x, y, r * 5 + (flying ? 16 : 6), gold ? '#FFD34D' : '#FFF6E0', gold ? 0.8 : (flying ? 0.6 : 0.35) + 0.3 * (G ? G.night : 0));
     ctx.fillStyle = gold ? '#FFD34D' : '#FBFAF4';
     ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-    if (r > 3.5) {
+    if (r > 6) {
       ctx.strokeStyle = gold ? '#B5541F' : '#D62828'; ctx.lineWidth = Math.max(1, r * 0.14);
       const sp = t * 30;
       ctx.beginPath(); ctx.arc(x - r * 0.9, y, r * 0.75, -0.9 + sp * 0, 0.9); ctx.stroke();
@@ -1714,9 +1714,9 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     if (G.banner) {
       const b = G.banner, u = b.t;
       const pop = u < 0.25 ? Kit.ease.backOut(u / 0.25) : 1, out = clamp((b.life - u) / 0.3, 0, 1);
-      const y = h * 0.4;
-      ctx.save(); ctx.globalAlpha = out; ctx.translate(w / 2, y); ctx.rotate(-0.06); ctx.scale(pop, pop);
       const big = b.text === 'HOME RUN';
+      const y = h * (big ? 0.53 : 0.4);
+      ctx.save(); ctx.globalAlpha = out; ctx.translate(w / 2, y); ctx.rotate(-0.06); ctx.scale(pop, pop);
       ctext(ctx, b.text, 0, 0, { size: big ? Math.min(54, w * 0.13) : Math.min(40, w * 0.1), color: b.color, stroke: '#5A0F0F', strokeWidth: big ? 9 : 7, font: DISP, weight: 800 });
       if (b.sub) ctext(ctx, b.sub, 0, big ? 42 : 34, { size: big ? 18 : 14, color: C.cream, stroke: 'rgba(26,18,48,0.9)', strokeWidth: 5, font: DISP, weight: 800 });
       ctx.restore();
@@ -1807,10 +1807,17 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     pitcher(n) { if (G) { G.hr = 5 * n; G.pIdx = n; G.pitcher = makePitcher(n, rand); } },
     night(v) { if (G) { G.nightLock = v; G.night = v; } },
     step(sec) { loop.step(Math.round((sec || 1) * 60)); },
+    freeze() { loop.stop(); },
     // play until the next pitch has been decided (ready -> result)
     pitchOut() { let n = 0; const start = G.pitchNo; while (n++ < 900 && !(G.pitchNo > start && G.phase === 'ready') && !G.over) loop.step(1); loop.step(1); return n; },
-    info: () => (G ? { phase: G.phase, outs: G.outs, hr: G.hr, streak: G.streak, score: G.score, pitchNo: G.pitchNo, pitcher: G.pIdx, night: G.night, targets: G.targets, longest: G.longest, kind: G.pitch && G.pitch.kind, auto: G.auto, best: shell.best } : null),
+    info: () => (G ? { phase: G.phase, dist: G.flight ? G.flight.dist : 0, hitTarget: G.flight ? G.flight.hitTarget : null, outs: G.outs, hr: G.hr, streak: G.streak, score: G.score, pitchNo: G.pitchNo, pitcher: G.pIdx, night: G.night, targets: G.targets, longest: G.longest, kind: G.pitch && G.pitch.kind, auto: G.auto, best: shell.best } : null),
     geom: () => ({ fence0: fenceDist(0), fence45: fenceDist(Math.PI / 4), hor: P.hor, f: P.f }),
+    // where the pitch will cross the plate on screen, and how long until the ideal moment to let go
+    pitchInfo() {
+      if (!G || !G.pitch) return { phase: G ? G.phase : null };
+      const p = G.pitch, b = pitchAt(p, 1, {}); pr(b.x, b.y, 0, T0);
+      return { phase: G.phase, kind: p.kind, inZone: p.inZone, sx: T0.x, sy: T0.y + G.lift, release: p.T - LAG - p.t, swung: p.swung };
+    },
   });
 
   /* ---------- Capture scenes ---------- */
@@ -1838,8 +1845,8 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   Arcade.scenes({
     art: () => scene(41, {
       night: 0.18, plan: { e: 0.035, dx: 0, dy: -0.32 }, zone: true, golden: false,
-      until: () => G.phase === 'flight' && G.ball && G.ball.z > 170,
-      post: () => { G.swing = { t: 0.36, rx: 0.1, ry: 2.6, res: { type: 'hit' }, applied: true }; G.chase = 1.5; crowd.ex = 0.8; G.banner = null; G.label = null; },
+      until: () => G.phase === 'flight' && G.ball && G.ball.z > 300,
+      post: () => { G.lift = Math.min(G.lift, P.h * 0.2); G.swing = { t: 0.36, rx: 0.1, ry: 2.6, res: { type: 'hit' }, applied: true }; G.chase = 1.5; crowd.ex = 0.8; G.banner = null; G.label = null; },
     }),
     shot1: () => scene(12, {
       night: 0.08, zone: true, pitchNo: 5,
