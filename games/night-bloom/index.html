@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Night Bloom</title>
+<meta name="description" content="Burst one firework at its peak and watch the blast chain across the sky above a lakeside castle.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Unbounded:wght@600;800&display=swap">
+<style>
+/* The show is always at night: one palette in both themes, tokens kept so the shell and canvas read them. */
+:root { --sky-1: #0B1026; --sky-2: #1E2A5A; --haze: #3B2A4F; --gold: #FFD166; --warm: #FFC66B; --cream: #FFF3DC; --stone: #191532; --water: #060818; color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --sky-1: #0B1026; --sky-2: #1E2A5A; --haze: #3B2A4F; --cream: #FFF3DC; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --sky-1: #0B1026; --sky-2: #1E2A5A; --haze: #3B2A4F; --cream: #FFF3DC; color-scheme: dark; }
+:root[data-theme="light"] { --sky-1: #0D1330; --sky-2: #22306A; --haze: #43305A; }
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--sky-1); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#game { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
+#safe { position: fixed; left: 0; top: 0; width: 1px; height: env(safe-area-inset-top, 0px); visibility: hidden; pointer-events: none; }
+#safeb { position: fixed; left: 0; bottom: 0; width: 1px; height: env(safe-area-inset-bottom, 0px); visibility: hidden; pointer-events: none; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Night Bloom: a fireworks show over a lakeside castle"></canvas>
+<div id="safe"></div><div id="safeb"></div>
+<script src="../../hub/sdk.js"></script>
+<script src="../../hub/kit.js"></script>
+<script>
+(() => {
+  'use strict';
+  Arcade.init({ id: 'night-bloom', title: 'Night Bloom', version: '1.0.0' });
+  const { gfx, fx } = Kit;
+  const view = Kit.view(document.getElementById('game'), { alpha: false });
+  const ctx = view.ctx;
+  const RM = Kit.reducedMotion;
+  const TAU = Math.PI * 2;
+  const SERIF = '"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif';
+
+  /* ================= palette ================= */
+  const C = {
+    red: '#FF4D6D', gold: '#FFD166', amber: '#F4A261', cyan: '#4CC9F0', green: '#80ED99', white: '#FFFFFF',
+    pink: '#FF8FB1', violet: '#B79CFF', warm: '#FFC66B', cream: '#FFF3DC', ink: '#0B1026',
+  };
+  const SKY = [[0, '#0B1026'], [0.55, '#1E2A5A'], [1, '#3B2A4F']];
+  const PEONY_COLS = [C.red, C.gold, C.green, C.pink, C.violet, C.cyan];
+
+  /* ================= shell types ================= */
+  const TYPES = {
+    peony:  { R: 70, linger: 0.42, name: 'Peony' },
+    willow: { R: 64, linger: 1.75, name: 'Willow', col: C.amber, intro: 'New willow shell: lingers and holds the chain open' },
+    cross:  { R: 42, linger: 0.12, name: 'Crossette', col: C.cyan, intro: 'New crossette: splits into four little bursts' },
+    cross2: { R: 38, linger: 0.34, col: C.cyan },
+    golden: { R: 80, linger: 0.55, name: 'Golden', col: C.gold, intro: 'New golden shell: light it to win back a spark' },
+    ring:   { R: 96, linger: 0.55, name: 'Ring', col: C.green, intro: 'New ring shell: only its outer edge catches' },
+    smoke:  { R: 58, linger: 1.9, name: 'Smoke dud', col: '#8A8399', intro: 'Smoke duds: their cloud blocks the chain' },
+    strobe: { R: 68, linger: 1.25, name: 'Strobe', col: C.white, intro: 'New strobe: only catches while it flashes' },
+  };
+  const INTRO = { 2: 'willow', 3: 'cross', 4: 'golden', 5: 'ring', 6: 'smoke', 8: 'strobe' };
+  const ARM = 0.55; // a shell's fuse only catches in the upper part of its climb
+  const APEX_PRE = 0.12, APEX_POST = 0.23; // 0.35 s white window at the top of the arc
+
+  /* ================= layout (logical px: height 800) ================= */
+  let S = 1, LW = 400, LH = 800, HOR = 512, BY = 640, SAFE_T = 0, SAFE_B = 0, SPAN0 = 30, SPAN1 = 370;
+  let land = null, water = null, fwc = null, fwx = null, CAS = null, BARGES = [], BOATS = [], CROWD = [], WINS = [], FLAGS = [];
+  const stars = gfx.starfield({ count: 120, seed: 5, size: [0.4, 1.7], layers: 3 });
+
+  function layout() {
+    S = view.h / 800;
+    if (view.w / S < 360) S = view.w / 360;
+    LW = view.w / S; LH = view.h / S;
+    HOR = Math.round(LH * 0.64); BY = Math.round(LH * 0.80);
+    const half = Math.min(LW / 2 - 28, 340);
+    SPAN0 = LW / 2 - half; SPAN1 = LW / 2 + half;
+    SAFE_T = document.getElementById('safe').offsetHeight || 0;
+    SAFE_B = document.getElementById('safeb').offsetHeight || 0;
+    buildScene();
+  }
+
+  // Ridge helper: a smooth seeded silhouette line.
+  function ridgeY(x, seed, base, amp) {
+    return base - amp * (0.55 * Math.sin(x * 0.011 + seed) + 0.3 * Math.sin(x * 0.027 + seed * 2.3) + 0.15 * Math.sin(x * 0.061 + seed * 4.1));
+  }
+
+  function buildScene() {
+    const r = Kit.rng(42);
+    const dpr = view.dpr || 1;
+    const cx = LW / 2 + Math.min(LW * 0.21, 190);
+    const top = HOR - 96;
+    CAS = { cx, top };
+    WINS = []; FLAGS = [];
+    land = gfx.offscreen(Math.ceil(view.w * dpr), Math.ceil((HOR + 2) * S * dpr));
+    const g = land.getContext('2d');
+    g.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
+    // far ridges with a haze gradient between them
+    const ridge = (seed, base, amp, col) => {
+      g.fillStyle = col; g.beginPath(); g.moveTo(0, HOR + 2);
+      for (let x = 0; x <= LW + 10; x += 8) g.lineTo(x, ridgeY(x, seed, base, amp));
+      g.lineTo(LW + 10, HOR + 2); g.closePath(); g.fill();
+    };
+    ridge(1.3, HOR - 58, 26, '#2B2453');
+    const hz = g.createLinearGradient(0, HOR - 70, 0, HOR); hz.addColorStop(0, 'rgba(59,42,79,0)'); hz.addColorStop(1, 'rgba(70,48,92,0.55)');
+    g.fillStyle = hz; g.fillRect(0, HOR - 70, LW, 72);
+    ridge(4.7, HOR - 26, 18, '#1D1940');
+    // castle hill, wooded
+    g.fillStyle = '#15122C';
+    g.beginPath(); g.moveTo(cx - 240, HOR + 2);
+    g.bezierCurveTo(cx - 150, HOR - 10, cx - 120, top - 4, cx - 60, top);
+    g.lineTo(cx + 95, top);
+    g.bezierCurveTo(cx + 150, top + 6, cx + 190, HOR - 20, cx + 270, HOR + 2);
+    g.closePath(); g.fill();
+    for (let i = 0; i < 70; i++) {
+      const t = r.next();
+      const x = cx - 230 + t * 490;
+      let y;
+      if (x < cx - 60) y = top + (HOR - top) * Math.pow((cx - 60 - x) / 180, 1.3);
+      else if (x > cx + 95) y = top + (HOR - top) * Math.pow((x - cx - 95) / 175, 1.3);
+      else y = top + 4;
+      if (y > HOR - 4) continue;
+      const tr = r.range(5, 9), th = tr * r.range(2.4, 3.4);
+      g.fillStyle = r.chance(0.5) ? '#110E25' : '#17132E';
+      g.beginPath(); g.moveTo(x - tr, y + 6); g.lineTo(x - tr * 0.35, y - th * 0.45); g.lineTo(x - tr * 0.6, y - th * 0.45); g.lineTo(x, y - th); g.lineTo(x + tr * 0.6, y - th * 0.45); g.lineTo(x + tr * 0.35, y - th * 0.45); g.lineTo(x + tr, y + 6); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(150,160,240,0.18)'; g.beginPath(); g.moveTo(x - tr, y + 6); g.lineTo(x, y - th); g.lineTo(x - tr * 0.2, y - th * 0.6); g.closePath(); g.fill();
+    }
+    // the castle
+    const stone = '#1B1736', rim = 'rgba(150,160,240,0.35)';
+    const block = (x, y, w, h, cren) => {
+      g.fillStyle = stone; g.fillRect(x, y, w, h);
+      g.fillStyle = rim; g.fillRect(x, y, 1.4, h); // moonlight from the left
+      if (cren) { g.fillStyle = stone; for (let k = x; k < x + w - 3; k += 9) g.fillRect(k, y - 6, 5, 6); g.fillStyle = rim; for (let k = x; k < x + w - 3; k += 9) g.fillRect(k, y - 6, 1.2, 6); }
+    };
+    const cone = (x, y, w, h) => {
+      g.fillStyle = '#211A40'; g.beginPath(); g.moveTo(x - 3, y); g.lineTo(x + w / 2, y - h); g.lineTo(x + w + 3, y); g.closePath(); g.fill();
+      g.strokeStyle = rim; g.lineWidth = 1; g.beginPath(); g.moveTo(x - 3, y); g.lineTo(x + w / 2, y - h); g.stroke();
+      FLAGS.push({ x: x + w / 2, y: y - h, ph: r.range(0, 6), col: r.pick([C.red, C.gold, C.cyan]) });
+    };
+    block(cx - 78, top - 38, 168, 40, true);
+    block(cx - 24, top - 122, 50, 86, true);
+    block(cx - 96, top - 92, 28, 94, false); cone(cx - 96, top - 92, 28, 36);
+    block(cx + 80, top - 78, 24, 80, false); cone(cx + 80, top - 78, 24, 30);
+    block(cx + 8, top - 150, 14, 30, false); cone(cx + 8, top - 150, 14, 22);
+    block(cx + 34, top - 70, 18, 34, true);
+    // gate arch
+    g.fillStyle = '#0A0818'; g.beginPath(); g.moveTo(cx - 8, top + 2); g.lineTo(cx - 8, top - 14); g.arc(cx, top - 14, 8, Math.PI, 0); g.lineTo(cx + 8, top + 2); g.fill();
+    const win = (x, y, w, h) => WINS.push({ x, y, w, h, ph: r.range(0, 9), sp: r.range(2, 6), on: r.chance(0.85) });
+    win(cx - 87, top - 76, 4, 8); win(cx - 87, top - 50, 4, 8); win(cx - 81, top - 26, 4, 7);
+    win(cx - 14, top - 104, 5, 10); win(cx + 8, top - 104, 5, 10); win(cx - 3, top - 80, 5, 10); win(cx - 14, top - 58, 4, 8); win(cx + 12, top - 58, 4, 8);
+    win(cx + 89, top - 62, 4, 8); win(cx + 89, top - 40, 4, 7); win(cx + 13, top - 140, 3, 6);
+    win(cx - 52, top - 24, 3, 6); win(cx + 46, top - 24, 3, 6); win(cx + 62, top - 24, 3, 6);
+    // the village along the left shore
+    let x = -4;
+    const vEnd = cx - 205;
+    while (x < vEnd) {
+      const w = r.range(16, 28), h = r.range(10, 22), rf = r.range(7, 12);
+      const by = HOR + 1;
+      g.fillStyle = r.chance(0.5) ? '#100D22' : '#141029';
+      g.fillRect(x, by - h, w, h);
+      g.beginPath(); g.moveTo(x - 2, by - h); g.lineTo(x + w / 2, by - h - rf); g.lineTo(x + w + 2, by - h); g.fill();
+      if (r.chance(0.12) && w > 20) { // church spire
+        g.fillRect(x + w / 2 - 4, by - h - 26, 8, 26);
+        g.beginPath(); g.moveTo(x + w / 2 - 6, by - h - 26); g.lineTo(x + w / 2, by - h - 52); g.lineTo(x + w / 2 + 6, by - h - 26); g.fill();
+        win(x + w / 2 - 1.5, by - h - 18, 3, 5);
+      }
+      const nw = r.int(1, 2);
+      for (let k = 0; k < nw; k++) win(x + 4 + k * (w - 11) / Math.max(1, nw - 1) * (nw > 1 ? 1 : 0) + (nw === 1 ? w / 2 - 5 : 0), by - h + 4, 3, 4);
+      x += w + r.range(1, 6);
+    }
+    // jetty posts and shoreline
+    g.fillStyle = '#0B0919'; g.fillRect(0, HOR - 1, LW, 3);
+    // water: a static reflection of sky and land, drawn in rippling slices each frame
+    const wh = Math.ceil((LH - HOR) * S * dpr) + 2;
+    water = gfx.offscreen(Math.ceil(view.w * dpr), wh);
+    const wg = water.getContext('2d');
+    wg.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
+    const wgr = wg.createLinearGradient(0, 0, 0, LH - HOR);
+    wgr.addColorStop(0, '#2A2048'); wgr.addColorStop(0.12, '#18183A'); wgr.addColorStop(0.5, '#0C1028'); wgr.addColorStop(1, '#050714');
+    wg.fillStyle = wgr; wg.fillRect(0, 0, LW, LH - HOR + 2);
+    wg.save();
+    wg.globalAlpha = 0.5;
+    wg.setTransform(dpr, 0, 0, -dpr * 0.55, 0, 0);
+    wg.drawImage(land, 0, -(HOR + 2) * S, view.w, (HOR + 2) * S);
+    wg.restore();
+    wg.globalAlpha = 1;
+    const dark = wg.createLinearGradient(0, 0, 0, LH - HOR); dark.addColorStop(0, 'rgba(5,7,20,0.15)'); dark.addColorStop(1, 'rgba(5,7,20,0.7)');
+    wg.fillStyle = dark; wg.fillRect(0, 0, LW, LH - HOR + 2);
+    // barges (launch points), moored boats, the crowd on the near shore
+    BARGES = [];
+    const nb = Math.max(3, Math.min(7, Math.round((SPAN1 - SPAN0) / 105)));
+    for (let i = 0; i < nb; i++) BARGES.push({ x: SPAN0 + 26 + (SPAN1 - SPAN0 - 52) * (i / (nb - 1)), y: BY + (i % 2 ? 14 : 0), ph: i * 1.7, flash: 0 });
+    BOATS = [];
+    for (let i = 0; i < 4; i++) BOATS.push({ x: r.pick([r.range(10, cx - 230), r.range(cx + 150, LW - 10)]), y: HOR + r.range(14, 40), ph: r.range(0, 6), s: r.range(0.75, 1.05) });
+    CROWD = [];
+    for (let x2 = -6; x2 < LW + 10; x2 += r.range(11, 17)) CROWD.push({ x: x2, h: r.range(20, 34), hr: r.range(5.5, 7.5), ph: r.range(0, 6), kid: r.chance(0.12), sparkler: r.chance(0.07), lean: r.range(-0.08, 0.08) });
+    fwc = gfx.offscreen(Math.ceil(view.w * dpr), Math.ceil(view.h * dpr));
+    fwx = fwc.getContext('2d');
+  }
+
+  /* ================= wave generation ================= */
+  function genWave(n, seed, mix) {
+    const r = Kit.rng((seed * 7919 + n * 104729) >>> 0);
+    const finale = n % 5 === 0, encore = n > 25;
+    const hard = encore ? 1 : 0;
+    const shells = [];
+    const yTop = Math.max(150, (SAFE_T + 110) / S), yBot = HOR - 130;
+    const avail = ['peony'];
+    for (const k in INTRO) if (n >= +k && INTRO[k] !== 'smoke' && INTRO[k] !== 'golden') avail.push(INTRO[k]);
+    const W8 = { peony: 5, willow: 2.2, cross: 2, ring: 1.4, strobe: 1.4 };
+    const pickType = () => {
+      if (mix) return r.pick(mix);
+      let tot = 0; for (const t of avail) tot += W8[t];
+      let v = r.next() * tot; for (const t of avail) { v -= W8[t]; if (v <= 0) return t; }
+      return 'peony';
+    };
+    const T0 = Math.max(1.28, 1.85 - n * 0.024 - hard * 0.12);
+    const hang = Math.max(0.7, 1.1 - n * 0.014 - hard * 0.08);
+    const add = (type, xa, ya, tl, T, h) => {
+      const b = BARGES.reduce((a, q) => (Math.abs(q.x - xa) < Math.abs(a.x - xa) ? q : a), BARGES[0]);
+      shells.push({ id: shells.length, type, x0: b.x + r.range(-8, 8), y0: b.y - 10, xa, ya, tl, T, hang: h, bi: BARGES.indexOf(b),
+        col: type === 'peony' ? r.pick(PEONY_COLS) : TYPES[type].col });
+    };
+    let sparks = 2;
+    if (n === 1 && !mix) {
+      const cxx = LW / 2, cy = Math.max(yTop + 60, HOR * 0.48);
+      add('peony', cxx, cy, 1.0, 1.9, 1.5);
+      for (let i = 0; i < 7; i++) {
+        const a = i / 7 * TAU + 0.3, d = 52 + (i % 2) * 14;
+        add('peony', cxx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.75, 1.0 + r.range(-0.08, 0.08), 1.9 + r.range(-0.06, 0.06), 1.5);
+      }
+    } else {
+      const count = finale ? Math.min(34, 18 + Math.round(n * 0.7)) : Math.min(26, 8 + Math.round(n * 0.85) + hard * 2);
+      // more volleys than sparks: the player chooses which to light, and willows can bridge two volleys
+      const nCl = finale ? 6 + (n >= 15 ? 1 : 0) : n <= 2 ? 2 : 3 + (n >= 9 ? 1 : 0) + (n >= 16 ? 1 : 0) + hard;
+      const spread = Math.min(118, 50 + n * 3.4 + hard * 10);
+      const gap = finale ? 0.75 : 1.15 + Math.min(0.5, n * 0.03);
+      const jit = Math.min(0.95, 0.15 + n * 0.035 + hard * 0.2);
+      const cls = [];
+      let wsum = 0;
+      for (let c = 0; c < nCl; c++) {
+        let cxp = 0, cyp = 0;
+        for (let tries = 0; tries < 14; tries++) {
+          cxp = r.range(SPAN0 + 50, SPAN1 - 50); cyp = r.range(yTop + 30, yBot - 10);
+          if (cls.every(q => Math.hypot(q.x - cxp, q.y - cyp) > 165)) break;
+        }
+        const wgt = r.range(0.55, 1.45);
+        wsum += wgt;
+        cls.push({ x: cxp, y: cyp, t: 1.0 + c * gap + r.range(0, 0.25), w: wgt });
+      }
+      let ci = 0, acc = 0;
+      for (let i = 0; i < count; i++) {
+        while (ci < nCl - 1 && (i + 0.5) / count > (acc + cls[ci].w) / wsum) { acc += cls[ci].w; ci++; }
+        const cl = cls[ci];
+        const a = r.range(0, TAU), d = Math.sqrt(r.next()) * spread * (0.6 + cl.w * 0.3);
+        const xa = Kit.clamp(cl.x + Math.cos(a) * d, SPAN0 + 12, SPAN1 - 12);
+        const ya = Kit.clamp(cl.y + Math.sin(a) * d * 0.8, yTop, yBot);
+        add(pickType(), xa, ya, cl.t + r.range(0, jit), T0 + r.range(-0.18, 0.18), hang);
+      }
+      // a new shell type always shows up at least twice in the wave that introduces it
+      const nt = INTRO[n];
+      if (nt && nt !== 'smoke' && nt !== 'golden' && !mix) {
+        let have = shells.filter(s => s.type === nt).length;
+        for (const s of shells) { if (have >= 3) break; if (s.type === 'peony') { s.type = nt; s.col = TYPES[nt].col; have++; } }
+      }
+      if (n >= 6 && !mix) {
+        const ns = Math.min(4, 1 + Math.floor((n - 6) / 4) + hard);
+        for (let k = 0; k < ns; k++) { const cl = cls[k % nCl]; add('smoke', cl.x + r.range(-20, 20), cl.y + r.range(-14, 14), cl.t + r.range(0, jit), T0, hang); }
+      }
+      if (n >= 4 && (finale || r.chance(0.6) || n === 4) && !mix) {
+        const cl = r.pick(cls); const a = r.range(0, TAU);
+        add('golden', Kit.clamp(cl.x + Math.cos(a) * spread * 0.9, SPAN0 + 20, SPAN1 - 20), Kit.clamp(cl.y + Math.sin(a) * spread * 0.6, yTop, yBot), cl.t + r.range(0.1, jit + 0.2), T0, hang);
+      }
+      if (finale) sparks = 3;
+    }
+    let wind = 0;
+    if (n >= 7) wind = r.sign() * Math.min(26, r.range(8, 12 + n * 0.5));
+    let end = 0; for (const s of shells) end = Math.max(end, s.tl + s.T + s.hang);
+    return { n, finale, encore, shells, sparks, wind, end };
+  }
+
+  /* ================= the simulation (pure: shared by the game, the solver and the tests) ================= */
+  function makeWave(def) {
+    return {
+      def, t: 0, wind: def.wind, sparks: def.sparks, lit: 0, score: 0, blooms: 0, taps: 0, gold: 0,
+      shells: def.shells.map(s => Object.assign({}, s, { st: 0, x: s.x0, y: s.y0, depth: 0 })),
+      bursts: [], clouds: [], roots: {}, nextRoot: 1, bestChain: 0, log: [],
+    };
+  }
+  function shellPos(W, s) {
+    const u = W.t - s.tl;
+    if (u < s.T) { const k = u / s.T; s.x = s.x0 + (s.xa - s.x0) * k; s.y = s.ya + (s.y0 - s.ya) * (1 - k) * (1 - k); }
+    else { const v = u - s.T; s.x = s.xa; s.y = s.ya + 26 * v * v; }
+    s.x += W.wind * Math.max(0, u) * 0.5;
+  }
+  const atApex = (W, s) => { const u = W.t - s.tl; return u >= s.T - APEX_PRE && u <= s.T + APEX_POST; };
+  const easeOut3 = k => 1 - Math.pow(1 - Math.min(1, k), 3);
+  function burstReach(b) { return b.R * easeOut3(b.age / 0.6); }
+  function burstLive(b) { return b.age < 0.6 + b.linger; }
+  function burstCatches(b, d) {
+    if (!burstLive(b)) return false;
+    if (b.type === 'strobe' && Math.floor(b.age / 0.12) % 2) return false;
+    if (b.type === 'ring') { if (b.age < 0.06) return false; const rr = b.R * (0.55 + 0.45 * easeOut3(b.age / 0.6)); return Math.abs(d - rr) < 17; }
+    return d <= burstReach(b);
+  }
+  function shielded(W, s) {
+    for (const c of W.clouds) if (c.age < c.life && Math.hypot(c.x - s.x, c.y - s.y) < c.r * Math.min(1, 0.4 + c.age * 2)) return true;
+    return false;
+  }
+  function ignite(W, s, depth, root, ev) {
+    const bloom = depth === 1 && atApex(W, s); // a Bloom is the player's own well-timed tap
+    s.st = 2; s.depth = depth;
+    const ch = W.roots[root] || (W.roots[root] = { n: 0, depth: 0, x: s.x, y: s.y });
+    if (s.type === 'smoke') {
+      W.clouds.push({ x: s.x, y: s.y, r: TYPES.smoke.R, age: 0, life: TYPES.smoke.linger });
+      if (ev) ev.dud(s);
+      return;
+    }
+    const T = TYPES[s.type];
+    const b = { x: s.x, y: s.y, type: s.type, R: T.R * (bloom ? 1.5 : 1), linger: T.linger, age: 0, depth, root, bloom, col: s.col, split: false };
+    W.bursts.push(b);
+    const pts = 10 * depth * (bloom ? 2 : 1);
+    W.lit++; W.score += pts; if (bloom) W.blooms++;
+    ch.n++; ch.depth = Math.max(ch.depth, depth); ch.x = s.x; ch.y = s.y;
+    W.bestChain = Math.max(W.bestChain, ch.n);
+    W.log.push(pts);
+    if (s.type === 'golden') { W.sparks++; W.gold++; }
+    if (ev) ev.ignite(s, b, ch, pts);
+  }
+  function tapShell(W, s, ev) {
+    if (W.sparks <= 0 || s.st !== 1) return false;
+    W.sparks--; W.taps++;
+    ignite(W, s, 1, W.nextRoot++, ev);
+    return true;
+  }
+  function simStep(W, dt, ev) {
+    W.t += dt;
+    for (const s of W.shells) {
+      if (s.st === 0 && W.t >= s.tl) { s.st = 1; if (ev) ev.launch(s); }
+      if (s.st === 1) {
+        shellPos(W, s);
+        if (W.t - s.tl > s.T + s.hang) { s.st = 3; if (ev) ev.fizzle(s); }
+      }
+    }
+    for (let i = 0; i < W.bursts.length; i++) {
+      const b = W.bursts[i];
+      b.age += dt;
+      b.x += W.wind * 0.6 * dt;
+      if (b.type === 'willow') b.y += 14 * dt;
+      if (b.type === 'cross' && !b.split && b.age >= 0.3) {
+        b.split = true;
+        const d = 48 * (b.bloom ? 1.35 : 1), R2 = TYPES.cross2.R * (b.bloom ? 1.3 : 1);
+        for (let k = 0; k < 4; k++) {
+          const a = Math.PI / 4 + k * Math.PI / 2;
+          W.bursts.push({ x: b.x + Math.cos(a) * d, y: b.y + Math.sin(a) * d, type: 'cross2', R: R2, linger: TYPES.cross2.linger, age: 0, depth: b.depth, root: b.root, bloom: false, col: b.col, split: true });
+        }
+        if (ev) ev.split(b);
+      }
+    }
+    for (const c of W.clouds) { c.age += dt; c.x += W.wind * 0.6 * dt; }
+    // chain: any flying shell inside a live burst catches
+    for (let i = 0; i < W.bursts.length; i++) {
+      const b = W.bursts[i];
+      if (!burstLive(b)) continue;
+      for (const s of W.shells) {
+        if (s.st !== 1 || W.t - s.tl < s.T * ARM) continue;
+        const d = Math.hypot(s.x - b.x, s.y - b.y);
+        if (d > b.R + 20) continue;
+        if (burstCatches(b, d) && !shielded(W, s)) ignite(W, s, b.depth + 1, b.root, ev);
+      }
+    }
+    if (W.bursts.length && W.bursts.some(b => !burstLive(b))) W.bursts = W.bursts.filter(burstLive);
+    if (W.clouds.length && W.clouds.some(c => c.age >= c.life)) W.clouds = W.clouds.filter(c => c.age < c.life);
+  }
+  const anyLive = W => W.bursts.length > 0;
+  const waveDone = W => !anyLive(W) && W.shells.every(s => s.st >= 2);
+
+  /* the solver: greedy taps at each shell's apex, used for fair quotas, the autopilot and the tests */
+  function runSim(def, taps, dt) {
+    const W = makeWave(def);
+    let ti = 0;
+    const end = def.end + 4;
+    while (W.t < end) {
+      while (ti < taps.length && W.t >= taps[ti].t) { const s = W.shells[taps[ti].id]; tapShell(W, s, null); ti++; }
+      simStep(W, dt, null);
+      if (ti >= taps.length && !anyLive(W)) break;
+    }
+    return W.lit;
+  }
+  function solve(def) {
+    const cands = def.shells.filter(s => s.type !== 'smoke').map(s => ({ id: s.id, t: s.tl + s.T + 0.02 }));
+    let plan = [], best = 0;
+    const sparks = def.sparks + (def.shells.some(s => s.type === 'golden') ? 1 : 0);
+    for (let k = 0; k < sparks; k++) {
+      let bc = null, bv = best;
+      for (const c of cands) {
+        if (plan.some(p => p.id === c.id)) continue;
+        const p = plan.concat([c]).sort((a, b) => a.t - b.t);
+        const v = runSim(def, p, 1 / 30);
+        if (v > bv) { bv = v; bc = c; }
+      }
+      if (!bc) break;
+      plan.push(bc); plan.sort((a, b) => a.t - b.t); best = bv;
+    }
+    // what two (or three, in a finale) sparks alone can do: the quota never counts on the golden refund
+    const base = runSim(def, plan.slice(0, def.sparks), 1 / 30);
+    return { plan, best, base };
+  }
+
+  /* ================= run state ================= */
+  let G = null, VR = Kit.rng(1), nextSeed = null, nextWave = 1;
+  let tutDone = !!Kit.save.get('tut', false);
+  function newRun(seed, opts) {
+    opts = opts || {};
+    G = {
+      seed: seed === undefined || seed === null ? (Date.now() % 100000) : seed,
+      attract: !!opts.attract, auto: !!opts.auto, safe: !!opts.safe,
+      n: 0, mode: 'wave', W: null, def: null, plan: null, quota: 0, best: 0,
+      lives: 3, banked: 0, litTotal: 0, bestChain: 0, blooms: 0, cleared: 0, over: false,
+      interT: 0, banner: null, chainShow: null, slowT: 0, tutSlow: false, tutTarget: -1, tutTapped: false,
+      pen: [], penPrev: 0, lostAnim: [0, 0, 0], sparkPop: 0, emptyT: 0, cheer: 0, salvo: [], glow: 0, glowCol: [255, 200, 120],
+      kick: 0, mist: 0, ff: false, introSeen: {}, lastTapX: 0, lastTapY: 0, result: null, medal: null,
+    };
+    VR = Kit.rng(G.seed + 11);
+    P.length = 0; PUFFS.length = 0; SPK.length = 0;
+  }
+  const score = () => (G ? G.banked + (G.W && !G.W.banked ? G.W.score : 0) : 0);
+  const audible = () => shell.phase === 'play' && G && !G.attract;
+  const sfx = (name, o) => { if (audible()) Kit.sfx(name, o); };
+
+  // the quota is a share of what the solver can light with the wave's own sparks: gentle early, stricter later
+  const quotaK = n => Math.min(0.8, 0.62 + n * 0.01);
+  function startWave(n, opts) {
+    opts = opts || {};
+    G.n = n;
+    const def = opts.def || genWave(n, G.seed, opts.mix);
+    const sol = solve(def);
+    G.def = def; G.plan = sol.plan; G.best = sol.best;
+    G.quota = n === 1 && !opts.def ? Math.min(5, sol.base) : Math.max(3, Math.floor(sol.base * quotaK(n)));
+    if (opts.quota) G.quota = opts.quota;
+    G.W = makeWave(def);
+    G.mode = 'wave'; G.ff = false; G.result = null; G.medal = null;
+    G.pen = new Array(G.quota).fill(0); G.penPrev = 0;
+    G.tutTarget = -1; G.tutTapped = false; G.tutSlow = false;
+    if (n === 1 && !tutDone && !G.attract && !opts.def) {
+      let bd = 1e9;
+      for (const s of def.shells) { const d = Math.hypot(s.xa - LW / 2, s.ya - def.shells[0].ya); if (d < bd) { bd = d; G.tutTarget = s.id; } }
+    }
+    const nt = INTRO[n];
+    let sub = def.finale ? 'Finale! ' + def.shells.length + ' shells, ' + def.sparks + ' sparks' : 'Light ' + G.quota + ' of ' + def.shells.filter(s => s.type !== 'smoke').length + ' shells';
+    if (nt && !opts.mix) sub = TYPES[nt].intro;
+    if (n === 7) sub = 'Wind on the lake: bursts drift';
+    if (n === 26) sub = 'Encore! Mist rises off the lake';
+    G.banner = { title: def.finale ? 'Grand Finale' : (n > 25 ? 'Encore ' + (n - 25) : 'Wave ' + n), sub, t: 0, life: 2.4 };
+    if (audible()) {
+      Kit.sfx('nb-wave');
+      Kit.music.layer('hat', n >= 2);
+      Kit.music.layer('lead', def.finale || n >= 10);
+    }
+  }
+
+  function endWave() {
+    const W = G.W;
+    W.banked = true;
+    const lit = W.lit;
+    const ok = lit >= G.quota;
+    let bonus = ok ? (lit - G.quota) * 25 : 0;
+    G.litTotal += lit; G.blooms += W.blooms;
+    G.bestChain = Math.max(G.bestChain, W.bestChain);
+    let title, sub = lit + ' of ' + G.quota + ' lit';
+    if (G.def.finale) {
+      const tot = G.def.shells.filter(s => s.type !== 'smoke').length;
+      const pct = Math.round(lit / tot * 100);
+      const ratio = lit / Math.max(1, G.best);
+      G.medal = ratio >= 0.97 ? 'Gold' : ratio >= 0.84 ? 'Silver' : ok ? 'Bronze' : null;
+      if (G.medal) bonus += { Gold: 600, Silver: 350, Bronze: 150 }[G.medal] * Math.ceil(G.n / 5);
+      sub = pct + '% of the finale lit';
+    }
+    G.banked += W.score + bonus;
+    if (ok) {
+      G.cleared++;
+      title = G.medal ? G.medal + ' finale!' : (lit >= G.quota + 4 ? 'Dazzling!' : lit > G.quota ? 'Bravo!' : 'Show clear');
+      if (bonus) sub += '  +' + Kit.fmt(bonus);
+      launchSalvo(G.medal ? 9 : 5);
+      G.cheer = Math.max(G.cheer, 1.6);
+      sfx('nb-clear'); sfx('nb-crowd', { vol: 0.8 });
+      if (G.medal) sfx('win');
+      Kit.haptic([20, 40, 30]);
+      if (G.n === 1 && !tutDone && !G.attract) { tutDone = true; Kit.save.set('tut', true); Arcade.track('tutorial_complete'); }
+    } else {
+      title = 'The crowd sighs';
+      if (G.n === 1 && !G.attract) { sub = 'Try again: tap a shell as it turns white at its peak'; }
+      else if (!G.safe && !G.attract) {
+        G.lives--;
+        G.lostAnim[G.lives] = 1;
+        sub = 'A beacon goes dark (' + lit + ' of ' + G.quota + ')';
+        sfx('nb-beacon');
+        fx.shake(8, 320);
+        Kit.haptic([40, 60, 40]);
+        Kit.music.duck(0.4, 900);
+      }
+    }
+    G.banner = { title, sub, t: 0, life: 2.2, good: ok };
+    G.mode = 'inter';
+    G.interT = 2.6;
+    G.nextN = (!ok && G.n === 1) ? 1 : G.n + 1;
+    if (G.attract && G.nextN > 12) G.nextN = 3;
+    if (G.lives <= 0) { G.mode = 'over'; endRun(); }
+  }
+
+  function endRun() {
+    if (!G || G.over) return;
+    G.over = true; G.mode = 'over';
+    if (G.W && !G.W.banked) { G.W.banked = true; G.banked += G.W.score; G.litTotal += G.W.lit; G.bestChain = Math.max(G.bestChain, G.W.bestChain); }
+    loop.timeScale = 1;
+    Kit.music.duck(0.3);
+    sfx('lose', { vol: 0.6 });
+    shell.over({
+      title: 'The show is over',
+      stats: [
+        { label: 'Waves cleared', value: String(G.cleared) },
+        { label: 'Shells lit', value: Kit.fmt(G.litTotal) },
+        { label: 'Longest chain', value: '×' + G.bestChain },
+        { label: 'Blooms', value: Kit.fmt(G.blooms) },
+      ],
+      props: { wave: G.n, lit: G.litTotal, chain: G.bestChain },
+      delay: 900,
+    });
+  }
+
+  /* ================= visual particles (own pool, grouped by colour for cheap drawing) ================= */
+  const P = [], PPOOL = [];
+  const MAXP = RM ? 650 : 1300;
+  const COLS = [C.red, C.gold, C.amber, C.cyan, C.green, C.white, C.pink, C.violet, '#FFF1C1', '#C9C3D9'];
+  const CI = {}; COLS.forEach((c, i) => (CI[c] = i));
+  function star(x, y, vx, vy, col, life, drag, grav, lag, size, strobe) {
+    if (P.length >= MAXP) return;
+    const p = PPOOL.pop() || {};
+    p.x = x; p.y = y; p.lx = x; p.ly = y; p.vx = vx; p.vy = vy; p.c = CI[col] === undefined ? 1 : CI[col];
+    p.life = life; p.age = 0; p.drag = drag; p.grav = grav; p.lag = lag; p.size = size; p.strobe = strobe || 0; p.ph = VR.next() * 6;
+    P.push(p);
+  }
+  const PUFFS = [];
+  function puff(x, y, r, a, vx, vy, life) {
+    if (PUFFS.length > 60) PUFFS.shift();
+    PUFFS.push({ x, y, r, a, vx, vy, life, age: 0 });
+  }
+  const SPK = []; // small fuse sparks
+  function spk(x, y, col) { if (SPK.length > 260) return; SPK.push({ x, y, vx: VR.range(-20, 20), vy: VR.range(10, 50), age: 0, life: VR.range(0.2, 0.45), col }); }
+
+  function burstVisual(x, y, type, R, col, bloom, scale) {
+    const half = RM ? 0.5 : 1;
+    const k = 3.2, v0 = R * k / 0.853;
+    const add = (n, colA, colB, life, drag, grav, lag, size, strobe, ring) => {
+      n = Math.round(n * half * (scale || 1));
+      for (let i = 0; i < n; i++) {
+        const a = ring ? i / n * TAU : VR.range(0, TAU);
+        const sp = ring ? v0 : v0 * Math.pow(VR.next(), 0.35) * VR.range(0.85, 1.05);
+        star(x, y, Math.cos(a) * sp, Math.sin(a) * sp, VR.chance(0.75) ? colA : colB, life * VR.range(0.85, 1.15), drag, grav, lag, size * VR.range(0.8, 1.2), strobe);
+      }
+    };
+    switch (type) {
+      case 'willow': add(46, C.amber, C.gold, 2.9, 3.0, 46, 1.4, 1.7); break;
+      case 'golden': add(58, C.gold, '#FFF1C1', 1.9, k, 34, 3.2, 2.1); add(12, C.white, C.gold, 0.8, 4, 10, 10, 1.4); break;
+      case 'cross': add(18, C.cyan, C.white, 0.6, k, 20, 10, 1.8); break;
+      case 'cross2': add(15, C.cyan, C.white, 1.0, k, 40, 7, 1.6); break;
+      case 'ring': add(40, C.green, C.white, 1.3, k, 22, 8, 2.0, 0, true); add(8, C.green, C.white, 0.7, 6, 20, 8, 1.4); break;
+      case 'strobe': add(42, C.white, '#FFF1C1', 1.8, k, 26, 9, 1.9, 1); break;
+      default: add(50, col, VR.chance(0.5) ? C.white : C.gold, 1.35, k, 40, 7.5, 2.1); break;
+    }
+    if (bloom) {
+      add(16, C.white, '#FFF1C1', 0.55, 1.8, 0, 3, 1.6, 0, true);
+    }
+  }
+
+  function launchSalvo(n) {
+    for (let i = 0; i < n; i++) {
+      const b = BARGES[i % BARGES.length];
+      G.salvo.push({ x: b.x, y: b.y - 10, vx: VR.range(-20, 20), vy: -VR.range(420, 540), t: -i * 0.16, boom: VR.range(0.62, 0.9), col: VR.pick([C.gold, C.red, C.cyan, C.green, C.pink]) });
+    }
+  }
+
+  /* events from the simulation, turned into light, sound and motion */
+  const PENTA = [0, 2, 4, 7, 9];
+  let crackT = 0;
+  const EV = {
+    launch(s) {
+      const b = BARGES[s.bi]; if (b) b.flash = 1;
+      puff(s.x0, s.y0 - 6, 10, 0.35, VR.range(-6, 6), -12, 1.6);
+      if (crackT < 3) sfx('nb-launch', { pan: (s.x0 / LW) * 2 - 1, pitch: VR.range(-3, 3), vol: 0.7 });
+    },
+    fizzle(s) {
+      puff(s.x, s.y, 8, 0.4, 0, 6, 1.2);
+      for (let i = 0; i < 5; i++) spk(s.x, s.y, '#C9C3D9');
+      if (!G.ff) sfx('nb-fizzle', { pan: (s.x / LW) * 2 - 1, vol: 0.5 });
+    },
+    dud(s) {
+      for (let i = 0; i < 9; i++) puff(s.x + VR.range(-26, 26), s.y + VR.range(-20, 20), VR.range(18, 30), 0.75, VR.range(-8, 8), VR.range(-6, 4), 2.6);
+      sfx('nb-dud', { pan: (s.x / LW) * 2 - 1 });
+      if (!G.attract) fx.float('dud', s.x * S, s.y * S - 20, { color: '#C9C3D9', size: 16, font: SERIF });
+      Kit.haptic(25);
+    },
+    split(b) {
+      for (let k = 0; k < 4; k++) {
+        const a = Math.PI / 4 + k * Math.PI / 2, d = 48 * (b.bloom ? 1.35 : 1);
+        burstVisual(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, 'cross2', TYPES.cross2.R, C.cyan, false);
+      }
+      sfx('nb-split', { pan: (b.x / LW) * 2 - 1, pitch: VR.range(-2, 2) });
+    },
+    ignite(s, b, ch, pts) {
+      burstVisual(b.x, b.y, b.type, b.R, b.col, b.bloom);
+      puff(b.x, b.y, 24, 0.22, VR.range(-6, 6), VR.range(-4, 2), 4);
+      const rgb = gfx.parse(b.col || C.gold);
+      const w0 = G.glow;
+      G.glow = Math.min(1, G.glow + (b.bloom ? 0.32 : 0.2));
+      for (let i = 0; i < 3; i++) G.glowCol[i] = (G.glowCol[i] * w0 + rgb[i] * 0.6) / (w0 + 0.6);
+      const pan = (b.x / LW) * 2 - 1;
+      if (crackT < 3) { sfx('nb-crack', { pan, pitch: VR.range(-3, 2), vol: b.bloom ? 1 : 0.8 }); crackT++; }
+      const idx = Math.min(14, b.depth - 1);
+      const semi = PENTA[idx % 5] + 12 * Math.floor(idx / 5);
+      if (audible()) Kit.sfx({ wave: 'sine', freq: 698.46 * Math.pow(2, semi / 12), attack: 0.003, hold: 0.04, release: 0.55, vol: 0.13, verb: 0.45 }, { force: true, pan: pan * 0.6 });
+      if (b.type === 'willow') sfx('nb-willow', { pan });
+      if (b.type === 'strobe') sfx('nb-crackle', { pan });
+      if (b.type === 'peony' && VR.chance(0.4)) sfx('nb-crackle', { pan, delay: 420, vol: 0.6 });
+      if (b.bloom) {
+        if (b.depth === 1) {
+          fx.shockwave(b.x * S, b.y * S, { radius: b.R * S * 0.9, color: '#FFF4D8', width: 2, ms: 380 });
+          if (!G.attract) fx.float('Bloom ×2', b.x * S, b.y * S + 40, { color: '#FFFFFF', size: 17, font: SERIF, weight: 700 });
+        }
+        sfx('nb-bloom', { pan });
+        G.kick = 1;
+        if (b.depth === 1) { loop.hitstop(45); fx.shake(3, 120); }
+      }
+      if (s.type === 'golden') {
+        G.sparkPop = 1;
+        sfx('nb-spark');
+        if (!G.attract) fx.float('+1 spark', 70, view.h - SAFE_B - 76, { color: C.gold, size: 18, font: SERIF, weight: 700 });
+      }
+      // the floating ×N counter follows the chain
+      const cs = G.chainShow;
+      if (!cs || cs.root !== b.root || cs.done) G.chainShow = { root: b.root, n: ch.n, x: b.x, y: b.y, pop: 1, t: 0, done: false };
+      else { cs.n = ch.n; cs.x += (b.x - cs.x) * 0.5; cs.y += (b.y - cs.y) * 0.5; cs.pop = 1; cs.t = 0; }
+      if (ch.n === 10) {
+        G.slowT = 0.4; G.cheer = 2.2;
+        sfx('nb-crowd', { vol: 1 }); sfx('nb-roar');
+        Kit.music.duck(0.45, 900);
+        fx.flash(C.cream, 140, 0.18);
+        Kit.haptic([15, 30, 15, 30, 40]);
+      } else if (ch.n === 5) { sfx('nb-crowd', { vol: 0.5 }); G.cheer = Math.max(G.cheer, 1); }
+      if (ch.n > 10 && ch.n % 5 === 0) G.slowT = Math.max(G.slowT, 0.25);
+      // pennants unfurl one per shell up to the quota
+      const W = G.W;
+      if (W.lit <= G.quota) {
+        Kit.tween(G.pen, { [W.lit - 1]: 1 }, 380, 'backOut');
+        sfx('nb-pennant', { pitch: Math.min(12, W.lit), vol: 0.6 });
+        if (W.lit === G.quota) { sfx('nb-quota'); Kit.haptic(20); if (!G.attract) fx.float('Quota met!', view.w / 2, (SAFE_T + 158), { color: C.gold, size: 20, font: SERIF, weight: 700 }); }
+      }
+      Kit.haptic(b.depth === 1 ? 14 : 6);
+    },
+  };
+
+  /* ================= update ================= */
+  function update(dt) {
+    if (!G) return;
+    const real = Kit.STEP;
+    crackT = Math.max(0, crackT - real * 40);
+    if (G.slowT > 0) G.slowT -= real;
+    let ts = 1;
+    if (G.tutSlow) ts = 0.16;
+    if (G.slowT > 0) ts = Math.min(ts, 0.35);
+    if (G.mode === 'over') ts = 1;
+    loop.timeScale = ts;
+
+    if (G.mode === 'wave' && G.W) {
+      const W = G.W;
+      // autopilot: the attract mode, capture scenes and the tests follow the solver's plan
+      if (G.auto) {
+        for (const p of G.plan) {
+          if (p.done || W.t < p.t) continue;
+          p.done = true;
+          const s = W.shells[p.id];
+          if (s.st === 1) tapShell(W, s, EV);
+          else { const alt = W.shells.find(q => q.st === 1 && q.type !== 'smoke' && atApex(W, q)); if (alt) tapShell(W, alt, EV); }
+        }
+      }
+      // tutorial: time nearly stops at the apex until the player taps
+      if (G.tutTarget >= 0 && !G.tutTapped) {
+        const s = W.shells[G.tutTarget];
+        const u = W.t - s.tl;
+        G.tutSlow = s.st === 1 && u >= s.T - 0.3 && u < s.T + 1.2;
+      } else G.tutSlow = false;
+      simStep(W, dt, EV);
+      // out of sparks with nothing burning: the rest of the volley fizzles at once
+      if (!G.ff && W.sparks === 0 && !anyLive(W) && W.shells.some(s => s.st < 2)) {
+        G.ff = true;
+        for (const s of W.shells) { if (s.st === 1) { s.st = 3; EV.fizzle(s); } else if (s.st === 0) s.st = 3; }
+      }
+      if (waveDone(W)) endWave();
+    } else if (G.mode === 'inter') {
+      G.interT -= dt;
+      if (G.interT <= 0) startWave(G.nextN);
+    }
+
+    // ambient visuals
+    G.glow *= Math.exp(-dt * 1.6);
+    G.kick *= Math.exp(-dt * 10);
+    G.cheer = Math.max(0, G.cheer - dt);
+    G.sparkPop = Math.max(0, G.sparkPop - dt * 2);
+    G.emptyT = Math.max(0, G.emptyT - dt);
+    for (let i = 0; i < 3; i++) G.lostAnim[i] = Math.max(0, G.lostAnim[i] - dt * 0.5);
+    G.mist = Kit.approach(G.mist, G.n > 25 ? 1 : 0, dt * 0.3);
+    if (G.banner) { G.banner.t += dt; if (G.banner.t > G.banner.life) G.banner = null; }
+    const cs = G.chainShow;
+    if (cs) {
+      cs.pop = Math.max(0, cs.pop - dt * 4);
+      const live = G.W && G.W.bursts.some(b => b.root === cs.root);
+      if (!live && !cs.done) {
+        cs.done = true;
+        if (cs.n >= 4 && !G.attract) fx.float('Chain ×' + cs.n + '!', cs.x * S, cs.y * S - 30, { color: C.gold, size: 22 + Math.min(16, cs.n), font: SERIF, weight: 700 });
+      }
+      if (cs.done) { cs.t += dt; if (cs.t > 0.6) G.chainShow = null; }
+    }
+    const wind = G.W ? G.W.wind : 0;
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i];
+      p.age += dt;
+      if (p.age >= p.life) { P[i] = P[P.length - 1]; P.pop(); PPOOL.push(p); continue; }
+      const dmp = Math.exp(-p.drag * dt);
+      p.vx *= dmp; p.vy = p.vy * dmp + p.grav * dt;
+      p.x += (p.vx + wind * 0.5) * dt; p.y += p.vy * dt;
+      const lk = Math.min(1, p.lag * dt);
+      p.lx += (p.x - p.lx) * lk; p.ly += (p.y - p.ly) * lk;
+    }
+    for (let i = PUFFS.length - 1; i >= 0; i--) {
+      const q = PUFFS[i];
+      q.age += dt; q.x += (q.vx + wind * 0.7) * dt; q.y += q.vy * dt; q.r += dt * 6;
+      if (q.age > q.life) PUFFS.splice(i, 1);
+    }
+    for (let i = SPK.length - 1; i >= 0; i--) {
+      const q = SPK[i]; q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 60 * dt;
+      if (q.age > q.life) { SPK[i] = SPK[SPK.length - 1]; SPK.pop(); }
+    }
+    if (G.W) for (const s of G.W.shells) if (s.st === 1 && VR.chance(0.55)) spk(s.x, s.y + 3, s.type === 'smoke' ? '#C9C3D9' : (s.type === 'golden' ? C.gold : '#FFE2A8'));
+    for (let i = G.salvo.length - 1; i >= 0; i--) {
+      const r = G.salvo[i];
+      r.t += dt;
+      if (r.t < 0) continue;
+      r.x += r.vx * dt; r.y += r.vy * dt; r.vy += 320 * dt;
+      if (VR.chance(0.7)) spk(r.x, r.y + 2, '#FFE2A8');
+      if (r.t >= r.boom) {
+        burstVisual(r.x, r.y, VR.pick(['peony', 'peony', 'golden', 'willow']), 60, r.col, false, 0.7);
+        G.glow = Math.min(1, G.glow + 0.12);
+        if (crackT < 3) { sfx('nb-crack', { pan: (r.x / LW) * 2 - 1, vol: 0.6, pitch: VR.range(-4, 0) }); crackT++; }
+        G.salvo.splice(i, 1);
+      }
+    }
+    for (const b of BARGES) b.flash = Math.max(0, b.flash - dt * 4);
+  }
+
+  /* ================= input ================= */
+  function onTap(px, py) {
+    if (!G || G.mode !== 'wave' || G.attract || shell.phase !== 'play') return;
+    const W = G.W;
+    const x = px / S, y = py / S;
+    let best = null, bd = 1e9;
+    for (const s of W.shells) {
+      if (s.st !== 1) continue;
+      let d = Math.hypot(s.x - x, s.y - y);
+      if (d > 62) continue;
+      if (s.type === 'smoke') d += 26;
+      if (atApex(W, s)) d -= 12;
+      if (d < bd) { bd = d; best = s; }
+    }
+    if (!best) {
+      for (let i = 0; i < 6; i++) spk(x, y, '#FFE2A8');
+      sfx('nb-miss', { vol: 0.5 });
+      return;
+    }
+    if (W.sparks <= 0) {
+      G.emptyT = 0.5;
+      sfx('nb-empty');
+      return;
+    }
+    sfx('nb-strike');
+    if (G.tutTarget >= 0) G.tutTapped = true;
+    tapShell(W, best, EV);
+  }
+
+  /* ================= drawing ================= */
+  const smokeSprite = () => gfx.sprite('nb-smoke', 64, 64, (g, w) => {
+    const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    gr.addColorStop(0, 'rgba(150,140,175,0.55)'); gr.addColorStop(0.55, 'rgba(110,100,140,0.25)'); gr.addColorStop(1, 'rgba(90,80,120,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, w);
+  });
+  const darkSmoke = () => gfx.sprite('nb-dsmoke', 64, 64, (g, w) => {
+    const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    gr.addColorStop(0, 'rgba(62,58,80,0.85)'); gr.addColorStop(0.45, 'rgba(70,64,90,0.55)'); gr.addColorStop(1, 'rgba(80,72,100,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, w);
+  });
+
+  function drawFireworks(g, t) {
+    // runs in logical units on the fireworks layer, which is drawn once onto the sky and once into the lake
+    g.globalCompositeOperation = 'lighter';
+    const W = G && G.W;
+    // burst glows and the live ignition zones
+    if (W) {
+      for (const b of W.bursts) {
+        const k = Math.min(1, b.age / 0.6), fade = 1 - Math.max(0, (b.age - 0.6) / b.linger);
+        const col = b.col || C.gold;
+        gfx.light(g, b.x, b.y, b.R * 2.2, col, 0.2 * fade * (1 - k * 0.3));
+        if (b.bloom && b.age < 0.25) gfx.light(g, b.x, b.y, b.R * 0.8, '#FFFFFF', (0.25 - b.age) * (b.depth === 1 ? 1.4 : 0.6));
+        // the reach of this burst: a faint ring so players read the chain
+        const on = !(b.type === 'strobe' && Math.floor(b.age / 0.12) % 2);
+        g.globalAlpha = Kit.keyart ? 0 : (b.type === 'ring' ? 0.42 : 0.13) * fade * (on ? 1 : 0.3);
+        g.strokeStyle = col; g.lineWidth = b.type === 'ring' ? 2.2 : 1.3;
+        g.beginPath(); g.arc(b.x, b.y, b.type === 'ring' ? b.R * (0.55 + 0.45 * easeOut3(k)) : burstReach(b), 0, TAU); g.stroke();
+        g.globalAlpha = 1;
+      }
+    }
+    // stars, bucketed by colour and fade so a whole bucket is one stroke
+    const buckets = BK;
+    for (let i = 0; i < buckets.length; i++) buckets[i].length = 0;
+    for (let i = 0; i < P.length; i++) {
+      const p = P[i];
+      const a = 1 - Math.pow(p.age / p.life, 2);
+      if (p.strobe && ((t * 14 + p.ph) % 2) < 0.9 && p.age > 0.35) continue;
+      buckets[p.c * 4 + Math.min(3, Math.floor(a * 4))].push(p);
+    }
+    g.lineCap = 'round';
+    for (let c = 0; c < COLS.length; c++) {
+      const col = COLS[c];
+      for (let lv = 0; lv < 4; lv++) {
+        const arr = buckets[c * 4 + lv];
+        if (!arr.length) continue;
+        const a = (lv + 0.8) / 4;
+        g.globalAlpha = a * 0.85;
+        g.strokeStyle = col; g.lineWidth = lv >= 3 ? 2.2 : 1.6;
+        g.beginPath();
+        for (const p of arr) { g.moveTo(p.lx, p.ly); g.lineTo(p.x, p.y); }
+        g.stroke();
+        g.globalAlpha = a;
+        g.fillStyle = lv >= 2 ? '#FFFFFF' : col;
+        for (const p of arr) { const s = p.size; g.fillRect(p.x - s / 2, p.y - s / 2, s, s); }
+        if (lv >= 2 && arr.length) for (let j = 0; j < arr.length; j += 3) gfx.light(g, arr[j].x, arr[j].y, arr[j].size * 4, col, a * 0.5);
+      }
+    }
+    g.globalAlpha = 1;
+    // shells and their fuse sparks
+    for (const q of SPK) {
+      const a = 1 - q.age / q.life;
+      g.globalAlpha = a; g.fillStyle = q.col; g.fillRect(q.x - 0.8, q.y - 0.8, 1.6, 1.6);
+    }
+    g.globalAlpha = 1;
+    if (W) {
+      for (const s of W.shells) {
+        if (s.st !== 1) continue;
+        const u = W.t - s.tl, apex = atApex(W, s);
+        const near = Kit.clamp(1 - Math.abs(u - s.T) / 0.7, 0, 1);
+        if (s.type === 'smoke') {
+          gfx.light(g, s.x, s.y, 10, '#FF6A3D', 0.5);
+          g.globalCompositeOperation = 'source-over';
+          g.fillStyle = '#4A4458'; g.beginPath(); g.arc(s.x, s.y, 4.6, 0, TAU); g.fill();
+          g.strokeStyle = '#8A8399'; g.lineWidth = 1; g.stroke();
+          g.globalCompositeOperation = 'lighter';
+          continue;
+        }
+        const col = s.col || C.gold;
+        const tw = s.type === 'golden' ? 0.5 + 0.5 * Math.sin(t * 18 + s.id) : 1;
+        gfx.light(g, s.x, s.y, 12 + near * 10, col, 0.55 + near * 0.3);
+        if (apex) {
+          const pk = (u - (s.T - APEX_PRE)) / (APEX_PRE + APEX_POST);
+          gfx.light(g, s.x, s.y, 34, '#FFFFFF', 0.85);
+          g.strokeStyle = '#FFFFFF'; g.globalAlpha = 0.8 * (1 - pk); g.lineWidth = 2;
+          g.beginPath(); g.arc(s.x, s.y, 8 + pk * 22, 0, TAU); g.stroke(); g.globalAlpha = 1;
+        }
+        g.fillStyle = apex ? '#FFFFFF' : '#FFF4D8';
+        g.beginPath(); g.arc(s.x, s.y, (apex ? 4.2 : 2.8) * (0.8 + 0.2 * tw), 0, TAU); g.fill();
+        if (s.type === 'golden') { g.strokeStyle = C.gold; g.lineWidth = 1.2; g.beginPath(); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + t * 2; g.moveTo(s.x, s.y); g.lineTo(s.x + Math.cos(a) * 9 * tw, s.y + Math.sin(a) * 9 * tw); } g.stroke(); }
+      }
+    }
+    for (const r of (G ? G.salvo : [])) if (r.t >= 0) { gfx.light(g, r.x, r.y, 12, '#FFE2A8', 0.8); g.fillStyle = '#FFF'; g.fillRect(r.x - 1.5, r.y - 1.5, 3, 3); }
+    g.globalCompositeOperation = 'source-over';
+  }
+  const BK = []; for (let i = 0; i < COLS.length * 4; i++) BK.push([]);
+
+  function drawCrowd(g, t) {
+    const base = LH + 2;
+    const cheer = G ? Math.min(1, G.cheer) : 0;
+    const glowA = G ? G.glow : 0;
+    const gc = G ? 'rgb(' + G.glowCol.map(v => v | 0).join(',') + ')' : C.gold;
+    g.fillStyle = '#05040C';
+    g.fillRect(0, LH - 16, LW, 20);
+    for (const p of CROWD) {
+      const bob = Math.sin(t * 2 + p.ph) * 0.8 + cheer * Math.abs(Math.sin(t * 9 + p.ph)) * 4;
+      const y = base - p.h - bob, x = p.x;
+      g.fillStyle = '#07060F';
+      g.beginPath(); g.ellipse(x, y + p.h * 0.55, p.hr * 1.9, p.h * 0.55, 0, 0, TAU); g.fill();
+      g.beginPath(); g.arc(x + p.lean * 20, y, p.hr, 0, TAU); g.fill();
+      if (cheer > 0.2 && Math.sin(p.ph * 7) > -0.2) {
+        g.strokeStyle = '#07060F'; g.lineWidth = 3.4; g.lineCap = 'round';
+        const lift = cheer * (10 + 4 * Math.sin(t * 10 + p.ph));
+        g.beginPath(); g.moveTo(x - p.hr, y + 9); g.lineTo(x - p.hr - 5, y - lift); g.moveTo(x + p.hr, y + 9); g.lineTo(x + p.hr + 5, y - lift); g.stroke();
+      }
+      { // rim light from the moon and the show
+        g.strokeStyle = glowA > 0.08 ? gc : '#8C9BE0'; g.globalAlpha = Math.min(0.75, 0.16 + glowA * 0.9); g.lineWidth = 1;
+        g.beginPath(); g.arc(x + p.lean * 20, y, p.hr, Math.PI * 1.3, Math.PI * 1.75); g.stroke(); g.globalAlpha = 1;
+      }
+      if (p.sparkler) {
+        const sx = x + p.hr + 6, sy = y - 6 + Math.sin(t * 3 + p.ph) * 3;
+        gfx.light(g, sx, sy, 14, '#FFE2A8', 0.7 + 0.3 * Math.sin(t * 30 + p.ph));
+        g.strokeStyle = '#FFF4D8'; g.lineWidth = 0.8; g.beginPath();
+        for (let k = 0; k < 5; k++) { const a = (t * 13 + k * 1.3 + p.ph) % TAU; g.moveTo(sx, sy); g.lineTo(sx + Math.cos(a) * 6, sy + Math.sin(a) * 6); }
+        g.stroke();
+      }
+    }
+  }
+
+  function drawBarge(g, b, t) {
+    const y = b.y + Math.sin(t * 1.3 + b.ph) * 1.6;
+    g.fillStyle = '#120E1C';
+    g.beginPath(); g.moveTo(b.x - 30, y - 6); g.lineTo(b.x + 30, y - 6); g.lineTo(b.x + 24, y + 6); g.lineTo(b.x - 24, y + 6); g.closePath(); g.fill();
+    g.fillStyle = '#2B2238'; g.fillRect(b.x - 30, y - 7, 60, 2);
+    g.fillStyle = '#1E1828';
+    for (let k = -1; k <= 1; k++) { g.save(); g.translate(b.x + k * 12, y - 7); g.rotate(k * 0.3); g.fillRect(-2.5, -10, 5, 10); g.fillStyle = '#3A2F4A'; g.fillRect(-2.5, -10, 5, 1.5); g.fillStyle = '#1E1828'; g.restore(); }
+    gfx.light(g, b.x + 24, y - 14, 14, C.warm, 0.8);
+    g.fillStyle = C.warm; g.fillRect(b.x + 23, y - 16, 2.4, 3.4);
+    if (b.flash > 0) gfx.light(g, b.x, y - 20, 40 * b.flash, '#FFE2A8', b.flash);
+    // reflection of the lantern
+    gfx.light(g, b.x + 24, y + 14, 10, C.warm, 0.25);
+  }
+
+  function draw() {
+    const w = view.w, h = view.h, t = loop.time;
+    const dpr = view.dpr || 1;
+    view.clear('#0B1026');
+    if (!land || !G) return;
+    const horS = HOR * S;
+    // 1. sky, stars, moon
+    gfx.sky(ctx, SKY, 0, horS / h);
+    stars.draw(ctx, w, horS - 30, t);
+    const mx = LW * 0.11, my = LH * 0.29;
+    ctx.save(); ctx.scale(S, S);
+    gfx.light(ctx, mx, my, 70, '#9FB2FF', 0.25);
+    ctx.fillStyle = '#F4F1FF'; ctx.beginPath(); ctx.arc(mx, my, 13, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#1C2654'; ctx.beginPath(); ctx.arc(mx + 6, my - 3, 12, 0, TAU); ctx.fill();
+    // 2. the sky brightens with every burst
+    const gl = G.glow;
+    if (gl > 0.01) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgb(' + G.glowCol.map(v => v | 0).join(',') + ')';
+      ctx.globalAlpha = gl * 0.16; ctx.fillRect(0, 0, LW, LH);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    // 3. drifting smoke, lit by the show
+    const ss = smokeSprite();
+    for (const q of PUFFS) {
+      const a = q.a * Math.min(1, q.age * 3) * (1 - q.age / q.life);
+      ctx.globalAlpha = a * (0.55 + gl * 0.8);
+      ctx.drawImage(ss, q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    // 4. land: hills, castle, village
+    ctx.drawImage(land, 0, 0, w, (HOR + 2) * S);
+    ctx.save(); ctx.scale(S, S);
+    for (const wn of WINS) {
+      if (!wn.on) continue;
+      const f = 0.75 + 0.25 * Math.sin(t * wn.sp + wn.ph) * Math.sin(t * wn.sp * 0.37 + wn.ph * 2);
+      ctx.globalAlpha = f; ctx.fillStyle = '#FFC66B'; ctx.fillRect(wn.x, wn.y, wn.w, wn.h);
+      ctx.globalAlpha = 1;
+      gfx.light(ctx, wn.x + wn.w / 2, wn.y + wn.h / 2, 9, '#FFC66B', 0.35 * f);
+    }
+    const wind = G.W ? G.W.wind : 0;
+    for (const fl of FLAGS) {
+      ctx.strokeStyle = '#2E2650'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(fl.x, fl.y); ctx.lineTo(fl.x, fl.y - 12); ctx.stroke();
+      const dir = wind < 0 ? -1 : 1, len = 10 + Math.abs(wind) * 0.3;
+      ctx.fillStyle = fl.col; ctx.globalAlpha = 0.85;
+      ctx.beginPath(); ctx.moveTo(fl.x, fl.y - 12);
+      ctx.quadraticCurveTo(fl.x + dir * len * 0.5, fl.y - 12 + Math.sin(t * 6 + fl.ph) * 2.5, fl.x + dir * len, fl.y - 9 + Math.sin(t * 6 + fl.ph + 1) * 2);
+      ctx.lineTo(fl.x, fl.y - 6); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    // 5. fireworks layer (rendered once, used twice)
+    fwx.setTransform(1, 0, 0, 1, 0, 0);
+    fwx.clearRect(0, 0, fwc.width, fwc.height);
+    fwx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
+    drawFireworks(fwx, t);
+    // 6. the lake: rippling reflection of the land, then of the show
+    const wTop = horS, wH = h - wTop;
+    const sl = 7, n = Math.ceil(wH / sl);
+    const mist = G.mist;
+    for (let i = 0; i < n; i++) {
+      const dy = i * sl, off = Math.sin(t * 1.4 + i * 0.8) * (0.6 + i * 0.07);
+      ctx.drawImage(water, 0, dy * dpr, water.width, sl * dpr, off - 8, wTop + dy, w + 16, sl + 0.5);
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.42 * (1 - mist * 0.55);
+    const sq = 0.55, rs = 5;
+    const nr = Math.ceil(Math.min(wH, horS * sq) / rs);
+    for (let i = 0; i < nr; i++) {
+      const dy0 = i * rs, dy1 = dy0 + rs;
+      const srcY1 = horS - dy0 / sq, srcY0 = horS - dy1 / sq;
+      if (srcY1 <= 0) break;
+      const off = Math.sin(t * 2.1 + i * 1.3) * (1 + i * 0.12) + Math.sin(t * 0.7 + i * 0.4) * 1.5;
+      ctx.setTransform(dpr, 0, 0, -dpr, off * dpr, (wTop + wTop + dy0 + dy1) * dpr - 0);
+      // after the flip a destination y maps to (top + bottom) - y, so the slice is mirrored in place
+      ctx.drawImage(fwc, 0, Math.max(0, srcY0) * dpr, fwc.width, (srcY1 - Math.max(0, srcY0)) * dpr, 0, wTop + dy0, w, rs * ((srcY1 - Math.max(0, srcY0)) / (rs / sq)));
+    }
+    ctx.restore();
+    ctx.save(); ctx.scale(S, S);
+    // glints, moon path and the light the show throws on the water
+    if (gl > 0.01) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgb(' + G.glowCol.map(v => v | 0).join(',') + ')';
+      ctx.globalAlpha = gl * 0.1; ctx.fillRect(0, HOR, LW, LH - HOR);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    for (let i = 0; i < 9; i++) {
+      const yy = HOR + 10 + i * i * 2.6, ww = 10 + i * 3;
+      gfx.light(ctx, mx + Math.sin(t * 1.7 + i * 2.1) * (3 + i), yy, ww, '#9FB2FF', 0.22 - i * 0.015);
+    }
+    for (const wn of WINS) if (wn.on && wn.y > HOR - 120) {
+      const ry = HOR + (HOR - wn.y) * 0.55;
+      ctx.globalAlpha = 0.28; ctx.fillStyle = '#FFC66B';
+      ctx.fillRect(wn.x + Math.sin(t * 2 + wn.ph) * 1.5 - 1, ry, wn.w + 2, 1.4);
+    }
+    ctx.globalAlpha = 1;
+    for (const bt of BOATS) {
+      const y = bt.y + Math.sin(t * 1.1 + bt.ph) * 1.2;
+      ctx.save(); ctx.translate(bt.x, y); ctx.scale(bt.s, bt.s); ctx.rotate(Math.sin(t * 0.9 + bt.ph) * 0.03);
+      ctx.fillStyle = '#0D0A18'; ctx.beginPath(); ctx.moveTo(-14, -3); ctx.quadraticCurveTo(0, 5, 14, -3); ctx.lineTo(10, 2); ctx.lineTo(-10, 2); ctx.fill();
+      ctx.fillRect(-1, -12, 1.2, 9);
+      ctx.restore();
+      gfx.light(ctx, bt.x, y - 13 * bt.s, 9, C.warm, 0.8);
+      gfx.light(ctx, bt.x, y + 7, 7, C.warm, 0.3);
+    }
+    // mist off the lake in the encore
+    if (mist > 0.01) {
+      for (let i = 0; i < 6; i++) {
+        const mxp = ((t * (6 + i) + i * 97) % (LW + 200)) - 100;
+        ctx.globalAlpha = 0.22 * mist; ctx.drawImage(ss, mxp - 120, HOR - 40 + i * 22, 240, 70);
+      }
+      ctx.globalAlpha = 1;
+    }
+    for (const b of BARGES) drawBarge(ctx, b, t);
+    ctx.restore();
+    // 7. the show itself, with a small camera kick on blooms
+    const kick = (G.kick || 0) * (RM ? 0 : 3);
+    ctx.save();
+    ctx.translate(fx.shakeX || 0, (fx.shakeY || 0) - kick);
+    ctx.drawImage(fwc, 0, 0, w, h);
+    // smoke duds block the light
+    if (G.W && G.W.clouds.length) {
+      const ds = darkSmoke();
+      ctx.scale(S, S);
+      for (const c of G.W.clouds) {
+        const a = Math.min(1, c.age * 4) * (1 - Math.max(0, (c.age - c.life + 0.5) / 0.5));
+        for (let k = 0; k < 7; k++) {
+          const ang = k * 0.9 + c.age * 0.5, rr = c.r * (0.5 + 0.12 * (k % 3)) * (0.8 + Math.min(0.3, c.age * 0.4));
+          ctx.globalAlpha = a * 0.6;
+          ctx.drawImage(ds, c.x + Math.cos(ang) * rr * 0.5 - rr, c.y + Math.sin(ang) * rr * 0.4 - rr, rr * 2, rr * 2);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    // 8. the crowd on the near shore
+    ctx.save(); ctx.scale(S, S); drawCrowd(ctx, t); ctx.restore();
+    fx.draw(ctx);
+    gfx.vignette(ctx, 0.42, '#03040E');
+    if (!Kit.keyart && shell.phase !== 'title') drawHud(t);
+  }
+
+  /* ================= HUD: braziers, the score plaque, quota bunting, matchsticks ================= */
+  function drawHud(t) {
+    const w = view.w, h = view.h;
+    const top = SAFE_T + 10;
+    // braziers (lives)
+    for (let i = 0; i < 3; i++) {
+      const x = 24 + i * 32, y = top + 30;
+      const lit = i < G.lives;
+      ctx.fillStyle = '#2A2233';
+      ctx.beginPath(); ctx.moveTo(x - 11, y - 6); ctx.lineTo(x + 11, y - 6); ctx.lineTo(x + 7, y + 3); ctx.lineTo(x - 7, y + 3); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#4C3F55'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = '#2A2233'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - 5, y + 3); ctx.lineTo(x - 8, y + 13); ctx.moveTo(x + 5, y + 3); ctx.lineTo(x + 8, y + 13); ctx.stroke();
+      if (lit) {
+        const f = Math.sin(t * 11 + i * 2) * 1.5, f2 = Math.sin(t * 7.3 + i);
+        gfx.light(ctx, x, y - 12, 24, '#FF9A3D', 0.55 + 0.1 * f2);
+        ctx.fillStyle = '#FF7A2E';
+        ctx.beginPath(); ctx.moveTo(x - 8, y - 6); ctx.quadraticCurveTo(x - 7, y - 18, x + f, y - 26 - f2 * 2); ctx.quadraticCurveTo(x + 7, y - 16, x + 8, y - 6); ctx.fill();
+        ctx.fillStyle = '#FFD166';
+        ctx.beginPath(); ctx.moveTo(x - 4, y - 6); ctx.quadraticCurveTo(x - 3, y - 13, x + f * 0.6, y - 18 - f2); ctx.quadraticCurveTo(x + 4, y - 12, x + 4, y - 6); ctx.fill();
+      } else {
+        const la = G.lostAnim[i];
+        if (la > 0) gfx.light(ctx, x, y - 10, 30 * la, '#FF5A2E', la);
+        ctx.fillStyle = 'rgba(160,150,180,0.35)';
+        for (let k = 0; k < 3; k++) { const yy = y - 10 - ((t * 14 + k * 9) % 26); ctx.globalAlpha = 0.35 * (1 - ((t * 14 + k * 9) % 26) / 26); ctx.beginPath(); ctx.arc(x + Math.sin(t * 2 + k) * 3, yy, 3 + k, 0, TAU); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      }
+    }
+    // the score plaque: frosted glass with a warm rim
+    const pw = 128, ph = 50, px = w / 2 - pw / 2, py = top - 2;
+    ctx.fillStyle = 'rgba(30,38,86,0.5)';
+    gfx.roundRect(ctx, px, py, pw, ph, 14).fill();
+    const hl = ctx.createLinearGradient(0, py, 0, py + ph);
+    hl.addColorStop(0, 'rgba(255,255,255,0.16)'); hl.addColorStop(0.5, 'rgba(255,255,255,0.02)'); hl.addColorStop(1, 'rgba(255,198,107,0.08)');
+    ctx.fillStyle = hl; gfx.roundRect(ctx, px, py, pw, ph, 14).fill();
+    ctx.strokeStyle = 'rgba(255,198,107,0.75)'; ctx.lineWidth = 1.5; gfx.roundRect(ctx, px + 0.75, py + 0.75, pw - 1.5, ph - 1.5, 13.5).stroke();
+    gfx.text(ctx, Kit.fmt(score()), w / 2, py + 21, { size: 23, weight: 700, font: SERIF, color: C.cream, baseline: 'middle' });
+    const W = G.W;
+    const lbl = (G.def && G.def.finale ? 'FINALE' : (G.n > 25 ? 'ENCORE ' + (G.n - 25) : 'WAVE ' + G.n)) + '  ·  ' + (W ? W.lit : 0) + '/' + G.quota;
+    gfx.text(ctx, lbl, w / 2, py + 40, { size: 10.5, weight: 700, font: 'body', color: (W && W.lit >= G.quota) ? C.gold : 'rgba(255,243,220,0.75)', baseline: 'middle' });
+    // the quota bunting: one pennant per shell needed, unfurling as shells light
+    const ry = top + 66, x0 = 14, x1 = w - 14, sag = 12;
+    const Q = G.quota;
+    ctx.strokeStyle = 'rgba(255,230,190,0.45)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x0, ry); ctx.quadraticCurveTo(w / 2, ry + sag * 2, x1, ry); ctx.stroke();
+    const PC = [C.red, C.gold, C.cyan, C.green, C.pink];
+    if (Q > 0) {
+      const sp = (x1 - x0) / (Q + 1), pwid = Math.min(18, sp * 0.8);
+      for (let i = 0; i < Q; i++) {
+        const tt = (i + 1) / (Q + 1), x = x0 + (x1 - x0) * tt;
+        const y = ry + sag * 2 * 2 * tt * (1 - tt) * 1 + 0.5;
+        const u = G.pen[i] || 0;
+        const sway = Math.sin(t * 2.4 + i) * 0.06;
+        if (u < 0.05) { ctx.fillStyle = 'rgba(120,110,140,0.75)'; ctx.fillRect(x - pwid / 2, y - 1, pwid, 3.2); continue; }
+        ctx.save(); ctx.translate(x, y); ctx.rotate(sway);
+        const len = pwid * 1.25 * u;
+        ctx.fillStyle = PC[i % PC.length];
+        ctx.beginPath(); ctx.moveTo(-pwid / 2, 0); ctx.lineTo(pwid / 2, 0); ctx.lineTo(0, len); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.moveTo(-pwid / 2, 0); ctx.lineTo(0, 0); ctx.lineTo(0, len); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        if (W && W.lit >= Q) gfx.light(ctx, x, y + 8, 14, PC[i % PC.length], 0.25 + 0.15 * Math.sin(t * 5 + i));
+      }
+    }
+    // matchsticks: the sparks left this wave
+    if (W) {
+      const used = W.taps, left = W.sparks, total = used + left;
+      const bx = Math.max(18, 18), by = h - SAFE_B - 20;
+      ctx.save();
+      if (G.emptyT > 0) ctx.translate(Math.sin(G.emptyT * 60) * 4 * G.emptyT, 0);
+      for (let i = 0; i < total; i++) {
+        const x = bx + i * 17, spent = i >= left;
+        const popS = (!spent && i === left - 1 && G.sparkPop > 0) ? 1 + G.sparkPop * 0.6 : 1;
+        ctx.save(); ctx.translate(x, by); ctx.rotate(spent ? 0.35 : -0.08); ctx.scale(popS, popS);
+        ctx.fillStyle = spent ? '#5B4A3E' : '#E9C995'; ctx.fillRect(-2, -34, 4, 34);
+        ctx.fillStyle = spent ? '#18121A' : '#D7263D';
+        ctx.beginPath(); ctx.ellipse(0, -36, 4.2, 6, 0, 0, TAU); ctx.fill();
+        if (!spent) { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(-1.4, -38, 1.3, 2.2, 0, 0, TAU); ctx.fill(); }
+        else { ctx.fillStyle = 'rgba(160,150,170,0.25)'; ctx.beginPath(); ctx.arc(2, -44 - ((t * 10) % 8), 2.5, 0, TAU); ctx.fill(); }
+        ctx.restore();
+      }
+      ctx.restore();
+      if (G.emptyT > 0) gfx.text(ctx, 'No sparks left', bx + total * 17 + 8, by - 18, { size: 13, weight: 700, font: 'body', color: '#FF8FA3', align: 'left', baseline: 'middle' });
+      // wind sock
+      if (W.wind) {
+        const wx = w - 46, wy = h - SAFE_B - 30, dir = W.wind > 0 ? 1 : -1, m = Math.abs(W.wind) / 26;
+        ctx.strokeStyle = 'rgba(255,243,220,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(wx, wy + 16); ctx.lineTo(wx, wy - 12); ctx.stroke();
+        ctx.fillStyle = C.red;
+        ctx.beginPath(); ctx.moveTo(wx, wy - 12); ctx.lineTo(wx + dir * (14 + m * 12), wy - 9 + Math.sin(t * 8) * 1.5); ctx.lineTo(wx + dir * (14 + m * 12), wy - 5 + Math.sin(t * 8) * 1.5); ctx.lineTo(wx, wy - 2); ctx.fill();
+        gfx.text(ctx, 'WIND', wx, wy + 24, { size: 9.5, weight: 700, font: 'body', color: 'rgba(255,243,220,0.7)' });
+      }
+    }
+    // the chain counter grows with the chain
+    const cs = G.chainShow;
+    if (cs && cs.n >= 2) {
+      const a = cs.done ? 1 - cs.t / 0.6 : 1;
+      const sz = Math.min(58, 24 + cs.n * 2.2) * (1 + cs.pop * 0.35);
+      const x = Kit.clamp(cs.x * S, 50, w - 50), y = Kit.clamp(cs.y * S - 46, top + 110, h * 0.6);
+      gfx.text(ctx, '×' + cs.n, x, y, { size: sz, weight: 700, font: SERIF, color: cs.n >= 10 ? C.gold : C.cream, stroke: 'rgba(20,10,40,0.7)', strokeWidth: 4, alpha: a });
+    }
+    // banner
+    const bn = G.banner;
+    if (bn) {
+      const k = bn.t, a = Math.min(1, k * 4) * Math.min(1, (bn.life - k) * 3);
+      const y = h * 0.4 - (1 - Math.min(1, k * 3)) * 16;
+      ctx.save(); ctx.globalAlpha = a * 0.55;
+      const gr = ctx.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(8,10,30,0)'); gr.addColorStop(0.5, 'rgba(8,10,30,0.85)'); gr.addColorStop(1, 'rgba(8,10,30,0)');
+      ctx.fillStyle = gr; ctx.fillRect(0, y - 34, w, 74);
+      ctx.restore();
+      gfx.text(ctx, bn.title, w / 2, y, { size: Math.min(38, w * 0.09), weight: 700, font: SERIF, color: bn.good === false ? '#FFB4A8' : C.gold, alpha: a, stroke: 'rgba(10,8,30,0.6)', strokeWidth: 3 });
+      gfx.text(ctx, bn.sub, w / 2, y + 28, { size: 14, weight: 600, font: 'body', color: C.cream, alpha: a });
+    }
+    // teaching: a ghost finger on the glowing shell, and a one-line hint early on
+    if (W && G.tutTarget >= 0 && !G.tutTapped) {
+      const s = W.shells[G.tutTarget];
+      if (s.st === 1 && G.tutSlow) {
+        const x = s.x * S, y = s.y * S;
+        const k = (t * 1.4) % 1, press = k < 0.25 ? k / 0.25 : k < 0.45 ? 1 : Math.max(0, 1 - (k - 0.45) / 0.3);
+        const hx = x + 14, hy = y + 26 - press * 8;
+        ctx.save(); ctx.globalAlpha = 0.85;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.strokeStyle = 'rgba(30,20,60,0.6)'; ctx.lineWidth = 2;
+        gfx.roundRect(ctx, hx - 7, hy - 8, 14, 36, 7).fill();
+        gfx.roundRect(ctx, hx - 7, hy + 14, 34, 34, 12).fill();
+        ctx.restore();
+        if (press > 0.8) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 18 + (1 - press) * 40, 0, TAU); ctx.stroke(); }
+        gfx.text(ctx, 'Tap the shell at its peak', w / 2, h * 0.62, { size: 19, weight: 700, font: SERIF, color: C.cream, stroke: 'rgba(10,8,30,0.7)', strokeWidth: 4 });
+      }
+    } else if (W && G.n <= 2 && G.mode === 'wave' && W.taps === 0 && !G.banner) {
+      gfx.text(ctx, 'Tap a shell as it turns white at its peak', w / 2, h - SAFE_B - 92, { size: 14, weight: 600, font: 'body', color: 'rgba(255,243,220,0.8)', stroke: 'rgba(10,8,30,0.6)', strokeWidth: 3 });
+    }
+  }
+
+  /* ================= sound design ================= */
+  const D = Kit.sfx.define;
+  D('nb-launch', [{ wave: 'sine', freq: 620, to: 1750, slide: 0.75, attack: 0.04, hold: 0.55, release: 0.2, vol: 0.05, vib: 0.5, vibRate: 12 },
+    { wave: 'noise', freq: 2400, filter: 'bandpass', q: 2, attack: 0.02, hold: 0.4, release: 0.2, vol: 0.04 }]);
+  D('nb-crack', [{ wave: 'noise', freq: 5200, filter: 'lowpass', cut: 5200, cutTo: 500, attack: 0.001, hold: 0.04, release: 0.32, vol: 0.32 },
+    { wave: 'sine', freq: 110, to: 38, slide: 0.35, attack: 0.002, hold: 0.06, release: 0.45, vol: 0.38, at: 0.07 },
+    { wave: 'noise', freq: 900, filter: 'lowpass', attack: 0.004, hold: 0.08, release: 0.6, vol: 0.12, at: 0.08, verb: 0.5 }]);
+  D('nb-crackle', () => { const L = []; for (let i = 0; i < 9; i++) L.push({ wave: 'noise', freq: 6000 + Math.random() * 3000, filter: 'highpass', attack: 0.001, hold: 0.004, release: 0.02, vol: 0.09, at: Math.random() * 0.7 }); return L; });
+  D('nb-fizzle', { wave: 'noise', freq: 5000, filter: 'highpass', cut: 6000, cutTo: 1500, attack: 0.01, hold: 0.12, release: 0.25, vol: 0.06 });
+  D('nb-dud', [{ wave: 'noise', freq: 500, filter: 'lowpass', attack: 0.005, hold: 0.1, release: 0.5, vol: 0.3 }, { wave: 'sine', freq: 90, to: 50, slide: 0.2, hold: 0.05, release: 0.2, vol: 0.25 }]);
+  D('nb-crowd', [{ wave: 'noise', freq: 720, filter: 'bandpass', q: 4, attack: 0.3, hold: 0.5, release: 1.1, vol: 0.22 },
+    { wave: 'noise', freq: 1150, filter: 'bandpass', q: 5, attack: 0.35, hold: 0.45, release: 1.0, vol: 0.14 },
+    { wave: 'noise', freq: 2600, filter: 'bandpass', q: 6, attack: 0.4, hold: 0.3, release: 0.8, vol: 0.05 }]);
+  D('nb-roar', [{ wave: 'noise', freq: 900, filter: 'bandpass', q: 1.5, attack: 0.2, hold: 0.9, release: 1.4, vol: 0.18, verb: 0.4 }, { wave: 'noise', freq: 3000, filter: 'bandpass', q: 3, attack: 0.25, hold: 0.7, release: 1.2, vol: 0.06 }]);
+  D('nb-beacon', [{ wave: 'noise', freq: 3000, filter: 'lowpass', cut: 3000, cutTo: 300, attack: 0.01, hold: 0.35, release: 0.6, vol: 0.2 },
+    { wave: 'sine', freq: 880, arp: [0, -3, -7, -12], arpStep: 0.18, attack: 0.003, hold: 0.7, release: 0.9, vol: 0.14, verb: 0.6 }]);
+  D('nb-bloom', [{ wave: 'sine', freq: 1500, to: 2600, slide: 0.18, attack: 0.002, hold: 0.06, release: 0.4, vol: 0.09, verb: 0.5 }, { wave: 'triangle', freq: 1046, arp: [0, 7, 12, 19], arpStep: 0.035, hold: 0.15, release: 0.3, vol: 0.06 }]);
+  D('nb-spark', { wave: 'triangle', freq: 988, arp: [0, 4, 7, 12, 16], arpStep: 0.05, attack: 0.002, hold: 0.25, release: 0.3, vol: 0.14, verb: 0.3 });
+  D('nb-pennant', { wave: 'triangle', freq: 520, to: 780, slide: 0.05, attack: 0.002, hold: 0.03, release: 0.08, vol: 0.07 });
+  D('nb-quota', { wave: 'square', freq: 523, arp: [0, 4, 7, 12], arpStep: 0.06, hold: 0.24, release: 0.2, vol: 0.06, filter: 'lowpass', cut: 2500 });
+  D('nb-strike', [{ wave: 'noise', freq: 2600, filter: 'bandpass', q: 1.2, attack: 0.002, hold: 0.04, release: 0.09, vol: 0.2 }, { wave: 'noise', freq: 900, filter: 'lowpass', attack: 0.03, hold: 0.1, release: 0.2, vol: 0.08, at: 0.03 }]);
+  D('nb-split', [{ wave: 'square', freq: 1400, to: 900, slide: 0.05, hold: 0.02, release: 0.05, vol: 0.05 }, { wave: 'noise', freq: 4000, filter: 'highpass', hold: 0.02, release: 0.08, vol: 0.12, at: 0.05 }]);
+  D('nb-willow', { wave: 'noise', freq: 7000, filter: 'highpass', attack: 0.2, hold: 0.9, release: 1.0, vol: 0.035 });
+  D('nb-clear', { wave: 'sawtooth', freq: 349, arp: [0, 4, 7, 12, 16], arpStep: 0.09, attack: 0.01, hold: 0.5, release: 0.5, vol: 0.06, filter: 'lowpass', cut: 1800, verb: 0.4 });
+  D('nb-wave', { wave: 'sine', freq: 523, arp: [0, 7], arpStep: 0.12, attack: 0.01, hold: 0.25, release: 0.4, vol: 0.08, verb: 0.4 });
+  D('nb-empty', { wave: 'square', freq: 220, to: 160, slide: 0.12, hold: 0.06, release: 0.08, vol: 0.06, filter: 'lowpass', cut: 900 });
+  D('nb-miss', { wave: 'noise', freq: 6000, filter: 'highpass', hold: 0.01, release: 0.05, vol: 0.05 });
+
+  const SONG = {
+    bpm: 120, swing: 0.06, key: 'F', scale: 'major', steps: 16, chords: [0, 3, 4, 0, 5, 3, 1, 4],
+    tracks: [
+      { name: 'timp', inst: 'kick', hits: 'X.......x.....g.', vol: 0.7 },
+      { name: 'brass', inst: 'pad', chord: true, every: 8, attack: 0.03, release: 0.32, cutoff: 1300, vol: 2.0, verb: 0.35 },
+      { name: 'bass', inst: 'bass', notes: '0 . . . . . 4 . 0 . . . 4 . . .', follow: true, cutoff: 420, vol: 0.7 },
+      { name: 'glock', inst: 'bell', notes: '7 . 9 . 11 . . . 9 . 7 . 4 . . .', follow: true, vol: 0.55, oct: 0 },
+      { name: 'hat', inst: 'hat', hits: '..x...x...x...xg', vol: 0.55, on: false },
+      { name: 'lead', inst: 'pluck', notes: '4 . 7 . 9 - . . 7 . 4 . 2 . . .', follow: true, vol: 0.7, on: false },
+    ],
+  };
+
+  /* ================= loop, input, shell ================= */
+  const loop = Kit.loop({ view, update, draw });
+  const input = Kit.input(view.canvas);
+  input.on('down', p => onTap(p.x, p.y));
+  view.onResize(() => { layout(); });
+  layout();
+
+  const shell = Kit.shell({
+    title: 'Night Bloom',
+    kicker: 'A lakeside fireworks show',
+    tagline: 'Light one shell at its peak. Watch the sky catch fire.',
+    playLabel: 'Begin the show',
+    how: [
+      'Tap near a rising shell to light it. Its burst lights any shell it touches, so one tap can chain across the sky.',
+      'Tap when a shell glows white at the top of its arc for a Bloom: a bigger burst worth double.',
+      'Each wave gives you a few sparks (the matches). Light enough shells to unfurl every pennant on the line.',
+      'Miss the quota and a beacon on the wall goes out. Lose all three and the show is over.',
+      'Golden shells give a spark back; grey smoke duds block the chain.',
+    ],
+    loop,
+    focus: view.canvas,
+    score: () => (G && !G.attract ? score() : 0),
+    lose: () => { if (G && !G.attract) endRun(); },
+    theme: {
+      panel: 'glass', layout: 'bottom', button: 'rounded', titleStyle: 'glow', radius: 20,
+      font: { display: SERIF, body: 'Figtree, "Segoe UI", system-ui, sans-serif' },
+      colors: { accent: '#FFD166', accentInk: '#2B1B04', ink: '#FFF3DC', inkSoft: 'rgba(255,243,220,0.74)', panel: 'rgba(24,26,64,0.55)', scrim: 'rgba(6,8,24,0.55)', line: 'rgba(255,198,107,0.42)' },
+    },
+    onStart() {
+      newRun(nextSeed, {});
+      nextSeed = null;
+      startWave(nextWave);
+      nextWave = 1;
+      Kit.music.play(SONG, { restart: true });
+      Kit.music.duck(1);
+      fx.flash('#FFF3DC', 200, 0.15);
+    },
+  });
+
+  Arcade.test({
+    seed(n) { nextSeed = n; },
+    wave(n) { if (G && !G.attract && shell.phase === 'play') { if (G.W && !G.W.banked) { G.W.banked = true; } startWave(n); } else nextWave = n; },
+    step(sec) { loop.step(Math.round((sec || 1) * 60)); },
+    autoplay(on) { if (G) G.auto = !!on; },
+    safe(on) { if (G) G.safe = !!on; },
+    tap(x, y) { onTap(x * S, y * S); },
+    tapShell(id) { const s = G.W.shells[id]; onTap(s.x * S, s.y * S); },
+    win() {
+      const W = G.W; if (!W || G.mode !== 'wave') return false;
+      for (const s of W.shells) { if (W.lit >= G.quota) break; if (s.st < 2 && s.type !== 'smoke') { if (s.st === 0) { W.t = Math.max(W.t, s.tl); s.st = 1; shellPos(W, s); } ignite(W, s, 1, W.nextRoot++, EV); } }
+      for (const s of W.shells) if (s.st < 2) s.st = 3;
+      return true;
+    },
+    plan: () => (G && G.plan ? G.plan.map(p => ({ id: p.id, t: p.t })) : null),
+    shells: () => (G && G.W ? G.W.shells.filter(s => s.st === 1).map(s => ({ id: s.id, type: s.type, x: s.x, y: s.y, apex: atApex(G.W, s) })) : []),
+    info: () => (G ? { mode: G.mode, wave: G.n, sparks: G.W ? G.W.sparks : 0, quota: G.quota, best: G.best, lit: G.W ? G.W.lit : 0, lives: G.lives, banked: G.banked,
+      waveScore: G.W ? G.W.score : 0, log: G.W ? G.W.log.slice() : [], bestChain: G.bestChain, finale: !!(G.def && G.def.finale), wind: G.W ? G.W.wind : 0,
+      types: G.def ? [...new Set(G.def.shells.map(s => s.type))] : [], count: G.def ? G.def.shells.length : 0, particles: P.length } : null),
+    simWave(n, seed, taps) { const d = genWave(n, seed); return { lit: runSim(d, taps, 1 / 30), shells: d.shells.map(s => [s.id, s.type, Math.round(s.xa), Math.round(s.ya), +(s.tl + s.T).toFixed(2)]) }; },
+    solveWave(n, seed) { const d = genWave(n, seed); const s = solve(d); return { best: s.best, base: s.base, count: d.shells.length, sparks: d.sparks, quota: n === 1 ? Math.min(5, s.base) : Math.max(3, Math.floor(s.base * quotaK(n))) }; },
+  });
+
+  /* ================= capture scenes ================= */
+  function scene(seed, wave, opts, until, extra) {
+    fx.seed(seed);
+    nextSeed = seed; nextWave = wave;
+    shell.start();
+    G.auto = true; G.safe = true;
+    if (opts) startWave(wave, opts);
+    G.banner = null;
+    for (let i = 0; i < 1200; i++) { loop.step(1); if (until()) break; }
+    if (extra) extra();
+    G.banner = null;
+    loop.stop();
+  }
+  Arcade.scenes({
+    art: () => {
+      // a scripted finale: gold willows and cyan crossettes across the sky, all mirrored in the lake
+      fx.seed(7); VR.reset(7);
+      nextSeed = 7; nextWave = 10;
+      shell.start();
+      G.safe = true; G.auto = false;
+      const r = Kit.rng(7), shells = [], span = Math.min(LW * 0.42, 430), kinds = ['willow', 'cross', 'golden', 'willow', 'peony', 'cross', 'willow', 'strobe'];
+      for (let i = 0; i < 26; i++) {
+        const type = kinds[i % kinds.length], b = BARGES[i % BARGES.length];
+        shells.push({ id: i, type, x0: b.x, y0: b.y - 10, xa: LW / 2 + r.range(-span, span), ya: r.range(HOR * 0.2, HOR * 0.74), tl: 0.2 + r.range(0, 0.8), T: 1.5, hang: 3, bi: i % BARGES.length, col: type === 'peony' ? r.pick(PEONY_COLS) : TYPES[type].col });
+      }
+      startWave(10, { def: { n: 10, finale: true, shells, sparks: 12, wind: 0, end: 6 }, quota: 10 });
+      G.banner = null;
+      loop.step(100);
+      const W = G.W, order = W.shells.filter(q => q.st === 1).sort((p, q) => p.x - q.x);
+      for (let k = 0; k < order.length; k += 4) tapShell(W, order[k], EV);
+      loop.step(40);
+      for (let k = 2; k < order.length; k += 5) if (order[k].st === 1) tapShell(W, order[k], EV);
+      loop.step(22);
+      fx.clear();
+      loop.step(1);
+      G.banner = null;
+      loop.stop();
+    },
+    shot1: () => scene(3, 3, null, () => G.W && G.W.lit >= 4 && G.W.bursts.some(b => b.age < 0.3 && b.age > 0.15), () => { G.banner = null; }),
+    shot2: () => {
+      fx.seed(9);
+      nextSeed = 9; nextWave = 12;
+      shell.start();
+      G.safe = true; G.auto = false;
+      // a scripted serpent of shells that all crest together: one tap, a long chain
+      const shells = [];
+      const y0 = HOR * 0.55;
+      for (let i = 0; i < 18; i++) {
+        const k = i / 17;
+        const x = LW / 2 + Math.sin(k * Math.PI * 2.2) * Math.min(LW * 0.34, 150);
+        const y = y0 - 120 + k * 230 + Math.cos(k * 9) * 12;
+        const type = ['peony', 'willow', 'peony', 'cross', 'peony', 'golden'][i % 6];
+        shells.push({ id: i, type, x0: BARGES[i % BARGES.length].x, y0: BARGES[i % BARGES.length].y - 10, xa: x, ya: y, tl: 0.2 + i * 0.012, T: 1.6, hang: 2.5, bi: i % BARGES.length, col: type === 'peony' ? PEONY_COLS[i % 6] : TYPES[type].col });
+      }
+      startWave(12, { def: { n: 12, finale: false, shells, sparks: 2, wind: 0, end: 5 }, quota: 12 });
+      G.banner = null;
+      loop.step(Math.round(1.78 * 60));
+      tapShell(G.W, G.W.shells[0], EV);
+      for (let i = 0; i < 400; i++) { loop.step(1); if (G.W.bestChain >= 14) break; }
+      loop.step(2);
+      G.banner = null;
+      loop.stop();
+    },
+  });
+
+  /* ================= boot: the title shows a live show playing itself ================= */
+  newRun(4, { attract: true, auto: true, safe: true });
+  startWave(3);
+  loop.step(150);
+  Kit.music.play(SONG);
+  Kit.onTheme(() => loop.render());
+  loop.start();
+})();
+</script>
+</body>
+</html>

@@ -312,8 +312,8 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       if (q < 0.16) res = { type: 'foul', e, d, q, tip: true };
       else if (Math.abs(spray) > 46) res = { type: 'foul', e, d, q, spray };
       else {
-        const ev = 62 + 50 * Math.pow(q, 0.65) + (perfect ? 3 : 0);
-        const la = clamp(27 + clamp((b.y - ry) / SWEET, -1, 1) * 24 + (1 - q) * rand.range(-8, 8), -12, 68);
+        const ev = 68 + 47 * Math.pow(q, 0.58) + (perfect ? 3 : 0);
+        const la = clamp(27 + clamp((b.y - ry) / SWEET, -1, 1) * 19 + (1 - q) * rand.range(-8, 8), -12, 68);
         res = { type: 'hit', e, d, q, ev, la, spray, perfect };
       }
     }
@@ -1811,6 +1811,12 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     pitchOut() { let n = 0; const start = G.pitchNo; while (n++ < 900 && !(G.pitchNo > start && G.phase === 'ready') && !G.over) loop.step(1); loop.step(1); return n; },
     info: () => (G ? { phase: G.phase, outs: G.outs, hr: G.hr, streak: G.streak, score: G.score, pitchNo: G.pitchNo, pitcher: G.pIdx, night: G.night, targets: G.targets, longest: G.longest, kind: G.pitch && G.pitch.kind, auto: G.auto, best: shell.best } : null),
     geom: () => ({ fence0: fenceDist(0), fence45: fenceDist(Math.PI / 4), hor: P.hor, f: P.f }),
+    // where the pitch will cross the plate on screen, and how long until the ideal moment to let go
+    pitchInfo() {
+      if (!G || !G.pitch) return { phase: G ? G.phase : null };
+      const p = G.pitch, b = pitchAt(p, 1, {}); pr(b.x, b.y, 0, T0);
+      return { phase: G.phase, kind: p.kind, inZone: p.inZone, sx: T0.x, sy: T0.y + G.lift, release: p.T - LAG - p.t, swung: p.swung };
+    },
   });
 
   /* ---------- Capture scenes ---------- */
