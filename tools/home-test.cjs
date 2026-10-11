@@ -195,7 +195,7 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   let launch = evs.filter(e => e.ev === 'game_launch').pop();
   check(opened && opened.game === first.id && opened.source === 'picks', 'opening a game\'s page records the shelf it came from', opened && opened.source);
   check(launch && launch.game === first.id && launch.shelf === 'detail' && launch.origin === 'picks', 'a launch from the page keeps the shelf that led there', launch && `${launch.shelf} / ${launch.origin}`);
-  await page.click('#backBtn');
+  await page.goBack(); // Android Back: the game has no on-screen bar
   await page.waitForTimeout(300);
   await page.click('#detailBack');
   await page.waitForTimeout(300);

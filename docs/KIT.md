@@ -389,7 +389,7 @@ shell.over({ stats: [{ label: 'Altitude', value: '412 m' }, { label: 'Best chain
 
 **What it does.** Title screen with the title, tagline, Play (focused, so Enter/Space start) and the best
 score. In play, a 48 px pause button (and Escape or P) opens the pause menu: Resume, Restart, How to play
-(when `how` is given), Sound and Vibration switches (standalone only: the hub owns them when embedded) and
+(when `how` is given), Sound and Vibration switches (always: the hub has no settings button while a game plays; changes reach the hub through `Arcade.setSetting`) and
 Back to games (embedded only). The hub's pause message opens the same menu. Game over counts the score up,
 shows the best or a NEW BEST celebration (confetti, `win` sound, haptic), up to 4 stat rows and Play again
 (plus Back to games when embedded); its buttons wake 550 ms later so a stray tap cannot skip it. Focus is

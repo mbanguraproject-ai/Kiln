@@ -1,5 +1,5 @@
 // Hub navigation test (blueprint section 3): tabs, the Play button, Settings from the profile button, Back through
-// real history, scroll memory, sheets, Library.
+// real history, scroll memory, full-screen games, Library.
 // Usage: node tools/nav-test.cjs [--port 8792]   (Playwright on NODE_PATH)
 const http = require('http');
 const fs = require('fs');
@@ -35,7 +35,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   await page.waitForTimeout(400);
   const state = () => page.evaluate(() => ({
     tab: window.__kiln.tab, game: window.__kiln.game, detail: window.__kiln.detail,
-    sheet: !document.getElementById('sheet').hidden, insights: !document.getElementById('insights').hidden,
+    insights: !document.getElementById('insights').hidden,
     current: [...document.querySelectorAll('.tab')].filter(b => b.getAttribute('aria-current') === 'page').map(b => b.dataset.tab),
   }));
   const tap = async sel => { await page.click(sel); await page.waitForTimeout(150); };
@@ -98,7 +98,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   check(await scrollOf('home') > 0, 'Home is still where it was after visiting Discover and Library');
   await scrollTo('home', 0);
 
-  // Card, game page, game, sheet, then Back through all of them, with whichever game Top picks shows first.
+  // Card, game page, game, then Back through all of them, with whichever game Top picks shows first.
   const pick = await page.$eval('.game-card[data-shelf="picks"]', c => c.dataset.id);
   await tap(`.game-card[data-shelf="picks"][data-id="${pick}"]`);
   s = await state();
@@ -106,12 +106,12 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   await tap(`#detail [data-play="${pick}"]`);
   await page.waitForTimeout(500);
   s = await state();
-  check(s.game === pick && await page.locator('#backLabel').textContent() === 'Details', 'Play on the page launches the game, with Back to Details');
-  await tap('#playerSettingsBtn');
-  check((await state()).sheet, 'the in-game settings sheet opens');
-  await back();
-  s = await state();
-  check(!s.sheet && s.game === pick, 'Back closes the sheet and leaves the game open', JSON.stringify(s));
+  // The game owns the whole screen: no hub bar, the frame covers the viewport edge to edge.
+  const frame = await page.evaluate(() => {
+    const r = document.querySelector('#frame iframe').getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight, chrome: [...document.querySelectorAll('#player header, #player button')].filter(e => e.getClientRects().length).length };
+  });
+  check(s.game === pick && frame.w === frame.vw && frame.h === frame.vh && frame.chrome === 0, 'Play on the page launches the game full screen, with no hub bar', JSON.stringify(frame));
   await back();
   s = await state();
   check(!s.game && s.detail === pick, 'Back closes the game and returns to its page', JSON.stringify(s));
@@ -133,14 +133,12 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   check(!(await state()).detail && (await state()).tab === 'library', 'Back from the page returns to Library');
   await tap('.lib-row .lib-play');
   await page.waitForTimeout(400);
-  const label = await page.locator('#backLabel').textContent();
-  check((await state()).game === pick && label === 'Library', 'a game opened from Library offers Back to Library', label);
-  await tap('#backBtn');
-  await page.waitForTimeout(150);
+  check((await state()).game === pick, 'a Library row\'s Play launches the game');
+  await back();
   s = await state();
-  check(!s.game && s.tab === 'library', 'the back button returns to Library', JSON.stringify(s));
+  check(!s.game && s.tab === 'library', 'Back from the game returns to Library', JSON.stringify(s));
 
-  // Settings, insights, and settings shared with the in-game sheet
+  // Settings, insights, and settings shared with the game, whose pause menu now holds Sound and Vibration
   await tap(profile);
   await tap('#view-settings [data-set="sound"]');
   const off = await page.evaluate(() => window.__kiln.settings().sound);
@@ -152,13 +150,13 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   await tap('.tab[data-tab="home"]');
   await tap('.feature .play-btn');
   await page.waitForTimeout(400);
-  await tap('#playerSettingsBtn');
-  const sheetSound = await page.getAttribute('#sheet [data-set="sound"]', 'aria-checked');
-  check(off === false && sheetSound === 'false', 'a setting changed in the Settings tab shows the same in the in-game sheet');
-  await tap('#sheet [data-set="sound"]');
-  await tap('#sheetDone');
-  check(!(await state()).sheet && !!(await state()).game, 'Done closes the sheet and returns to the game');
-  await tap('#backBtn');
+  const inGame = () => page.frameLocator('#frame iframe').locator('body').evaluate(() => window.Arcade.settings.sound);
+  check(off === false && await inGame() === false, 'a setting changed in Settings reaches the game', String(off));
+  // The game's own toggle (its pause menu) goes back to the hub, which keeps it for every game.
+  await page.frameLocator('#frame iframe').locator('body').evaluate(() => window.Arcade.setSetting('sound', true));
+  await page.waitForTimeout(150);
+  check(await page.evaluate(() => window.__kiln.settings().sound) === true && await inGame() === true, 'a toggle in the game\'s pause menu updates the hub\'s settings');
+  await back();
 
   // The Play button resumes the game played last
   const lastGame = await page.evaluate(() => window.__kiln.Log.all().filter(e => e.ev === 'game_launch').pop().game);

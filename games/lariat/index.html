@@ -1223,7 +1223,6 @@ canvas:focus:not(:focus-visible) { outline: none; }
   $('sndSw').addEventListener('click', () => { Arcade.setSetting('sound', !settings.sound); if (settings.sound) Sound.unlock(); });
   $('vibSw').addEventListener('click', () => { Arcade.setSetting('vibration', !settings.vib); Arcade.haptic(20); });
   if (Arcade.embedded) {
-    $('settingsBox').hidden = true;
     $('exitBtn').hidden = false;
     $('exitBtn').addEventListener('click', () => { pauseEl.hidden = true; Arcade.exit(); });
   }

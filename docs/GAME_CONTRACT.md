@@ -46,7 +46,7 @@ The SDK calls, in your script or through the kit:
 | `Arcade.on('pause', fn)` | The app was hidden or the hub opened a sheet. Real-time games must freeze immediately and show their pause menu. |
 | `Arcade.on('resume', fn)` | Informational. Real-time games stay on their pause menu until the player resumes. |
 | `Arcade.exit()` | "Back to games" button in your pause menu, shown only when `Arcade.embedded`. Call `Arcade.runEnd({ score, reason: 'quit' })` first so the run keeps its score (otherwise `exit()` ends it with no score). |
-| `Arcade.setSetting(key, value)` | Only for standalone mode: when not embedded, show your own Sound and Vibration toggles that call this. When embedded, hide them (the hub owns settings). |
+| `Arcade.setSetting(key, value)` | Your pause menu's Sound and Vibration toggles call this, standalone and embedded alike: the hub has no settings button while a game plays, and when embedded the SDK passes the change to the hub, which keeps it for every game. |
 | `Arcade.scenes({ art, shot1, shot2 })` | Capture scenes for the card art and screenshots. See "Capture scenes". |
 | `Arcade.test({ start, lose, state })` | The test hook `tools/game-check.cjs` drives. See "Test hook". |
 
@@ -87,7 +87,7 @@ Arcade.test({
 
 ## Layout
 
-- The game fills its page (`html, body { height: 100% }`, no page scroll) and its play canvas fills the viewport. Inside the hub the page sits under a 52px bar, so never assume the full phone height.
+- The game fills its page (`html, body { height: 100% }`, no page scroll) and its play canvas fills the viewport. Inside the hub it is the whole screen, edge to edge: the hub shows no bar, and in the Android app the status and navigation bars hide while it plays. So the game's own pause button and pause menu (Resume, How to play, Sound, Vibration, and Back to games when embedded) are the only way out besides Android Back; never leave the player without a visible pause button.
 - Portrait first. Must work from 320×560 up to 1280×800 with no horizontal scroll. Wide screens may rearrange.
 - Respect safe areas when standalone: pad `html` with `env(safe-area-inset-top/bottom)` and use `max(16px, env(safe-area-inset-left/right))` for side gutters.
 - Play surface: `touch-action: none`. Use pointer events so touch, mouse and pen all work. Add keyboard play where it makes sense.

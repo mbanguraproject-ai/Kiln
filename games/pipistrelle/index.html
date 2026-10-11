@@ -143,7 +143,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       n,
       screens: Math.min(10, 6 + Math.floor((n - 1) / 2)),
       rad: Math.max(54, 118 - (n - 1) * 5.5),
-      moths: Math.max(13, Math.round(22 - (n - 1) * 0.9)),
+      moths: Math.max(14, Math.round(22 - (n - 1) * 0.6)),
       H: Math.min(1500, 1000 + n * 40),
       pups: n === 1 ? 1 : Math.min(3, n < 4 ? 2 : 3),
     });
@@ -1308,7 +1308,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (G.fadeDir > 0 && G.fade >= 1) {
         G.fadeDir = 0;
         if (G.sub === 'dive') {
-          if (G.mode === 'play') G.energy = Math.min(E_MAX, G.energy + 6);
+          if (G.mode === 'play') G.energy = Math.min(E_MAX, G.energy + Math.min(20, 6 + (G.cave - 1) * 2));   // deeper caves are longer: the dive restores more
           enterCave(G.mode === 'play' ? G.cave + 1 : 1);
         }
       }
@@ -2552,7 +2552,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     }
     // the night flight timer: a moon that wanes as it runs out
     if (G.sub === 'night') {
-      const k = clamp(G.nightT / NIGHT_TIME, 0, 1), mx = w / 2, my = top + 30;
+      const k = clamp(G.nightT / NIGHT_TIME, 0, 1), mx = Math.max(w / 2, left + 222), my = top + 30;   // clear of the moth pips
       ctx.strokeStyle = gfx.alpha(P.moon, 0.25); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(mx, my, 16, 0, TAU); ctx.stroke();
       ctx.strokeStyle = P.moon; ctx.lineWidth = 3;
@@ -2582,7 +2582,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (G.banner) {
       const bt = G.banner.t, a = clamp(Math.min((bt - 0.3) * 2.5, (3.4 - bt) * 2), 0, 1);
       if (a > 0) {
-        const by = h * (G.sub === 'night' ? 0.4 : 0.26);
+        const by = h * (G.sub === 'night' ? 0.62 : 0.26);   // night: below the bat, above the treeline
         ctx.strokeStyle = gfx.alpha(P.teal, 0.5 * a); ctx.lineWidth = 1;
         const lw = Math.min(w * 0.36, 150) * Kit.ease.cubicOut(Math.min(1, bt * 1.4));
         ctx.beginPath(); ctx.moveTo(w / 2 - lw, by - 26); ctx.lineTo(w / 2 + lw, by - 26); ctx.moveTo(w / 2 - lw, by + 30); ctx.lineTo(w / 2 + lw, by + 30); ctx.stroke();

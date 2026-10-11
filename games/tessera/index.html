@@ -2714,7 +2714,6 @@ canvas:focus:not(:focus-visible) { outline: none; }
     buzz(20);
   });
   if (Arcade.embedded) {
-    $('settingsBox').hidden = true;
     $('exitBtn').hidden = false;
     $('exitBtn').addEventListener('click', () => { closePause(); Arcade.exit(); });
   }
