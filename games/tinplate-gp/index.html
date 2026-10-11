@@ -690,6 +690,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     c.rs = (c.s - 26 + L.len) % L.len; c.rLaps = c.s - 26 < 0 ? -1 : 0;
     c.v = 0; c.th = 0; c.slip = 0; c.shim = 0; c.sw = null; c.want = 0; c.air = null;
     c.deslots++;
+    c.lastWhy = why; c.whyLog = (c.whyLog || '') + why[0];
     if (c.human) { G.deslotsThisLap++; c.part = null; }
     // a shed part: a wind-up key or a tyre
     c.part = { kind: G.rng.chance(0.5) ? 'key' : 'tyre', x: px, y: py, z: 4, vx: c.vx * 0.6 + G.rng.range(-60, 60), vy: c.vy * 0.6 + G.rng.range(-60, 60), vz: 160, rot: 0, spin: G.rng.range(-14, 14), a: 1 };
