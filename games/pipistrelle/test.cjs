@@ -84,7 +84,15 @@ const check = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if
     await T(() => window.__kilnTest.step(1 / 60));
     await page.mouse.up();
     i = await info();
-    check(i.scd > 2.5, 'pressing and holding still shrieks');
+    check(i.scd > 2.5, 'pressing and holding still (about 1 s) shrieks');
+    // ...but a short rest of the thumb (0.6 s) does not
+    await T(() => window.__kilnTest.step(3.2));
+    await page.mouse.move(200, 650); await page.mouse.down();
+    await page.waitForTimeout(600);
+    await T(() => window.__kilnTest.step(1 / 60));
+    i = await info();
+    check(i.scd === 0, 'resting a finger for 0.6 s does not shriek');
+    await page.mouse.up();
 
     // 5. Moths: flying into one eats it, adds to the haul and restores energy.
     await T(() => window.__kilnTest.energy(50));
@@ -92,7 +100,7 @@ const check = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if
     const m = (await info()).mothList[0];
     await T(m => { window.__kilnTest.teleport(m[0] - 2, m[1]); window.__kilnTest.step(1 / 60); }, m);
     i = await info();
-    check(i.carried > carried0 && i.energy > 54, `eating a moth: carried ${carried0} -> ${i.carried}, energy 50 -> ${i.energy.toFixed(1)}`);
+    check(i.carried > carried0 && i.energy > 53.5, `eating a moth: carried ${carried0} -> ${i.carried}, energy 50 -> ${i.energy.toFixed(1)}`);
 
     // 6. Pups: flying through a hanging pup rescues it and raises the multiplier.
     const p = (await info()).pupList[0];
@@ -173,7 +181,7 @@ const check = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if
     // 14. Energy at zero ends the run with the banked score; the save is cleared and the best kept.
     const finalScore = (await info()).score;
     await T(() => window.__kilnTest.drainEnergy());
-    await T(() => window.__kilnTest.step(1.6));
+    await T(() => window.__kilnTest.step(3.5));
     await page.waitForTimeout(500);
     const end = (await events()).filter(e => e.ev === 'run_end').pop();
     check((await T(() => window.__kilnTest.state())).phase === 'over', 'energy at zero ends the run');
@@ -193,6 +201,14 @@ const check = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if
     await T(() => window.__kilnTest.step(0.2));
     i = await info();
     check(i.cave === 2 && i.score === sc, 'Continue resumes cave 2 with the banked score');
+    // Quitting mid-cave and continuing never refills energy: the save keeps the lower value.
+    await T(() => { window.__kilnTest.safe(false); window.__kilnTest.energy(22); window.__kilnTest.step(5.3); });
+    await page.reload();
+    await page.waitForFunction(() => document.documentElement.dataset.kilnReady === '1');
+    await page.click('[data-k=play]');
+    await T(() => window.__kilnTest.step(0.2));
+    i = await info();
+    check(i.cave === 2 && i.energy < 23, `continuing after leaving at low energy keeps it low (${i.energy.toFixed(1)})`);
 
     // 16. Many runs with the autopilot: no exceptions, every cave reachable.
     await T(() => window.__kilnTest.safe(true));

@@ -1071,7 +1071,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const lead = order[0];
     const winHuman = G.cars[lead] && G.cars[lead].human;
     const myPlace = order.indexOf(me) + 1;
-    const won = CH.twoP ? !!winHuman : lead === me;
+    const won = !forced && (CH.twoP ? !!winHuman : lead === me);
     const score = runScore();
     const stats = [
       { label: 'Championship', value: POS[myPlace - 1] + ' of 4' },
@@ -1990,8 +1990,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     // number roundel
     g.fillStyle = m.trim; g.beginPath(); g.arc(5.2, 0, 3.3, 0, TAU); g.fill();
     g.strokeStyle = m.acc; g.lineWidth = 0.7; g.stroke();
-    g.fillStyle = '#141414'; g.font = '800 4.4px ' + gfx.fonts.display; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.save(); g.translate(5.2, 0.15); g.rotate(Math.PI / 2); g.fillText(String(m.num), 0, 0); g.restore();
+    g.save(); g.translate(5.2, 0.15); g.rotate(Math.PI / 2); gfx.text(g, String(m.num), 0, 0, { size: 4.4, weight: 800, color: '#141414', world: true }); g.restore();
     // windscreen and cockpit with the tin driver
     g.fillStyle = 'rgba(190,225,240,0.85)'; g.beginPath(); g.ellipse(0.4, 0, 1.1, 3.3, 0, 0, TAU); g.fill();
     g.fillStyle = '#1b1712'; g.beginPath(); g.ellipse(-3, 0, 2.6, 3.1, 0, 0, TAU); g.fill();
@@ -2127,23 +2126,25 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const motes = [];
   for (let k = 0; k < 28; k++) motes.push({ x: Math.random(), y: Math.random(), z: Math.random(), ph: Math.random() * 6 });
 
+  const PERF = new URLSearchParams(location.search).get('perf') || '';
   function draw() {
     if (layoutDirty) doLayout();
     const w = view.w, h = view.h, t = loop.time;
-    view.clear('#1a0f08');
-    if (!TR || !staticCv) return;
-    ctx.save();
     // camera nudge toward a crash and a pulse on the loop
     const z = 1 + Kit.ease.cubicOut(G.zoom) * 0.06 + Math.sin(G.loopPulse * Math.PI) * 0.025;
+    const moved = z !== 1 || fx.shakeX || fx.shakeY;
+    if (moved || !staticCv) view.clear('#1a0f08'); else { ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+    if (!TR || !staticCv) return;
+    ctx.save();
     if (z !== 1) {
       const zx = G.zoom > 0 ? G.zx : w / 2, zy = G.zoom > 0 ? G.zy : h / 2;
       ctx.translate(zx, zy); ctx.scale(z, z); ctx.translate(-zx, -zy);
     }
     ctx.translate(fx.shakeX || 0, fx.shakeY || 0);
-    ctx.drawImage(staticCv, 0, 0, w, h);
+    if (!PERF.includes('s')) ctx.drawImage(staticCv, 0, 0, w, h);
     ctx.save();
     worldTransform(ctx);
-    drawGlow();
+    if (!PERF.includes('g')) drawGlow();
     drawGhost();
     // ground-level cars (and tumbling ones), then the bridge layer, then raised cars
     const low = [], high = [];
@@ -2153,9 +2154,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       else low.push(c);
     }
     for (const c of G.cars) if (c.part && c.state !== 'slot') drawPart(c.part);
-    for (const c of low) drawCar(c);
+    if (!PERF.includes('c')) for (const c of low) drawCar(c);
     ctx.restore();
-    if (overCv) ctx.drawImage(overCv, 0, 0, w, h);
+    if (overCv && overBox) {
+      // only the part of the elevated layer that holds anything (bridge, gantry)
+      const d = view.dpr, x0 = Math.max(0, Math.floor(overBox.x0)), y0 = Math.max(0, Math.floor(overBox.y0));
+      const x1 = Math.min(w, Math.ceil(overBox.x1)), y1 = Math.min(h, Math.ceil(overBox.y1));
+      if (x1 > x0 && y1 > y0) ctx.drawImage(overCv, x0 * d, y0 * d, (x1 - x0) * d, (y1 - y0) * d, x0, y0, x1 - x0, y1 - y0);
+    }
     ctx.save();
     worldTransform(ctx);
     for (const c of high) drawCar(c);
@@ -2166,8 +2172,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.restore();
     ctx.restore();
     // ambient: dust in the lamp light, a moth's shadow, a flicker
-    drawAmbient(w, h, t);
-    if (!Kit.keyart && mode === 'play') drawHud(w, h, t);
+    if (!PERF.includes('a')) drawAmbient(w, h, t);
+    if (!Kit.keyart && mode === 'play' && !PERF.includes('h')) drawHud(w, h, t);
   }
 
   function drawAmbient(w, h, t) {
