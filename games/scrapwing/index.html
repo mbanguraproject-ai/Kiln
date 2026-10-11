@@ -98,7 +98,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     { name: 'Sniper Alley', intro: 'Snipers aim at your parts', sky: ['#22091c', '#4a1230', '#721e34'], tint: '#ff6a5a' },
     { name: 'The Dead Fleet', intro: 'Everything at once', sky: ['#180b1c', '#33182c', '#562a34'], tint: '#c07050' },
   ];
-  const skyOf = SECTORS.map(s => [[0, s.sky[0]], [0.55, s.sky[1]], [1, s.sky[2]]]);
 
   /* ================================================================ view and field */
   const view = Kit.view(document.getElementById('game'), { alpha: false });
@@ -161,8 +160,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   // Enemy sprites: matte black-violet, a warm rim on the top-right (the amber star), orange-red eyes. They face down.
   const ENEMY_ART = {
     drone: [32, 32, g => {
-      rimFill(g, poly([-14, -4, -6, -8, -6, 2, -14, 6]), '#1a0f22', C.rim);
-      rimFill(g, poly([14, -4, 6, -8, 6, 2, 14, 6]), '#1a0f22', C.rim);
+      rimFill(g, poly([-5, -6, -15, -9, -13, 3, -5, 5]), '#160c1c', 'rgba(255,161,90,0.45)', 1.2);
+      rimFill(g, poly([5, -6, 15, -9, 13, 3, 5, 5]), '#160c1c', 'rgba(255,161,90,0.8)', 1.2);
+      g.fillStyle = 'rgba(255,120,60,0.6)'; g.fillRect(-14, -8, 2, 2); g.fillRect(12, -8, 2, 2);
       rimFill(g, g2 => { g2.beginPath(); g2.arc(0, 0, 9, 0, TAU); }, hullGrad(g, 18), C.rim, 2);
       panelLines(g, [-6, -3, 6, -3]);
       eye(g, 0, 3, 3, '#ff5a2a');
@@ -272,10 +272,13 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         g.fillStyle = gfx.mix(col, '#fff', 0.3); g.fillRect(-1 * (tier === 2 ? 1.5 : 1), -R - 2, 1.4, R * 0.8);
         g.fillStyle = '#1b1220'; g.beginPath(); g.arc(0, 1, R * 0.2, 0, TAU); g.fill();
       } else if (type === 'fan') {
-        for (const a of [-0.45, 0, 0.45]) {
-          g.save(); g.rotate(a); g.fillStyle = '#2a2430'; g.fillRect(-1.6, -R - 1, 3.2, R * 0.75); g.restore();
+        for (const a of [-0.5, 0, 0.5]) {
+          g.save(); g.rotate(a);
+          g.fillStyle = '#c9ced8'; g.fillRect(-1.5, -R * 0.95, 3, R * 0.55);
+          g.fillStyle = '#e6fffb'; g.fillRect(-1.5, -R * 0.95, 3, 1.6);
+          g.restore();
         }
-        g.fillStyle = '#123'; g.beginPath(); g.arc(0, 1, R * 0.18, 0, TAU); g.fill();
+        g.fillStyle = '#0f3b38'; g.beginPath(); g.arc(0, 1, R * 0.2, 0, TAU); g.fill();
       } else if (type === 'seeker') {
         g.fillStyle = '#2a1420'; g.beginPath(); g.arc(0, 0, R * 0.42, 0, TAU); g.fill();
         g.fillStyle = gfx.mix(col, '#fff', 0.5); g.beginPath(); g.moveTo(0, -R * 0.36); g.lineTo(R * 0.2, R * 0.2); g.lineTo(-R * 0.2, R * 0.2); g.closePath(); g.fill();
@@ -338,6 +341,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       }
       g.restore();
     };
+    const halo = g.createRadialGradient(0, 0, R * 0.9, 0, 0, R * 1.18);
+    halo.addColorStop(0, 'rgba(240,150,100,0.35)'); halo.addColorStop(1, 'rgba(240,150,100,0)');
+    g.fillStyle = halo; g.beginPath(); g.arc(0, 0, R * 1.18, 0, TAU); g.fill();
     ring(false);
     g.save();
     g.beginPath(); g.arc(0, 0, R, 0, TAU); g.clip();
@@ -360,7 +366,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
   /* ================================================================ background layers */
   const farStars = gfx.starfield({ count: 90, seed: 4, layers: 3, size: [0.5, 1.7], color: '#ffe3cc' });
-  let nebula = null, dust = null, debris = null, fore = null;
+  let nebula = null, dust = null, fore = null;
   function blobW(g, h, x, y, rad, col, a, sx, sy, rot) {
     for (const yy of [y - h, y, y + h]) {
       if (yy + rad * Math.max(sx, sy) < 0 || yy - rad * Math.max(sx, sy) > h) continue;
@@ -408,49 +414,53 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function paintWrecks(g, w, h) {
     const r = Kit.rng(13);
     const margin = Math.max(0, fieldL);
+    const lit = side => (side > 0 ? 'rgba(255,150,90,0.8)' : 'rgba(255,150,90,0.32)');
     for (const side of [-1, 1]) {
       let y = r.range(0, 120);
       while (y < h - 40) {
         const kind = r.int(0, 2);
-        const reach = margin + r.range(14, 46) * zoom;
-        const X = side < 0 ? 0 : w;
+        const reach = margin * 0.55 + r.range(16, 44) * zoom;
         g.save();
-        g.translate(X, y);
-        g.scale(-side, 1); // draw as if growing from the right edge into the screen (x negative)
+        g.translate(side < 0 ? 0 : w, y);
+        g.scale(side, 1); // shapes grow into the screen from the edge (local x negative)
         if (kind === 0) {
-          // hull plate slab with rivets
-          const len = r.range(90, 200), th = reach;
+          // a torn hull slab: panel seams, rivets, a couple of lit ports
+          const len = r.range(90, 190), th = reach;
           const pts = [0, 0, -th * r.range(0.7, 1), r.range(6, 20), -th, len * 0.5, -th * r.range(0.6, 0.9), len - r.range(4, 20), 0, len];
-          rimFill(g, poly(pts), C.wreck, side > 0 ? 'rgba(255,150,90,0.75)' : 'rgba(255,150,90,0.35)', 2);
+          rimFill(g, poly(pts), C.wreck, lit(side), 2);
+          g.strokeStyle = 'rgba(255,150,100,0.09)'; g.lineWidth = 1;
+          for (let k = 24; k < len - 10; k += 26) { g.beginPath(); g.moveTo(-th * 0.9, k); g.lineTo(0, k + 4); g.stroke(); }
           g.fillStyle = 'rgba(255,170,120,0.22)';
-          for (let k = 12; k < len - 10; k += 14) { g.beginPath(); g.arc(-th * 0.55, k, 1.2, 0, TAU); g.fill(); }
+          for (let k = 12; k < len - 10; k += 14) { g.beginPath(); g.arc(-th * 0.5, k, 1.1, 0, TAU); g.fill(); }
+          for (let k = 0; k < 2; k++) { g.fillStyle = r.chance(0.5) ? 'rgba(255,170,80,0.85)' : 'rgba(255,90,90,0.7)'; g.fillRect(-th * r.range(0.3, 0.7), r.range(14, len - 14), 3, 2); }
         } else if (kind === 1) {
-          // girder truss
-          const len = r.range(120, 230), th = Math.min(reach, 30 + margin);
-          g.strokeStyle = C.wreck; g.lineWidth = 5;
-          g.beginPath(); g.moveTo(-th, 0); g.lineTo(-th, len); g.moveTo(-th * 0.25, 0); g.lineTo(-th * 0.25, len);
-          for (let k = 0; k < len; k += 24) { g.moveTo(-th, k); g.lineTo(-th * 0.25, k + 24); }
+          // a lattice girder: two rails and X bracing
+          const len = r.range(130, 240), th = Math.min(reach, 34 * zoom + margin * 0.4), a = -th, b = -th * 0.22;
+          g.strokeStyle = C.wreck; g.lineCap = 'butt';
+          g.lineWidth = 4; g.beginPath(); g.moveTo(a, 0); g.lineTo(a, len); g.moveTo(b, 0); g.lineTo(b, len); g.stroke();
+          g.lineWidth = 2; g.beginPath();
+          for (let k = 0; k < len - 1; k += 26) { g.moveTo(a, k); g.lineTo(b, k + 26); g.moveTo(b, k); g.lineTo(a, k + 26); g.moveTo(a, k); g.lineTo(b, k); }
           g.stroke();
-          g.strokeStyle = side > 0 ? 'rgba(255,150,90,0.55)' : 'rgba(255,150,90,0.25)'; g.lineWidth = 1;
-          g.beginPath(); g.moveTo(-th + 2.5, 0); g.lineTo(-th + 2.5, len); g.stroke();
-          y += len * 0.4;
+          g.strokeStyle = lit(side); g.lineWidth = 1; g.beginPath(); g.moveTo(a + 2, 0); g.lineTo(a + 2, len); g.stroke();
+          y += len * 0.3;
         } else {
-          // torn engine bell / antenna cluster
-          const rad = r.range(26, 52) + margin * 0.6;
-          rimFill(g, g2 => { g2.beginPath(); g2.arc(0, rad * 0.4, rad, PI * 0.5, PI * 1.5); g2.closePath(); }, C.wreck, side > 0 ? 'rgba(255,150,90,0.7)' : 'rgba(255,150,90,0.3)', 2);
+          // a gutted engine bell with a bent antenna
+          const rad = r.range(22, 40) * zoom + margin * 0.25;
+          rimFill(g, g2 => { g2.beginPath(); g2.ellipse(0, rad * 0.4, rad * 0.8, rad, 0, PI * 0.5, PI * 1.5); g2.closePath(); }, C.wreck, lit(side), 2);
+          g.strokeStyle = 'rgba(255,150,100,0.12)'; g.lineWidth = 1;
+          for (let k = 1; k < 4; k++) { g.beginPath(); g.ellipse(0, rad * 0.4, rad * 0.8 * k / 4, rad * k / 4, 0, PI * 0.5, PI * 1.5); g.stroke(); }
           g.strokeStyle = C.wreck; g.lineWidth = 2;
-          g.beginPath(); g.moveTo(-rad * 0.6, -rad * 0.3); g.lineTo(-rad * 1.3, -rad * 0.9); g.stroke();
-          g.fillStyle = 'rgba(255,90,50,0.7)'; g.beginPath(); g.arc(-rad * 1.3, -rad * 0.9, 1.6, 0, TAU); g.fill();
+          g.beginPath(); g.moveTo(-rad * 0.5, -rad * 0.3); g.lineTo(-rad * 1.1, -rad * 0.8); g.lineTo(-rad * 1.25, -rad * 0.6); g.stroke();
+          g.fillStyle = 'rgba(255,90,50,0.8)'; g.beginPath(); g.arc(-rad * 1.25, -rad * 0.6, 1.6, 0, TAU); g.fill();
         }
         g.restore();
-        y += r.range(150, 320);
+        y += r.range(160, 320);
       }
     }
   }
   function buildLayers() {
     nebula = gfx.layers([{ axis: 'y', depth: 0.1, paint: paintNebula }]);
-    dust = gfx.layers([{ axis: 'y', depth: 0.3, paint: paintDust(11, false) }, { axis: 'y', depth: 0.7, paint: paintDust(23, true), alpha: 0.9 }]);
-    debris = gfx.layers([{ axis: 'y', depth: 1.15, paint: paintDebris, alpha: 0.75 }]);
+    dust = gfx.layers([{ axis: 'y', depth: 0.3, paint: paintDust(11, false) }, { axis: 'y', depth: 0.8, paint: (g, w, h) => { paintDust(23, true)(g, w, h); paintDebris(g, w, h); } }]);
     fore = gfx.layers([{ axis: 'y', depth: 2.6, tile: 900, paint: paintWrecks }]);
   }
 
@@ -574,8 +584,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const r = Kit.rng((G.seed * 7919 + s * 131 + w * 17) >>> 0);
     if (s === 1 && w === 1) return [{ t: 0.4, type: 'droneV', n: 5, slow: true, nofire: true }];
     const a = ((s - 1) % 8) + 1, H = s > 8;
-    const pool = H ? ORDER.slice() : ORDER.slice(0, Math.max(2, a));
-    const newest = !H && a >= 2 ? ORDER[a - 1] : null;
+    const pool = H ? ORDER.slice() : ORDER.slice(0, Math.min(8, a + 1));
+    const newest = !H && a >= 2 && a <= 7 ? ORDER[a] : null;
     const groups = 3 + w + Math.min(3, Math.floor((s - 1) / 2)) - (s === 1 ? 1 : 0);
     const dur = clamp(7 + groups * 1.5, 8, 19);
     const out = [];
@@ -664,7 +674,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       }
     }
   }
-  for (const e of Object.values(ENEMY_ART)) void e;
 
   /* ---------------------------------------------------------------- boss */
   const PATS = ['aim3', 'spiral', 'fan', 'ring', 'stream'];
@@ -718,6 +727,23 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       // rivets
       g.fillStyle = 'rgba(255,200,160,0.3)';
       for (let k = 0; k < 18; k++) { const x = r.range(-0.8, 0.8) * hw, y = r.range(-0.5, 0.5) * hh; g.beginPath(); g.arc(x, y, 1.1, 0, TAU); g.fill(); g.beginPath(); g.arc(-x, y, 1.1, 0, TAU); g.fill(); }
+      // rows of lit ports and glowing vents
+      for (let k = 0; k < 7; k++) {
+        const x = r.range(0.25, 0.75) * hw, y = r.range(-0.45, 0.25) * hh, n = r.int(3, 6);
+        for (const sgn of [-1, 1]) for (let j = 0; j < n; j++) { g.fillStyle = (j + k) % 4 === 0 ? 'rgba(255,90,140,0.85)' : 'rgba(255,190,110,0.75)'; g.fillRect(sgn * (x + j * 5) - 1.2, y, 2.4, 1.6); }
+      }
+      for (const sgn of [-1, 1]) {
+        const vg = g.createLinearGradient(0, hh * 0.1, 0, hh * 0.5);
+        vg.addColorStop(0, 'rgba(255,79,139,0)'); vg.addColorStop(1, 'rgba(255,79,139,0.55)');
+        g.fillStyle = vg;
+        for (let k = 0; k < 3; k++) g.fillRect(sgn * hw * (0.55 + k * 0.06) - 1.5, hh * 0.12, 3, hh * 0.32);
+      }
+      // a warm sheen on the top-right of the hull
+      g.save(); poly(pts)(g); g.clip();
+      const sh = g.createLinearGradient(hw, -hh, 0, hh * 0.2);
+      sh.addColorStop(0, 'rgba(255,170,110,0.28)'); sh.addColorStop(0.5, 'rgba(255,170,110,0.05)'); sh.addColorStop(1, 'rgba(255,170,110,0)');
+      g.fillStyle = sh; g.fillRect(-hw, -hh, b.BW, b.BH);
+      g.restore();
       // pod sockets
       for (const p of b.pods) { g.fillStyle = '#0b0610'; g.beginPath(); g.arc(p.ox, p.oy, 15, 0, TAU); g.fill(); g.strokeStyle = 'rgba(255,160,100,0.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(p.ox, p.oy, 15, -1.6, 0.2); g.stroke(); }
       g.fillStyle = '#0b0610'; g.beginPath(); g.arc(b.core.ox, b.core.oy, 21, 0, TAU); g.fill();
@@ -750,8 +776,13 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       snd('scrap');
       return -1;
     }
+    // nearest free socket on the side it touched, nudged toward matching neighbours so fusions come naturally
     let best = free[0], bd = 1e9;
-    for (const i of free) { const d = Kit.dist(s.x + SOCK[i].x, s.y + SOCK[i].y, p.x, p.y); if (d < bd) { bd = d; best = i; } }
+    for (const i of free) {
+      let d = Kit.dist(s.x + SOCK[i].x, s.y + SOCK[i].y, p.x, p.y);
+      if (p.tier === 1) for (const j of SOCK[i].adj) { const m = G.sockets[j]; if (m && m.tier === 1 && m.type === p.type) d -= 16; }
+      if (d < bd) { bd = d; best = i; }
+    }
     const m = mkMod(p.type, p.tier);
     m.pop = 1.7; m.flash = 1;
     G.sockets[best] = m;
@@ -792,7 +823,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     G.sockets[b] = m;
     G.fuses.push({ type, from: [a, c], to: b, t: 0 });
     G.fusions++;
-    setTimeout(() => {}, 0);
     Kit.tween(m, { pop: 1 }, 520, 'elasticOut', { delay: 160 });
     sockPos(b, tmp);
     fx.shockwave(tmp.x, tmp.y, { radius: 70, color: '#ffffff', width: 5, ms: 420 });
@@ -813,8 +843,11 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (!m) return;
     sockPos(i, tmp);
     G.sockets[i] = null;
-    const sp = Math.hypot(vx, vy) || 1;
-    G.parts.push({ type: m.type, tier: m.tier, x: tmp.x, y: tmp.y, vx: vx / sp * 150 + rand.range(-40, 40), vy: vy / sp * 150 + rand.range(-30, 10), rot: 0, vr: rand.range(-9, 9), loose: true, life: 2, t: 0, noCatch: 0.4, trail: 0 });
+    // it tumbles outward from the core, pushed a little along the hit
+    const sp = Math.hypot(vx, vy) || 1, ox = SOCK[i].x / 24, oy = SOCK[i].y / 24;
+    let dx = ox * 1.4 + vx / sp * 0.6, dy = oy * 1.4 + vy / sp * 0.6;
+    const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+    G.parts.push({ type: m.type, tier: m.tier, x: tmp.x, y: tmp.y, vx: dx * 165 + rand.range(-25, 25), vy: dy * 165 + rand.range(-25, 25), rot: 0, vr: rand.range(-9, 9), loose: true, life: 2, t: 0, noCatch: 0.4, trail: 0 });
     G.lost++;
     fx.burst(tmp.x, tmp.y, { count: 16, color: [TCOL[m.type], '#ffffff', C.steel], shape: 'square', speed: [60, 220], life: [0.3, 0.6], size: [1.2, 3], spin: [-10, 10] });
     fx.shake(5, 180);
@@ -946,15 +979,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       else { fx.burst(b.x, b.y + 4, { count: 2, color: ['#ffe9c8', '#ffb347'], shape: 'spark', speed: [60, 160], life: [0.08, 0.2], angle: PI / 2, spread: 1.8 }); pew('tick', 9); }
       return true;
     }
-    // the hull swallows shots (sparks), so aim for the pods
-    const nx = (b.x - B.x) / (B.BW * 0.48), ny = (b.y - B.y) / (B.BH * 0.46);
-    if (nx * nx + ny * ny < 1) { if (rand.chance(0.3)) fx.burst(b.x, b.y, { count: 1, color: ['#ffb347', '#fff'], shape: 'spark', speed: [40, 120], life: [0.08, 0.18], angle: PI / 2, spread: 2 }); return true; }
     return false;
   }
 
   /* ---------------------------------------------------------------- damage and kills */
   function damage(e, dmg, b) {
-    e.hp -= dmg; e.flash = 0.07;
+    e.hp -= dmg; e.flash = 0.06;
     if (b && rand.chance(0.5)) fx.burst(b.x, b.y, { count: 2, color: ['#ffd0a0', '#ffffff'], shape: 'spark', speed: [50, 150], life: [0.08, 0.2], angle: PI / 2, spread: 1.6 });
     pew('tick');
     if (e.hp <= 0) kill(e);
@@ -974,7 +1004,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (e.type === 'mine') { snd('boom', { pitch: 6, vol: 0.5 }); addScore(e.v * G.mult); return; }
     G.kills++;
     G.chain++;
-    const m = Math.min(12, 1 + Math.floor(G.chain / 5));
+    const m = Math.min(12, 1 + Math.floor(G.chain / 6));
     if (m > G.mult) {
       G.mult = m; G.bestMult = Math.max(G.bestMult, m);
       G.multPop = 1.8; Kit.tween(G, { multPop: 1 }, 420, 'elasticOut');
@@ -996,6 +1026,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (drop) dropPart(drop, 1, e.x, e.y, G.kills === 1 && G.sector === 1);
   }
   function pickPart() {
+    // salvage tends to match what you already fly, so builds can grow toward a fusion
+    if (rand.chance(0.35)) { const own = G.sockets.filter(m => m && m.tier === 1); if (own.length) return rand.pick(own).type; }
     const x = rand.next();
     return x < 0.36 ? 'blaster' : x < 0.62 ? 'fan' : x < 0.82 ? 'seeker' : 'plate';
   }
@@ -1104,7 +1136,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
           break;
         }
         case 'pylon': {
-          const edge = e.side < 0 ? 14 : W - 14;
+          const edge = e.side < 0 ? 24 : W - 24;
           if (e.state === 'enter') { e.x = Kit.smooth(e.x, edge, 6, dt); e.y = e.ty; if (Math.abs(e.x - edge) < 1 && e.lead) { e.state = 'charge'; e.st = 0; e.pair.state = 'charge'; snd('charge'); } else if (Math.abs(e.x - edge) < 1 && !e.lead && e.pair.dead) e.state = 'leave'; }
           else if (e.state === 'leave') { e.x += (e.side < 0 ? -1 : 1) * 120 * dt; if (e.x < -40 || e.x > W + 40) e.gone = true; }
           else if (e.lead) {
@@ -1381,14 +1413,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         p.vr *= 1 - 0.8 * dt;
         if ((p.trail -= dt) <= 0) { p.trail = 0.05; fx.burst(p.x, p.y, { count: 1, color: [TCOL[p.type]], speed: [2, 10], life: [0.25, 0.45], size: [2, 3.5], glow: true }); }
       } else {
-        p.vy = Kit.approach(p.vy, 52, 60 * dt);
+        p.vy = Kit.approach(p.vy, 74, 80 * dt);
         p.vx = Math.sin(p.t * 1.6 + p.ph) * 18;
         p.vr = Kit.approach(p.vr, 1.2, dt);
       }
       // a soft pull when close, so a near miss still counts
-      if (!G.dead && p.noCatch <= 0) {
+      if (!G.dead && p.noCatch <= 0 && !p.loose) {
         const d = Kit.dist(p.x, p.y, s.x, s.y);
-        if (d < 70) { const k = (70 - d) / 70 * 160 * dt; p.x += (s.x - p.x) / (d || 1) * k; p.y += (s.y - p.y) / (d || 1) * k; }
+        if (d < 58) { const k = (58 - d) / 58 * 140 * dt; p.x += (s.x - p.x) / (d || 1) * k; p.y += (s.y - p.y) / (d || 1) * k; }
       }
       p.x += p.vx * dt; p.y += p.vy * dt;
       let caught = false;
@@ -1468,7 +1500,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     G.lights = G.lights.filter(l => l.t < l.life);
     for (const f of G.fuses) f.t += dt;
     G.fuses = G.fuses.filter(f => f.t < 0.2);
-    const s = G.ship;
     if (G.dead) {
       G.deadT += dt;
     } else {
@@ -1495,30 +1526,23 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     updateParts(dt);
     for (const m of G.sockets) if (m) m.hitT = Math.max(0, m.hitT - dt);
     if (G.mode === 'play' && G.dragged > 60 && !G.handDone) G.handDone = true;
-    void s;
   }
 
   /* ================================================================ drawing */
-  const SHIPLIGHT = C.reactor;
   function draw() {
     const w = view.w, h = view.h;
     if (!G) { view.clear(C.void); return; }
     const t = G.t, si = (G.sector - 1) % 8;
     view.clear();
-    gfx.sky(ctx, skyOf[si]);
+    ctx.drawImage(skyCanvas(si, w, h), 0, 0, w, h);
     const sc = G.scroll * zoom;
     farStars.draw(ctx, w, h, t, 0, -sc * 0.2);
-    // the low amber star at the top-right, with its rays
-    const sx = w * 0.88, sy = h * 0.05;
-    gfx.light(ctx, sx, sy, Math.max(w, h) * 0.55, '#f08a3c', 0.32);
-    gfx.light(ctx, sx, sy, 120, '#ffd9a0', 0.55);
-    gfx.lightRays(ctx, sx, sy, { angle: 2.25, spread: 1.1, length: Math.max(w, h) * 1.1, count: 7, color: '#ffb070', alpha: 0.05, t, width: 0.06 });
+    // the low amber star breathes a little
+    gfx.light(ctx, w * 0.88, h * 0.05, 70 + 6 * Math.sin(t * 1.3), '#ffe2b0', 0.5);
     nebula.draw(ctx, w, h, 0, -sc);
     drawGiant(w, h, t);
     dust.draw(ctx, w, h, 0, -sc);
     // a wash of the sector's tint over the gas
-    ctx.globalAlpha = 0.1; ctx.fillStyle = SECTORS[si].tint; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
-    debris.draw(ctx, w, h, 0, -sc);
     drawFieldEdges(w, h);
 
     cam.apply(ctx);
@@ -1544,15 +1568,51 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     gfx.vignette(ctx, 0.5, '#12030f');
     drawHud(w, h, t);
   }
+  // Sky gradient, the amber star's glow and its rays, baked once per sector and size: one cheap blit a frame.
+  let skyC = null, skyKey = '';
+  function skyCanvas(si, w, h) {
+    const key = si + '|' + w + '|' + h + '|' + gfx.dpr;
+    if (skyC && skyKey === key) return skyC;
+    skyKey = key;
+    const d = gfx.dpr;
+    skyC = gfx.offscreen(Math.ceil(w * d), Math.ceil(h * d));
+    const g = skyC.getContext('2d');
+    g.scale(d, d);
+    const st = SECTORS[si].sky;
+    const gr = g.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, st[0]); gr.addColorStop(0.55, st[1]); gr.addColorStop(1, st[2]);
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const sx = w * 0.88, sy = h * 0.05, R = Math.max(w, h) * 0.75;
+    g.globalCompositeOperation = 'lighter';
+    let rg = g.createRadialGradient(sx, sy, 0, sx, sy, R);
+    const tc = SECTORS[si].tint;
+    rg.addColorStop(0, gfx.alpha(tc, 0.42)); rg.addColorStop(0.35, gfx.alpha(tc, 0.14)); rg.addColorStop(1, gfx.alpha(tc, 0));
+    g.fillStyle = rg; g.fillRect(0, 0, w, h);
+    rg = g.createRadialGradient(sx, sy, 0, sx, sy, 130);
+    rg.addColorStop(0, 'rgba(255,240,215,0.85)'); rg.addColorStop(0.25, 'rgba(255,200,140,0.4)'); rg.addColorStop(1, 'rgba(255,170,100,0)');
+    g.fillStyle = rg; g.fillRect(sx - 130, sy - 130, 260, 260);
+    // god rays fanning down-left from the star
+    const len = Math.max(w, h) * 1.15, r = Kit.rng(3);
+    const ray = g.createRadialGradient(sx, sy, 0, sx, sy, len);
+    ray.addColorStop(0, 'rgba(255,190,130,0.22)'); ray.addColorStop(0.4, 'rgba(255,170,110,0.08)'); ray.addColorStop(1, 'rgba(255,170,110,0)');
+    g.fillStyle = ray;
+    for (let i = 0; i < 8; i++) {
+      const a = 2.25 + (i / 7 - 0.5) * 1.15 + r.range(-0.05, 0.05), wd = r.range(0.02, 0.06);
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + Math.cos(a - wd) * len, sy + Math.sin(a - wd) * len); g.lineTo(sx + Math.cos(a + wd) * len, sy + Math.sin(a + wd) * len); g.closePath(); g.fill();
+    }
+    g.globalCompositeOperation = 'source-over';
+    return skyC;
+  }
   function drawGiant(w, h, t) {
-    const R = Math.round(clamp(Math.min(w, 900) * 0.3, 80, 190));
+    const R = Math.round(clamp(Math.min(w, 900) * 0.26, 76, 170));
     const spr = giantSprite(R);
     // drifts slowly down the sky; wraps after a long while off-screen
     const span = h + R * 3;
     const y = Kit.wrap(h * 0.34 + G.scroll * zoom * 0.045 + (G.sector - 1) * 260, -R * 1.5, -R * 1.5 + span);
-    const x = w * 0.2 + (w > 700 ? w * 0.05 : 0);
-    gfx.light(ctx, x, y, R * 1.8, '#d9774b', 0.14);
+    const x = w > 700 ? fieldL + R * 0.2 : w * 0.1;
+    ctx.globalAlpha = 0.86;
     ctx.drawImage(spr, x - spr.w / 2, y - spr.h / 2, spr.w, spr.h);
+    ctx.globalAlpha = 1;
   }
   function drawFieldEdges(w, h) {
     if (fieldL < 8) return;
@@ -1622,7 +1682,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       return;
     }
     gfx.blit(ctx, spr, e.x, e.y, sc, e.rot);
-    if (e.flash > 0) gfx.blit(ctx, whiteOf('e_' + e.type, spr), e.x, e.y, sc, e.rot, 0.85);
+    if (e.flash > 0.03) gfx.blit(ctx, whiteOf('e_' + e.type, spr), e.x, e.y, sc, e.rot, 0.6);
     if (e.elite) {
       // gold chevrons mark the parts carriers
       ctx.fillStyle = C.gold;
@@ -1753,7 +1813,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       const m = G.sockets[i];
       if (!m || m.tier !== tier) continue;
       const sk = SOCK[i];
-      if (tier === 2) gfx.light(ctx, sk.x, sk.y, 30 + 4 * Math.sin(t * 6 + i), TCOL[m.type], 0.6);
+      if (tier === 2) {
+        gfx.light(ctx, sk.x, sk.y, 38 + 5 * Math.sin(t * 6 + i), TCOL[m.type], 0.85);
+        ctx.strokeStyle = gfx.alpha(TCOL[m.type], 0.55 + 0.3 * Math.sin(t * 6 + i)); ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(sk.x, sk.y, 17, t * 3 + i, t * 3 + i + 1.6); ctx.stroke();
+        ctx.beginPath(); ctx.arc(sk.x, sk.y, 17, t * 3 + i + PI, t * 3 + i + PI + 1.6); ctx.stroke();
+      }
       const rot = m.type === 'fan' ? sk.aim + PI / 2 : 0;
       gfx.blit(ctx, moduleSprite(m.type, m.tier), sk.x, sk.y, m.pop, rot);
       if (m.type === 'plate' && m.hp < (tier === 2 ? 6 : 3)) {
@@ -1800,16 +1865,31 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       g.fillStyle = '#e4dfe6'; g.beginPath(); g.arc(x - 0.6, y - 0.6, 0.8, 0, TAU); g.fill();
     }
   });
-  function stencil(str, x, y, size, color, align) {
+  // Stencil type: each glyph drawn on its own (digits on a fixed pitch), with paint bridges cut through
+  // the round ones, the way sprayed salvage numerals look.
+  const BRIDGE = { '0': 2, '6': 1, '8': 2, '9': 1, 'O': 2, 'B': 2, 'D': 2, 'Q': 2, 'R': 1, 'A': 1, 'P': 1, 'C': 1, 'G': 1, 'S': 0, 'E': 0 };
+  function stencil(str, x, y, size, color, align, cut) {
     ctx.font = '800 ' + size + 'px ' + HUDF;
-    ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(10,2,10,0.55)'; ctx.fillText(str, x + 1.5, y + 1.5);
-    ctx.fillStyle = color; ctx.fillText(str, x, y);
-    // stencil bridges: thin cuts through the glyphs, plate-coloured
-    const wdt = ctx.measureText(str).width;
-    const x0 = align === 'center' ? x - wdt / 2 : align === 'right' ? x - wdt : x;
-    ctx.fillStyle = '#2f2933';
-    ctx.fillRect(x0 - 1, y - size * 0.06, wdt + 2, Math.max(1, size * 0.07));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const dw = ctx.measureText('0').width * 1.02;
+    let total = 0;
+    const adv = [];
+    for (const ch of str) { const a = /[0-9]/.test(ch) ? dw : ctx.measureText(ch).width + size * 0.04; adv.push(a); total += a; }
+    let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+    let i = 0;
+    for (const ch of str) {
+      const a = adv[i++], mx = cx + a / 2;
+      ctx.fillStyle = 'rgba(10,2,10,0.55)'; ctx.fillText(ch, mx + 1.5, y + 1.5);
+      ctx.fillStyle = color; ctx.fillText(ch, mx, y);
+      const b = BRIDGE[ch];
+      if (b !== undefined) {
+        ctx.fillStyle = cut || '#2f2933';
+        const bw = Math.max(1.2, size * 0.075);
+        ctx.fillRect(mx - bw / 2, y - size * 0.42, bw, size * 0.24);
+        if (b === 2) ctx.fillRect(mx - bw / 2, y + size * 0.18, bw, size * 0.24);
+      }
+      cx += a;
+    }
   }
   function drawHud(w, h, t) {
     if (Kit.keyart || G.mode !== 'play') return;
@@ -1829,7 +1909,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.fillStyle = G.mult > 1 ? '#24120e' : '#bfaeb8'; ctx.fillText('×' + G.mult, 0, 1);
     ctx.restore();
     // chain progress to the next step
-    const k = G.mult >= 12 ? 1 : (G.chain % 5) / 5;
+    const k = G.mult >= 12 ? 1 : (G.chain % 6) / 6;
     ctx.fillStyle = 'rgba(20,6,18,0.6)'; ctx.fillRect(mx - 18, my + 24, 36, 4);
     ctx.fillStyle = C.hazard; ctx.fillRect(mx - 18, my + 24, 36 * k, 4);
     // boss bar: hazard stripes
@@ -1865,7 +1945,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         for (let x = -bw / 2 - 12 + (t * 30) % 12; x < bw / 2 + 12; x += 12) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, -40); ctx.lineTo(x + 6, -40); ctx.lineTo(x - 30, 60); ctx.lineTo(x - 36, 60); ctx.closePath(); ctx.fill(); }
         ctx.restore();
       }
-      stencil(bn.text.toUpperCase(), 0, -6, bn.style === 'wave' ? 26 : 24, bn.style === 'warn' ? (Math.sin(t * 16) > 0 ? '#ff8fb8' : C.cream) : C.cream, 'center');
+      stencil(bn.text.toUpperCase(), 0, -6, bn.style === 'wave' ? 26 : 24, bn.style === 'warn' ? (Math.sin(t * 16) > 0 ? '#ff8fb8' : C.cream) : C.cream, 'center', bn.style === 'wave' ? 'rgba(60,20,40,0.9)' : '#2a1020');
       if (bn.sub) { ctx.font = '700 11px ' + gfx.fonts.body; ctx.textAlign = 'center'; ctx.fillStyle = bn.style === 'warn' ? '#ffb0c8' : C.amber; ctx.fillText(bn.sub, 0, 17); }
       ctx.restore();
     }
@@ -1886,7 +1966,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const s = G.ship;
     const p = cam.toScreen(s.x, s.y, tmp);
     const k = Math.sin(t * 2.2);
-    const x = p.x + k * 70, y = p.y + 92 * zoom;
+    const x = p.x + k * 70, y = Math.min(p.y + 92 * zoom, view.h - 96);
     const a = clamp(G.t * 2, 0, 1) * 0.9;
     ctx.globalAlpha = a * 0.35;
     ctx.strokeStyle = C.cream; ctx.lineWidth = 2; ctx.setLineDash([3, 6]);
@@ -1998,7 +2078,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   Arcade.test({
     seed(n) { nextStart = Object.assign(nextStart || {}, { seed: n }); },
     sector(n) { nextStart = Object.assign(nextStart || {}, { sector: n }); },
-    startAt(seed, sector, o) { nextStart = Object.assign({ seed, sector }, o || {}); shell.start(); },
+    startAt(seed, sector, o) { nextStart = Object.assign({ seed, sector }, o || {}); if (shell.phase === 'play' || shell.phase === 'paused') shell.restart(); else shell.start(); },
     step: stepSeconds,
     frames(n) { loop.step(n); },
     god(on) { if (G) G.god = !!on; },
@@ -2010,8 +2090,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       G.sockets[socket] = mkMod(type, tier || 1);
       return socket;
     },
-    catchPart(type, tier, dx, dy) { if (!G) return -1; return attach({ type, tier: tier || 1, x: G.ship.x + (dx || 0), y: G.ship.y + (dy || -30) }); },
-    dropPart(type, dx, dy) { dropPart(type, 1, G.ship.x + (dx || 0), G.ship.y + (dy || -120), false); },
+    catchPart(type, tier, dx, dy) { if (!G) return -1; return attach({ type, tier: tier || 1, x: G.ship.x + (dx || 0), y: G.ship.y + (dy == null ? -30 : dy) }); },
+    dropPart(type, dx, dy) { dropPart(type, 1, G.ship.x + (dx || 0), G.ship.y + (dy == null ? -120 : dy), false); },
     shootAt(socket) {
       // an enemy bullet aimed straight at a socket (or the core with -1)
       const s = G.ship, x = s.x + (socket >= 0 ? SOCK[socket].x : 0), y = s.y + (socket >= 0 ? SOCK[socket].y : 0);
@@ -2021,10 +2101,11 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     clearEnemies() { if (G) G.enemies.length = 0; },
     wave(n) { G.enemies.length = 0; G.eb.length = 0; G.boss = null; startWave(n); },
     spawn(type, x, y, o) { return G.enemies.indexOf(addEnemy(type, x == null ? FW / 2 : x, y == null ? 100 : y, Object.assign({ mv: 'line', vy: 0, amp: 0, freq: 0, bx: x == null ? FW / 2 : x, nofire: true }, o || {}))); },
+    hitPod(i, dmg) { const B = G.boss; if (!B) return false; const p = B.pods[i]; if (!p || p.dead) return false; damagePod(p, dmg == null ? 1e6 : dmg, B.x + p.ox, B.y + p.oy); return true; },
     hit(i, dmg) { const e = G.enemies[i]; if (e) damage(e, dmg == null ? 999 : dmg, null); },
     win() {
       // finish the current wave (or kill the boss) at once
-      if (G.boss) { for (const p of G.boss.pods) p.dead = true; G.boss.core.open = 1; G.boss.core.hp = 0; bossDie(); stepSeconds(2.2); }
+      if (G.boss) { for (const p of G.boss.pods) p.dead = true; G.boss.core.open = 1; G.boss.core.hp = 0; bossDie(); for (let i = 0; i < 600 && G.stage !== 'clear'; i++) loop.step(1); }
       else { for (const e of G.enemies.slice()) kill(e); G.schedI = G.sched.length; stepSeconds(1.5); }
     },
     nextSector() { if (G.stage === 'clear') nextSector(); },
@@ -2066,7 +2147,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       loop.step(30);
       dropPart('seeker', 2, G.ship.x - 70, G.ship.y - 120, false);
       G.parts[G.parts.length - 1].vy = 0;
+      const pd = G.boss.pods[G.boss.pods.length - 1];
+      explode(G.boss.x + pd.ox, G.boss.y + pd.oy, 1.8, C.seeker);
       loop.step(10);
+      // frame the duel: the boss above, the ship below, closer than in play
+      const top = G.boss.y - G.boss.BH * 0.6, bot = G.ship.y + 70;
+      cam.zoom = clamp(Math.min(view.h / (bot - top), view.w / (G.boss.BW + 60)), zoom, zoom * 1.45);
+      cam.y = (top + bot) / 2; cam.x = (G.boss.x + G.ship.x) / 2;
+      loop.render();
     }),
     shot1: () => scene({ seed: 12, sector: 1 }, () => {
       G.firstKill = false; G.handDone = true; G.teachDone = true;
@@ -2074,11 +2162,13 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       G.sockets[0] = mkMod('blaster', 1); G.sockets[5] = mkMod('blaster', 1);
       G.score = G.shown = 340; G.mult = 2; G.chain = 6; G.kills = 7;
       loop.step(200);
-      G.hintT = 0;
       G.parts.length = 0;
-      dropPart('fan', 1, G.ship.x + 30, G.ship.y - 95, false);
-      attach({ type: 'blaster', tier: 1, x: G.ship.x - 30, y: G.ship.y });
-      loop.step(5);
+      G.ship.x = G.ship.tx = FW * 0.5; G.ship.y = G.ship.ty = FH * 0.7;
+      dropPart('fan', 1, G.ship.x + 34, G.ship.y - 100, false);
+      attach({ type: 'fan', tier: 1, x: G.ship.x + 30, y: G.ship.y + 4 });
+      loop.step(4);
+      G.hintT = 3;
+      loop.render();
     }),
     shot2: () => scene({ seed: 33, sector: 3 }, () => {
       G.sockets.fill(null);
