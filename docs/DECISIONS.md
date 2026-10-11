@@ -32,6 +32,7 @@ Each game is a self-contained page (`games/<id>/index.html`) that follows `docs/
 | Lariat | Owner-developed (this repo) | Beta |
 | Crosswake | Owner-developed (this repo) | Beta |
 | Span | Owner-developed (planned) | In development, card hidden until playable |
+| 60 new games (`docs/CATALOGUE.md`) | Owner-developed (planned) | Built in batches of six, one per category |
 
 All code, art (drawn in code) and sound (synthesised) are original. *Open:* the names are working titles. "Tessera" and "Goldmend" are already used by other games; every store-facing name must be cleared before a public listing.
 
@@ -81,6 +82,30 @@ A filter is shown only when it splits the catalogue. Today that is genre and key
 - *Open:* a session-length filter (blueprint section 7: quick, medium, long). It needs measured play on the reference devices, not an estimate.
 - Revisit the filter set when a game adds controller support, landscape play or a download.
 
+## D12. Catalogue growth and the owner's mockup (decided 11 October 2026)
+
+The owner set new priorities: more high-quality, fun games and a hub that looks like the owner's mockup.
+
+- Kiln grows to 64 games: the first four plus 60 new ones, 10 in each of six categories: Action, Adventure, Racing,
+  Puzzle, Sports, Arcade. Space and animal games are spread across them. Tessera, Crosswake and Span are Puzzle;
+  Goldmend and Lariat are Arcade. The briefs and build order are in `docs/CATALOGUE.md`.
+- The blueprint's phase-by-phase process is on hold. Its honesty rules stay: the mockup's star ratings, "Go Pro"
+  banner, Challenges and Social tabs and percentage bars are left out until there is something real behind them.
+  A Continue playing card shows a progress bar only when the game reports a true percentage.
+- Continue playing cards have no Play button: tapping the card resumes the game.
+- The four existing games get a visual overhaul: the owner finds them templated and unfinished.
+
+## D13. A shared game kit
+
+New games are built on `hub/kit.js` (loop, input, synthesised audio and music, particles, camera, drawing helpers and a
+themeable menu shell), loaded after the SDK. This amends D2's "self-contained page": a game still ships as one page
+with no image or audio files, but shares engine code with the others.
+
+- Why: 60 games at a finished standard need engine pieces that are already correct (pause, safe areas, audio
+  unlock, key art, test hooks), so each build spends its effort on the game and its look.
+- The kit gives engine pieces, not a look: each game chooses its own palette, fonts, panel style and music.
+- Every new game must pass `tools/game-check.cjs` and a playtest review before it is listed.
+
 ## Open items
 
 - App name and package ID. `com.mbanguraproject.kiln` is a placeholder and becomes permanent on the first Play upload.
@@ -92,7 +117,7 @@ A filter is shown only when it splits the catalogue. Today that is genre and key
 | Phase | State |
 | --- | --- |
 | 0. Decisions | Done (this document) |
-| 1. Design foundation: tokens, navigation, card families, home, detail, discover and library | In progress: visual system, navigation, card families, Home, game detail and Discover done; Library next |
+| 1. Design foundation: tokens, navigation, card families, home, detail, discover and library | Done for the owner's mockup (D12); the blueprint's later phases are on hold while the catalogue grows |
 | 2. Vertical slice: discover → detail → launch → return → history | Not started |
 | 3. Catalogue foundation: metadata, categories, favourites, search, image pipeline | Not started |
 | 4. Private beta | Not started |

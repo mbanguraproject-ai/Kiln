@@ -19,15 +19,17 @@ The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`. Every push
 
 | Area | Status |
 | --- | --- |
-| Games | Tessera (live), Goldmend, Lariat and Crosswake (beta), Span (coming soon, card only) |
-| Visual system | Kiln blueprint v2.0, section 10: dark tokens, Unbounded and Figtree, real key art for every game |
-| Navigation | Home, Discover, Library and Settings tabs; Android Back follows real history |
-| Home | Search in the header, featured game, category chips, Continue playing with true Resume state, an editorial collection, New on Kiln, More to explore |
+| Games | Tessera (live), Goldmend, Lariat and Crosswake (beta), Span (coming soon, card only). 60 more are planned in `docs/CATALOGUE.md` |
+| Categories | Action, Adventure, Racing, Puzzle, Sports, Arcade (10 games each when the catalogue is done) |
+| Visual system | The owner's mockup on the blueprint's dark tokens: Unbounded and Figtree, glowing violet actions, real key art for every game |
+| Navigation | Home, Library, a raised Play button (resumes your last game), Discover and Settings; Android Back follows real history |
+| Home | Search and profile in the header, a swipeable featured carousel, category tiles, Continue playing (tap to resume; a progress bar only when the game reports real progress), Top picks, collections and a shelf per category |
 | Game pages | Art, Play or Resume, quick facts, how it plays, real screenshots, your record, related games, favourites |
 | Discover | Search across titles, genres, mechanics, moods and collections that forgives typos; recent searches kept on the phone with Clear; genre and keyboard filters; every collection; all games |
 | Library | Favourites and recently played |
 | Launch recovery | A game that does not start offers Try again and Back |
-| Next | Library and history (Phase 1, item 7, blueprint section 8) |
+| Game kit | `hub/kit.js`: loop, input, synthesised sound and music, particles, camera, drawing helpers and a themeable menu shell, so each new game can look and feel finished |
+| Next | Batch 1 of the catalogue (six new games), then a visual overhaul of the four existing games |
 
 Decisions and the roadmap are in `docs/DECISIONS.md`; the design source is `docs/blueprint/`.
 
@@ -37,15 +39,20 @@ Decisions and the roadmap are in `docs/DECISIONS.md`; the design source is `docs
 | --- | --- |
 | `index.html` | The hub: home screen, game player, settings, play insights |
 | `hub/sdk.js` | The SDK every game loads. The contract between hub and game |
+| `hub/kit.js`, `docs/KIT.md` | The game kit new games are built on, and its reference |
+| `tools/kit-demo/` | Lanternwing, the kit's demo game and the reference for new games (not in the hub) |
 | `hub/config.js` | Deployment settings (analytics endpoint) |
-| `games/registry.js` | The games (with their page facts and search tags) and the editorial collections |
+| `games/registry.js` | The categories, the games (with their page facts and search tags) and the editorial collections |
 | `games/<id>/index.html` | One game, self-contained; also playable on its own |
 | `docs/GAME_CONTRACT.md` | What every game must do (SDK calls, layout, theme, testing) |
-| `docs/concepts/` | Design briefs for each game |
+| `docs/CATALOGUE.md`, `docs/catalogue.json` | The 60 planned games: full briefs and the order they are built in |
+| `docs/concepts/` | Design briefs for the first games |
+| `tools/game-check.cjs` | The gate every new game must pass: loads, plays, pauses, ends a run, fits every screen, clean card art, launches from the hub, frame time |
 | `tools/smoke.cjs` | Headless test: hub plus every game, inside and outside the hub |
+| `tools/kit-test.cjs` | Tests the game kit |
 | `tools/nav-test.cjs`, `tools/home-test.cjs`, `tools/detail-test.cjs`, `tools/discover-test.cjs` | Hub tests: navigation and Back, the Home feed, game pages, Discover and search |
 | `tools/bundle.cjs` | Packs hub and games into one HTML file (`dist/kiln.html`) |
-| `tools/make-art.cjs` | Renders each game's card art (16:9 and 4:5) from the real game in key-art mode |
+| `tools/make-art.cjs` | Renders each game's card art (16:9 and 4:5) from the real game, from the scene the game registers |
 | `tools/make-shots.cjs` | Renders two phone screenshots per game from the real game, with its HUD |
 | `tools/make-icons.cjs` | Renders the app icons, Android launcher icons and splash screens |
 | `tools/build-web.cjs` | Copies the web app into `www/` for Capacitor |
@@ -85,7 +92,8 @@ After changing any game or the hub, `npm run android:sync` copies the web files 
 The tools use Playwright (`npm i -D playwright`, or a global install on `NODE_PATH`).
 
 ```sh
-npm test                             # smoke, navigation, Home, game page and Discover tests
+npm test                             # smoke, navigation, Home, game page, Discover and kit tests
+node tools/game-check.cjs --game <id>   # the full check for one game (add --legacy for the first four)
 node tools/smoke.cjs --game tessera  # one game in the hub
 node games/tessera/test.cjs          # one game's own rules and bot test
 node tools/bundle.cjs && node tools/smoke.cjs --bundle dist/kiln.html
@@ -99,9 +107,9 @@ To compare games across all players, set `analyticsEndpoint` in `hub/config.js` 
 
 ## Adding a game
 
-1. Read `docs/GAME_CONTRACT.md`.
-2. Build `games/<id>/index.html` (see `games/tessera/` for a complete example).
-3. Add it to `games/registry.js` with `status: 'beta'`.
-4. Fill in its page facts in the registry (`pitch`, `about`, `controls`, `saves`) and its search tags (`mechanics`, `moods`), and call `Arcade.progress()` if it keeps a run between visits.
-5. Add a key-art scene in `tools/make-art.cjs` and screenshot scenes in `tools/make-shots.cjs`, then run `node tools/make-art.cjs --game <id>` and `node tools/make-shots.cjs --game <id>`.
+1. Take its brief from `docs/CATALOGUE.md`, and read `docs/GAME_CONTRACT.md` and `docs/KIT.md`.
+2. Build `games/<id>/index.html` on the kit (`tools/kit-demo/index.html` is the reference), with its own look.
+3. Register its `art`, `shot1` and `shot2` scenes with `Arcade.scenes()` and its test hooks with `Arcade.test()`, and call `Arcade.progress()` if it keeps a run between visits.
+4. Run `node tools/game-check.cjs --game <id>` until every check passes, then `node tools/make-art.cjs --game <id>` and `node tools/make-shots.cjs --game <id>`.
+5. Add it to `games/registry.js` with `status: 'beta'`, its page facts (`pitch`, `about`, `controls`, `saves`) and its search tags (`mechanics`, `moods`).
 6. Run `npm test` until everything passes; `tools/detail-test.cjs` checks the page facts against the game's code, and `tools/discover-test.cjs` checks the moods agree with the game's collections.

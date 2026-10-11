@@ -1,5 +1,5 @@
 // Packs the hub and every playable game into one self-contained HTML file.
-// Games are embedded as iframe srcdoc, the SDK and registry are inlined, card art becomes data URIs.
+// Games are embedded as iframe srcdoc, the SDK, kit and registry are inlined, card art becomes data URIs.
 // Usage: node tools/bundle.cjs [--out dist/kiln.html] [--artifact]
 //   --artifact  also strips the document skeleton and PWA links (for hosts that add their own <head>).
 const fs = require('fs');
@@ -14,6 +14,10 @@ const ARTIFACT = args.includes('--artifact');
 
 const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const sdk = read('hub/sdk.js');
+// The kit is optional for older games; it is read only when a game loads it. Any spelling of its tag
+// (quotes, defer, spacing) is inlined; a reference left over would be a dead relative URL inside srcdoc.
+const kitTag = /<script\b[^>]*\bsrc=["']\.\.\/\.\.\/hub\/kit\.js["'][^>]*>\s*<\/script>/g;
+let kit = null;
 const config = read('hub/config.js');
 
 const sandbox = { window: {} };
@@ -31,6 +35,8 @@ for (const g of games) {
   const tag = '<script src="../../hub/sdk.js"></script>';
   if (!html.includes(tag)) throw new Error(`${g.id}: SDK script tag not found (${tag})`);
   html = html.replace(tag, () => inlineScript(sdk));
+  html = html.replace(kitTag, () => inlineScript(kit === null ? (kit = read('hub/kit.js')) : kit));
+  if (html.includes('hub/kit.js')) throw new Error(`${g.id}: hub/kit.js is referenced but not as <script src="../../hub/kit.js"></script>`);
   g.srcdoc = html;
   const dataUri = rel => {
     const c = path.join(ROOT, rel);
@@ -47,7 +53,9 @@ for (const g of games) {
 
 // JSON with every "<" escaped, so nothing inside can close the surrounding <script>.
 const json = v => JSON.stringify(v).replace(/</g, '\\u003c');
-const registry = 'window.KILN_GAMES = ' + json(games) + ';\nwindow.KILN_COLLECTIONS = ' + json(sandbox.window.KILN_COLLECTIONS || []) + ';';
+// Every other KILN_* global of the registry (collections, categories) goes in as it is.
+const registry = Object.keys(sandbox.window).filter(k => k.startsWith('KILN_'))
+  .map(k => `window.${k} = ${json(k === 'KILN_GAMES' ? games : sandbox.window[k])};`).join('\n');
 
 let hub = read('index.html');
 const swap = (from, to) => {

@@ -1,9 +1,21 @@
+/* Kiln's categories, in the order Home and Discover show them. icon names the hub's drawing for the category.
+ * A game's genre is its category's name. */
+window.KILN_CATEGORIES = [
+  { id: 'action', name: 'Action', icon: 'action' },
+  { id: 'adventure', name: 'Adventure', icon: 'adventure' },
+  { id: 'racing', name: 'Racing', icon: 'racing' },
+  { id: 'puzzle', name: 'Puzzle', icon: 'puzzle' },
+  { id: 'sports', name: 'Sports', icon: 'sports' },
+  { id: 'arcade', name: 'Arcade', icon: 'arcade' },
+];
+
 /* The games in the hub, in display order. Each entry points at a self-contained page under games/<id>/.
+ * genre: the name of one of KILN_CATEGORIES.
  * status: 'live' (polished), 'beta' (playable, still being tuned) or 'soon' (card only, not playable).
  * accent: a glaze token (--g1 ... --g6) used behind the card art while it loads.
  * artWide / artTall: card art rendered from the real game by tools/make-art.cjs (16:9 and 4:5).
  * added: date the game joined Kiln; drives the time-aware "New" label.
- * featured: the game shown in the feature card at the top of Home (one at a time).
+ * featured: shown in the carousel at the top of Home, in this order. Without any, Home features the first playable game.
  * Detail page (blueprint section 6), all of it checked against the game itself:
  * about: two to four sentences on the real loop and what makes it different.
  * controls: how it is played. saves: 'run' (keeps a run between visits) or 'best' (keeps only the best score).
@@ -22,6 +34,7 @@ window.KILN_GAMES = [
     status: 'live',
     path: 'games/tessera/index.html',
     added: '2026-10-09',
+    featured: true,
     artWide: 'games/tessera/art-wide.jpg',
     artTall: 'games/tessera/art-tall.jpg',
     shots: ['games/tessera/shot-1.jpg', 'games/tessera/shot-2.jpg'],
@@ -40,6 +53,7 @@ window.KILN_GAMES = [
     status: 'beta',
     path: 'games/goldmend/index.html',
     added: '2026-10-09',
+    featured: true,
     artWide: 'games/goldmend/art-wide.jpg',
     artTall: 'games/goldmend/art-tall.jpg',
     shots: ['games/goldmend/shot-1.jpg', 'games/goldmend/shot-2.jpg'],
@@ -58,6 +72,7 @@ window.KILN_GAMES = [
     status: 'beta',
     path: 'games/lariat/index.html',
     added: '2026-10-10',
+    featured: true,
     artWide: 'games/lariat/art-wide.jpg',
     artTall: 'games/lariat/art-tall.jpg',
     shots: ['games/lariat/shot-1.jpg', 'games/lariat/shot-2.jpg'],
@@ -88,7 +103,7 @@ window.KILN_GAMES = [
     id: 'span',
     title: 'Span',
     pitch: 'One canyon a day. Build the cheapest bridge that gets the truck across.',
-    genre: 'Builder',
+    genre: 'Puzzle',
     mechanics: ['Bridge building', 'Physics', 'Daily challenge'],
     accent: '--g4',
     status: 'soon',
@@ -96,8 +111,8 @@ window.KILN_GAMES = [
   },
 ];
 
-/* Editorial collections, in priority order. Home shows the first one that still has two playable games
- * once the featured game is left out, so no title is shown twice near the top.
+/* Editorial collections, in priority order. Home shows the first few that have two playable games; Discover
+ * shows them all.
  * why: one line that says why these games belong together. It must stay true of every game listed. */
 window.KILN_COLLECTIONS = [
   {
