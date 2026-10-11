@@ -837,7 +837,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       const place = G.finishOrder.length;
       sfx(place === 1 ? 'fanfare' : 'finish');
       Kit.music.duck(0.4, 900);
-      confetti(place <= 3 ? 70 : 24);
+      confetti(place === 1 ? 140 : place <= 3 ? 80 : 24);
       Kit.haptic(place === 1 ? [40, 60, 40, 60, 80] : [30, 40]);
       fx.flash('#fff3d1', 160, 0.3);
       const allHumansDone = G.cars.every(o => !o.human || o.done);
@@ -1692,9 +1692,18 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function paintRibbon(g, i0, n, dpr, elevated) {
     const N = TR.N, X = TR.X, Y = TR.Y;
     // drop shadow
-    shadowOn(g, dpr, elevated ? 16 : 7, elevated ? 12 : 4, elevated ? 18 : 6, elevated ? 0.6 : 0.6);
     g.strokeStyle = '#141418'; g.lineWidth = TW; g.lineCap = 'butt'; g.lineJoin = 'round';
-    polyPath(g, X, Y, i0, n); g.stroke();
+    if (elevated) {
+      // the deck's shadow grows with its height, so the ramps meet the ground softly
+      for (let q = 0; q < n; q += 4) {
+        const k = Math.min(5, n - q), hh = TR.hgt[(i0 + q + 2) % N];
+        shadowOn(g, dpr, 4 + 12 * hh, 3 + 9 * hh, 4 + 14 * hh, 0.35 + 0.25 * hh);
+        polyPath(g, X, Y, (i0 + q) % N, k); g.stroke();
+      }
+    } else {
+      shadowOn(g, dpr, 7, 4, 6, 0.6);
+      polyPath(g, X, Y, i0, n); g.stroke();
+    }
     shadowOff(g);
     // plastic body with a bevel
     g.strokeStyle = '#1d1d22'; g.lineWidth = TW - 5; polyPath(g, X, Y, i0, n); g.stroke();
@@ -1785,30 +1794,30 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const N = TR.N;
     if (TR.loop) paintLoop(g, dpr);
     for (const [i0, n] of groundRanges()) paintRibbon(g, i0, n, dpr, false);
-    // crossovers: diagonal slots between neighbouring lanes
+    // crossovers: a tin switch plate with S-shaped slots between neighbouring lanes
     for (const co of TR.crossovers) {
-      const a = co.i, b = (co.i + co.n) % N;
-      for (let l = 0; l < 3; l++) {
-        const A = TR.lanes[l], B = TR.lanes[l + 1];
-        for (const [P, Q] of [[A, B], [B, A]]) {
-          g.strokeStyle = '#c47a45'; g.lineWidth = 4.4; g.lineCap = 'round';
-          g.beginPath(); g.moveTo(P.x[a], P.y[a]); g.bezierCurveTo(lerp(P.x[a], Q.x[b], 0.5), lerp(P.y[a], P.y[b], 0.5), lerp(P.x[a], Q.x[b], 0.5), lerp(Q.y[a], Q.y[b], 0.5), Q.x[b], Q.y[b]); g.stroke();
-        }
-      }
-      for (let l = 0; l < 3; l++) {
-        const A = TR.lanes[l], B = TR.lanes[l + 1];
-        for (const [P, Q] of [[A, B], [B, A]]) {
-          g.strokeStyle = '#060606'; g.lineWidth = 1.9;
-          g.beginPath(); g.moveTo(P.x[a], P.y[a]); g.bezierCurveTo(lerp(P.x[a], Q.x[b], 0.5), lerp(P.y[a], P.y[b], 0.5), lerp(P.x[a], Q.x[b], 0.5), lerp(Q.y[a], Q.y[b], 0.5), Q.x[b], Q.y[b]); g.stroke();
-        }
+      const a = co.i, b = (co.i + co.n) % N, m = (co.i + (co.n >> 1)) % N;
+      const quad = (i0, i1, o0, o1) => {
+        g.beginPath();
+        for (let q = 0; q <= co.n; q++) { const i = (i0 + q) % N, nx = -TR.TY[i] * TR.S, ny = TR.TX[i] * TR.S; const x = TR.X[i] + nx * o0, y = TR.Y[i] + ny * o0; if (!q) g.moveTo(x, y); else g.lineTo(x, y); }
+        for (let q = co.n; q >= 0; q--) { const i = (i0 + q) % N, nx = -TR.TY[i] * TR.S, ny = TR.TX[i] * TR.S; g.lineTo(TR.X[i] + nx * o1, TR.Y[i] + ny * o1); }
+        g.closePath();
+      };
+      g.fillStyle = '#2c2c34'; quad(a, b, HALF - 6, -HALF + 6); g.fill();
+      g.strokeStyle = 'rgba(232,177,58,0.8)'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
+      const sCurve = (P, Q) => { g.beginPath(); g.moveTo(P.x[a], P.y[a]); g.bezierCurveTo(P.x[m], P.y[m], Q.x[m], Q.y[m], Q.x[b], Q.y[b]); g.stroke(); };
+      g.lineCap = 'round';
+      for (const [col, wd] of [['#8a4f28', 5.2], ['#c47a45', 4], ['#060606', 1.7]]) {
+        g.strokeStyle = col; g.lineWidth = wd;
+        for (let l = 0; l < 3; l++) { sCurve(TR.lanes[l], TR.lanes[l + 1]); sCurve(TR.lanes[l + 1], TR.lanes[l]); }
       }
       g.lineCap = 'butt';
-      // printed arrows on the shoulder
-      const m = (co.i + (co.n >> 1)) % N, nx = -TR.TY[m] * TR.S, ny = TR.TX[m] * TR.S;
+      // printed arrows on the shoulders
+      const nx = -TR.TY[m] * TR.S, ny = TR.TX[m] * TR.S;
       for (const side of [1, -1]) {
-        g.fillStyle = '#e8b13a';
         const cx = TR.X[m] + nx * side * (HALF - 3), cy = TR.Y[m] + ny * side * (HALF - 3);
-        g.beginPath(); g.arc(cx, cy, 2.2, 0, TAU); g.fill();
+        g.fillStyle = '#e8b13a'; g.beginPath(); g.arc(cx, cy, 2.4, 0, TAU); g.fill();
+        g.fillStyle = '#23395b'; g.beginPath(); g.arc(cx, cy, 1, 0, TAU); g.fill();
       }
     }
     // start / finish chequers
@@ -2166,7 +2175,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const motes = [];
   for (let k = 0; k < 28; k++) motes.push({ x: Math.random(), y: Math.random(), z: Math.random(), ph: Math.random() * 6 });
 
-  const PERF = new URLSearchParams(location.search).get('perf') || '';
   function draw() {
     if (layoutDirty) doLayout();
     const w = view.w, h = view.h, t = loop.time;
@@ -2181,10 +2189,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctx.translate(zx, zy); ctx.scale(z, z); ctx.translate(-zx, -zy);
     }
     ctx.translate(fx.shakeX || 0, fx.shakeY || 0);
-    if (!PERF.includes('s')) ctx.drawImage(staticCv, 0, 0, w, h);
+    ctx.drawImage(staticCv, 0, 0, w, h);
     ctx.save();
     worldTransform(ctx);
-    if (!PERF.includes('g')) drawGlow();
+    drawGlow();
     drawGhost();
     // ground-level cars (and tumbling ones), then the bridge layer, then raised cars
     const low = [], high = [];
@@ -2194,7 +2202,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       else low.push(c);
     }
     for (const c of G.cars) if (c.part && c.state !== 'slot') drawPart(c.part);
-    if (!PERF.includes('c')) for (const c of low) drawCar(c);
+    for (const c of low) drawCar(c);
     ctx.restore();
     if (overCv && overBox) {
       // only the part of the elevated layer that holds anything (bridge, gantry)
@@ -2212,8 +2220,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.restore();
     ctx.restore();
     // ambient: dust in the lamp light, a moth's shadow, a flicker
-    if (!PERF.includes('a')) drawAmbient(w, h, t);
-    if (!Kit.keyart && mode === 'play' && !PERF.includes('h')) drawHud(w, h, t);
+    drawAmbient(w, h, t);
+    if (!Kit.keyart && mode === 'play') drawHud(w, h, t);
   }
 
   function drawAmbient(w, h, t) {
@@ -2656,20 +2664,16 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
   function fxFloatAt(c, txt, color, size) {
     if (Kit.keyart || G.attract) return;
-    fx.float(txt, c.x, c.y - 18, { color: color || '#fff', size: (size || 13) / L.sc * 0.9, stroke: 'rgba(0,0,0,0.6)', font: 'display', weight: 800 });
+    fx.float(txt, c.x, c.y - 18, { color: color || '#fff', size: (size || 13) / L.sc, stroke: 'rgba(20,10,4,0.85)', font: 'display', weight: 800, ms: 1300 });
   }
+  // paper-punch confetti: tin-coloured dots drifting down over the whole bench
   function confetti(n) {
-    if (Kit.reducedMotion) n = Math.min(n, 16);
-    const a = toWorld(0, -10), b = toWorld(view.w, -10);
+    if (Kit.reducedMotion) n = Math.min(n, 18);
+    const down = L.land ? Math.PI : Math.PI / 2;
+    const cols = ['#d43d2f', '#f3e3c3', '#e8b13a', '#2f5d9e', '#4f9a78', '#ffffff'];
     for (let k = 0; k < n; k++) {
-      const u = Math.random();
-      fx.burst(lerp(a.x, b.x, u), lerp(a.y, b.y, u), { count: 1, color: ['#d43d2f', '#f3e3c3', '#e8b13a', '#2f5d9e', '#4f9a78'], shape: 'circle', speed: [10, 60], angle: L.land ? Math.PI : Math.PI / 2, spread: 0.6, gravity: 0, life: [1.6, 2.6], size: [2, 3.5], drag: 0.2 });
-    }
-    // falling paper punches
-    for (let k = 0; k < n; k++) {
-      const u = Math.random();
-      const p = toWorld(view.w * u, -20 - Math.random() * view.h * 0.4);
-      fx.burst(p.x, p.y, { count: 1, color: ['#d43d2f', '#f3e3c3', '#e8b13a', '#2f5d9e'], shape: 'circle', speed: [0, 20], gravity: 0, life: [2.2, 3.2], size: [2, 3.2], drag: 0 });
+      const p = toWorld(view.w * Math.random(), -10 - Math.random() * view.h * 0.5);
+      fx.burst(p.x, p.y, { count: 1, color: cols, shape: k % 3 ? 'circle' : 'square', speed: [50, 110], angle: down, spread: 0.5, gravity: 0, life: [2.6, 3.8], size: [2.4, 4.2], sizeEnd: 0.8, drag: 0.05, spin: [-6, 6] });
     }
     sfx('pop');
   }
