@@ -37,7 +37,7 @@ Every push to `main` (or a `claude/*` branch) also publishes
 | Work | State |
 | --- | --- |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
-| Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | In progress |
+| Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | In progress: Scrapwing and Pipistrelle built and in playtest (each ships as soon as it passes); Tinplate GP part-built; the other three not started |
 | Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Not started (after batch 1) |
 | Batches 2 to 10 | Not started; line-ups in `docs/CATALOGUE.md` |
 
