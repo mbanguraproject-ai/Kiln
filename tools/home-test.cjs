@@ -100,7 +100,7 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
     const f = document.querySelector('#heroTrack .feature');
     return { pill: f.querySelector('.feature-pill').textContent, star: !!f.querySelector('.feature-pill svg'), title: f.querySelector('.feature-title').textContent, cta: f.querySelector('.feature-cta').textContent, art: !!f.querySelector('.feature-art img') };
   });
-  check(slide.pill === 'Featured' && slide.star && slide.title === 'Tessera' && slide.cta === 'Play Now' && slide.art, 'a slide: art, FEATURED pill with a star, title and Play Now', JSON.stringify(slide));
+  check(slide.pill === 'Featured' && slide.star && slide.title === reg.firstTitle && slide.cta === 'Play Now' && slide.art, 'a slide: art, FEATURED pill with a star, title and Play Now', JSON.stringify(slide));
   check(h.cats.join() === ['All Games*'].concat(reg.cats).join(), 'category tiles: All Games selected, then each category with games, in order', h.cats.join());
   check(await page.evaluate(() => [...document.querySelectorAll('#chips .cat')].every(c => c.querySelector('svg.ico'))), 'every category tile has its icon');
   check(!h.blocks.some(b => b.id === 'continue'), 'no Continue playing before anything was played');
@@ -177,35 +177,45 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   await page.goBack();
   await page.waitForTimeout(250);
 
-  // ---- Continue playing: a game without saves
-  await page.click('.game-card[data-shelf="picks"][data-id="lariat"]');
+  // ---- Continue playing: a game without saves, the first one Top picks shows (a 'best' game keeps no run, so its card can
+  // only say "Played today"). Picks change as the catalogue grows, so the test takes whichever game is there.
+  const pickOf = (exclude) => page.evaluate(ex => {
+    const shown = [...document.querySelectorAll('.game-card[data-shelf="picks"]')].map(c => c.dataset.id).filter(id => id !== ex);
+    const best = shown.find(id => (window.__kiln.GAMES.find(g => g.id === id) || {}).saves === 'best');
+    const g = window.__kiln.GAMES.find(x => x.id === (best || shown[0]));
+    return { id: g.id, title: g.title, genre: g.genre };
+  }, exclude || '');
+  const first = await pickOf();
+  await page.click(`.game-card[data-shelf="picks"][data-id="${first.id}"]`);
   await page.waitForTimeout(200);
-  await page.click('#detail [data-play="lariat"]');
+  await page.click(`#detail [data-play="${first.id}"]`);
   await page.waitForTimeout(900);
   evs = await events(page);
   const opened = evs.filter(e => e.ev === 'game_detail_open').pop();
   let launch = evs.filter(e => e.ev === 'game_launch').pop();
-  check(opened && opened.game === 'lariat' && opened.source === 'picks', 'opening a game\'s page records the shelf it came from', opened && opened.source);
-  check(launch && launch.game === 'lariat' && launch.shelf === 'detail' && launch.origin === 'picks', 'a launch from the page keeps the shelf that led there', launch && `${launch.shelf} / ${launch.origin}`);
+  check(opened && opened.game === first.id && opened.source === 'picks', 'opening a game\'s page records the shelf it came from', opened && opened.source);
+  check(launch && launch.game === first.id && launch.shelf === 'detail' && launch.origin === 'picks', 'a launch from the page keeps the shelf that led there', launch && `${launch.shelf} / ${launch.origin}`);
   await page.click('#backBtn');
   await page.waitForTimeout(300);
   await page.click('#detailBack');
   await page.waitForTimeout(300);
   h = await readHome(page);
   let c = h.cont[0];
-  check(h.blocks[0].id === 'continue' && h.blocks[0].more && h.cont.length === 1 && c.id === 'lariat', 'Continue playing appears first, with only the game just played', h.cont.map(x => x.id).join());
-  check(c.artFirst && c.genre === 'Arcade' && c.icon && c.meta === 'Played today' && !c.pct && c.buttons === 0,
+  check(h.blocks[0].id === 'continue' && h.blocks[0].more && h.cont.length === 1 && c.id === first.id, 'Continue playing appears first, with only the game just played', h.cont.map(x => x.id).join());
+  check(c.artFirst && c.genre === first.genre && c.icon && c.meta === 'Played today' && !c.pct && c.buttons === 0,
     'a Continue card: art on top, category icon and name, an honest "Played today", no bar and no play button', JSON.stringify(c));
-  check(h.blocks[1].id === 'picks' && h.blocks[1].title === 'Picked for you' && h.blocks[1].cards[h.blocks[1].cards.length - 1] === 'lariat',
-    'Top picks becomes Picked for you, with played games only filling in at the end', h.blocks[1].title + ': ' + h.blocks[1].cards.join());
-  check(await page.getAttribute('#playFab', 'aria-label') === 'Play Lariat', 'the Play button now resumes the game played last');
+  // A played game may only fill in after every unplayed one, so with enough unplayed games it is left out.
+  const picked = h.blocks[1].cards, at = picked.indexOf(first.id);
+  check(h.blocks[1].id === 'picks' && h.blocks[1].title === 'Picked for you' && picked.length > 0 && (at === -1 || at === picked.length - 1),
+    'Top picks becomes Picked for you, with played games only filling in at the end', h.blocks[1].title + ': ' + picked.join());
+  check(await page.getAttribute('#playFab', 'aria-label') === `Play ${first.title}`, 'the Play button now resumes the game played last');
 
   // Tapping the card launches the game straight away, from the continue shelf
-  await page.click('#feed .cont[data-id="lariat"]');
+  await page.click(`#feed .cont[data-id="${first.id}"]`);
   await page.waitForTimeout(700);
   evs = await events(page);
   launch = evs.filter(e => e.ev === 'game_launch').pop();
-  check(await page.evaluate(() => window.__kiln.game) === 'lariat' && !(await page.evaluate(() => window.__kiln.detail)) && launch.shelf === 'continue',
+  check(await page.evaluate(() => window.__kiln.game) === first.id && !(await page.evaluate(() => window.__kiln.detail)) && launch.shelf === 'continue',
     'tapping a Continue card launches the game, logged from the continue shelf', launch && launch.shelf);
   await page.goBack();
   await page.waitForTimeout(300);
@@ -213,7 +223,7 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   await page.click('#playFab');
   await page.waitForTimeout(700);
   launch = (await events(page)).filter(e => e.ev === 'game_launch').pop();
-  check(await page.evaluate(() => window.__kiln.game) === 'lariat' && launch.shelf === 'play-button', 'the Play button launches the game played last', launch && launch.shelf);
+  check(await page.evaluate(() => window.__kiln.game) === first.id && launch.shelf === 'play-button', 'the Play button launches the game played last', launch && launch.shelf);
   await page.goBack();
   await page.waitForTimeout(300);
   await page.click('#feed [data-block="continue"] .more-link');
@@ -223,26 +233,27 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   await page.waitForTimeout(250);
 
   // ---- A real percentage: the game reports one through the SDK message, and only then is there a bar
-  await page.click('.game-card[data-shelf="picks"][data-id="goldmend"]');
+  const second = (await pickOf(first.id)).id;
+  await page.click(`.game-card[data-shelf="picks"][data-id="${second}"]`);
   await page.waitForTimeout(200);
-  await page.click('#detail [data-play="goldmend"]');
+  await page.click(`#detail [data-play="${second}"]`);
   await page.waitForTimeout(900);
-  await page.frameLocator('#player iframe').locator('body').evaluate(() => parent.postMessage({ kiln: 1, type: 'progress', id: 'goldmend', progress: { label: 'Level 7', pct: 23 } }, '*'));
+  await page.frameLocator('#player iframe').locator('body').evaluate((b, id) => parent.postMessage({ kiln: 1, type: 'progress', id, progress: { label: 'Level 7', pct: 23 } }, '*'), second);
   await page.waitForTimeout(100);
   await page.goBack();
   await page.waitForTimeout(200);
   await page.goBack();
   await page.waitForTimeout(300);
   h = await readHome(page);
-  c = h.cont.find(x => x.id === 'goldmend');
-  check(h.cont[0].id === 'goldmend' && c.pct === '23%' && c.bar === '23%' && !c.meta && /23% complete/.test(c.label), 'a reported percentage shows a bar and its number', JSON.stringify(c));
+  c = h.cont.find(x => x.id === second);
+  check(h.cont[0].id === second && c.pct === '23%' && c.bar === '23%' && !c.meta && /23% complete/.test(c.label), 'a reported percentage shows a bar and its number', JSON.stringify(c));
   // Stored by the SDK on the phone: read back after a restart, and kept within 0..100
-  await page.evaluate(() => localStorage.setItem('kiln:goldmend:progress', JSON.stringify({ label: 'Level 31', pct: 140, ts: Date.now() })));
+  await page.evaluate(id => localStorage.setItem(`kiln:${id}:progress`, JSON.stringify({ label: 'Level 31', pct: 140, ts: Date.now() })), second);
   await page.reload();
   await page.waitForTimeout(500);
-  c = (await readHome(page)).cont.find(x => x.id === 'goldmend');
+  c = (await readHome(page)).cont.find(x => x.id === second);
   check(c && c.pct === '100%' && c.bar === '100%', 'a stored percentage is read back and kept within 0 to 100', c && c.pct);
-  await page.evaluate(() => localStorage.removeItem('kiln:goldmend:progress'));
+  await page.evaluate(id => localStorage.removeItem(`kiln:${id}:progress`), second);
 
   // ---- Crosswake keeps a run between visits; drop stones in it (standalone, which also counts as a launch)
   const game = await newPage(ctx);
@@ -300,7 +311,7 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   await page.waitForTimeout(500);
   h = await readHome(page);
   check(score >= 0 && h.cont[0].id === 'tessera' && h.cont[0].meta === `Score ${score} · today`, 'Tessera mid-game shows its score', JSON.stringify(h.cont[0]));
-  check(h.cont.map(x => x.id).sort().join() === 'crosswake,goldmend,lariat,tessera', 'Continue playing lists only games that were launched', h.cont.map(x => x.id).join());
+  check(h.cont.map(x => x.id).sort().join() === [...new Set([first.id, second, 'crosswake', 'tessera'])].sort().join(), 'Continue playing lists only games that were launched', h.cont.map(x => x.id).join());
   await ctx.close();
 
   // ---- Auto-advance (sped up with heroMs): moves on by itself, and stops for good once the player touches it
@@ -351,7 +362,8 @@ const events = page => page.evaluate(() => window.__kiln.Log.all());
   await p2.waitForTimeout(500);
   h = await readHome(p2);
   check(h.labels.tessera === 'New' && h.labels.crosswake === 'New' && !h.labels.goldmend && !h.labels.lariat, 'only games newer than the rest are labelled New', JSON.stringify(h.labels));
-  check(h.cats.join() === 'All Games*,Action,Puzzle,Arcade', 'category tiles follow the category order', h.cats.join());
+  const tiles = await p2.evaluate(() => window.KILN_CATEGORIES.map(c => c.name).filter(n => window.__kiln.GAMES.some(g => g.genre === n && g.status !== 'soon')));
+  check(h.cats.join() === ['All Games*', ...tiles].join(), 'category tiles follow the category order', h.cats.join());
   const action = h.blocks.find(b => b.id === 'genre-action');
   const above = new Set(h.blocks.slice(0, h.blocks.indexOf(action)).flatMap(b => b.cards));
   check(action && action.more && action.cards.length >= 2 && action.cards.every(id => !above.has(id)), 'a category shelf takes games not shown above it, with View all', action && action.cards.join());

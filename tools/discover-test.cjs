@@ -31,6 +31,18 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const GAMES = sb.window.KILN_GAMES;
   const COLLECTIONS = sb.window.KILN_COLLECTIONS;
   const playable = GAMES.filter(g => g.status !== 'soon');
+  // Expected results for searches that match a whole group, derived from the registry so they stay true as the catalogue
+  // grows: matches tie on score, so they come in catalogue order, coming-soon games last.
+  const ids = list => list.filter(g => g.status !== 'soon').concat(list.filter(g => g.status === 'soon')).map(g => g.id).join();
+  const tagged = (field, tag) => ids(GAMES.filter(g => (g[field] || []).some(t => t.toLowerCase() === tag.toLowerCase())));
+  const ofGenre = genre => ids(GAMES.filter(g => g.genre === genre));
+  const keyboardGames = ids(playable.filter(g => /keyboard/i.test(g.controls || '')));
+  const collectionGames = id => ids(GAMES.filter(g => (COLLECTIONS.find(c => c.id === id) || { games: [] }).games.includes(g.id)));
+  // Discover's filters: each category with playable games, in category order, then keyboard play when it splits the catalogue.
+  const kbCount = playable.filter(g => /keyboard/i.test(g.controls || '')).length;
+  const filterNames = sb.window.KILN_CATEGORIES.map(c => c.name).filter(n => playable.some(g => g.genre === n))
+    .concat(kbCount > 0 && kbCount < playable.length ? ['Keyboard'] : []);
+  const filtersWith = on => filterNames.map(n => n + (on.includes(n) ? '*' : '')).join();
   for (const g of GAMES) {
     const mech = g.mechanics || [], moods = g.moods || [];
     const tags = mech.concat(moods);
@@ -92,7 +104,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   let s = await state();
   check(s.tab === 'discover' && await page.evaluate(() => document.activeElement.id) === 'q', 'the search button on Home opens Discover with the search field ready', JSON.stringify(s));
   let d = await readDiscover();
-  check(d.filters.join() === 'Puzzle,Arcade,Keyboard', 'filters: the real genres and keyboard play, nothing every game shares', d.filters.join());
+  check(d.filters.join() === filtersWith([]), 'filters: the real genres and keyboard play, nothing every game shares', d.filters.join());
   const collections = COLLECTIONS.filter(c => c.games.filter(id => playable.some(g => g.id === id)).length >= 2).map(c => 'discover-' + c.id);
   check(d.blocks.join() === collections.concat('all').join(), 'with nothing typed: every collection, then all games', d.blocks.join());
   const everyGame = playable.map(g => g.id).concat(GAMES.filter(g => g.status === 'soon').map(g => g.id));
@@ -115,23 +127,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ['cro', 'crosswake'],
     ['tesera', 'tessera'],
     ['goldmned', 'goldmend'],
-    ['fats', 'goldmend,lariat'],
-    ['block', 'tessera'],
-    ['tense', 'goldmend'],
+    ['fats', tagged('moods', 'Fast')],
+    ['block', tagged('mechanics', 'Block puzzle')],
+    ['tense', tagged('moods', 'Tense')],
     ['crosswkae', 'crosswake'],
     ['lariet', 'lariat'],
     // Span (coming soon) is a puzzle game too; it is found, after every game that can be played now.
-    ['puzzle', 'tessera,crosswake,span'],
-    ['puzle', 'tessera,crosswake,span'],
-    ['arcade', 'goldmend,lariat'],
-    ['calm', 'crosswake'],
-    ['relaxing', 'tessera'],
-    ['fast games', 'goldmend,lariat'],
-    ['drawing', 'goldmend,lariat'],
-    ['loops', 'lariat'],
-    ['no clock', 'tessera,crosswake'],
-    ['one more run', 'goldmend,lariat'],
-    ['keyboard', 'tessera,lariat'],
+    ['puzzle', ofGenre('Puzzle')],
+    ['puzle', ofGenre('Puzzle')],
+    ['arcade', ofGenre('Arcade')],
+    ['calm', tagged('moods', 'Calm')],
+    ['relaxing', tagged('moods', 'Relaxed')],
+    ['fast games', tagged('moods', 'Fast')],
+    ['drawing', tagged('mechanics', 'Drawing')],
+    ['loops', tagged('mechanics', 'Loops')],
+    ['no clock', tagged('moods', 'No clock')],
+    ['one more run', collectionGames('one-more-run')],
+    ['keyboard', keyboardGames],
     ['offline', playable.map(g => g.id).join()],
     ['bridge', 'span'],
   ];
@@ -206,7 +218,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await wait(150);
   d = await readDiscover();
   const checkShown = await page.evaluate(() => getComputedStyle(document.querySelector('#filters .chip[aria-pressed="true"] svg')).display !== 'none');
-  check(d.rows.join() === 'tessera,crosswake,span' && d.filters.join() === 'Puzzle*,Arcade,Keyboard' && d.heading === '2 games · 1 coming soon' && d.headAction === 'Clear filters', 'Puzzle shows the puzzle games, coming soon last, with Clear filters', `${d.rows.join()} / ${d.filters.join()} / ${d.heading}`);
+  const puzzles = GAMES.filter(g => g.genre === 'Puzzle'), soonPuzzles = puzzles.filter(g => g.status === 'soon').length;
+  const puzzleHeading = `${puzzles.length - soonPuzzles} games` + (soonPuzzles ? ` · ${soonPuzzles} coming soon` : '');
+  check(d.rows.join() === ofGenre('Puzzle') && d.filters.join() === filtersWith(['Puzzle']) && d.heading === puzzleHeading && d.headAction === 'Clear filters', 'Puzzle shows the puzzle games, coming soon last, with Clear filters', `${d.rows.join()} / ${d.filters.join()} / ${d.heading}`);
   check(checkShown, 'a chosen filter shows a check mark, not colour alone');
   await page.click('#filters [data-filter="keyboard"]');
   await wait(150);
@@ -215,7 +229,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await page.click('#filters [data-filter="genre:Arcade"]');
   await wait(150);
   d = await readDiscover();
-  check(d.rows.join() === 'lariat' && d.filters.join() === 'Puzzle,Arcade*,Keyboard*', 'picking another genre replaces the first', `${d.rows.join()} / ${d.filters.join()}`);
+  check(d.rows.join() === ids(playable.filter(g => g.genre === 'Arcade' && /keyboard/i.test(g.controls || ''))) && d.filters.join() === filtersWith(['Arcade', 'Keyboard']), 'picking another genre replaces the first', `${d.rows.join()} / ${d.filters.join()}`);
   evs = await events();
   check(evs.some(e => e.ev === 'filter_change' && e.filter === 'genre' && e.value === 'Arcade') && evs.some(e => e.ev === 'filter_change' && e.filter === 'input' && e.on === true), 'filter changes are logged');
   await page.click('#discoverBody .results-head .text-btn');
@@ -229,7 +243,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await page.click('#discoverBody [data-block="empty"] .chip[data-genre="Arcade"]');
   await wait(150);
   d = await readDiscover();
-  check((await state()).query === '' && d.rows.join() === 'goldmend,lariat' && d.filters.join() === 'Puzzle,Arcade*,Keyboard', 'a genre offered there clears the search and shows that genre', `${d.rows.join()} / ${d.filters.join()}`);
+  check((await state()).query === '' && d.rows.join() === ofGenre('Arcade') && d.filters.join() === filtersWith(['Arcade']), 'a genre offered there clears the search and shows that genre', `${d.rows.join()} / ${d.filters.join()}`);
   d = await type('tessera');
   check(d.empty === 'No games match “tessera”' && /^1 game matches without your filters/.test(d.emptyText), 'when filters hide the matches, the page says how many', d.emptyText);
   await page.click('#discoverBody [data-block="empty"] .btn');

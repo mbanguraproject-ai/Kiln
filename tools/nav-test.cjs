@@ -98,22 +98,23 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   check(await scrollOf('home') > 0, 'Home is still where it was after visiting Discover and Library');
   await scrollTo('home', 0);
 
-  // Card, game page, game, sheet, then Back through all of them
-  await tap('.game-card[data-shelf="picks"][data-id="lariat"]');
+  // Card, game page, game, sheet, then Back through all of them, with whichever game Top picks shows first.
+  const pick = await page.$eval('.game-card[data-shelf="picks"]', c => c.dataset.id);
+  await tap(`.game-card[data-shelf="picks"][data-id="${pick}"]`);
   s = await state();
-  check(s.detail === 'lariat' && !s.game, 'a card opens the game\'s page, not the game', JSON.stringify(s));
-  await tap('#detail [data-play="lariat"]');
+  check(s.detail === pick && !s.game, 'a card opens the game\'s page, not the game', JSON.stringify(s));
+  await tap(`#detail [data-play="${pick}"]`);
   await page.waitForTimeout(500);
   s = await state();
-  check(s.game === 'lariat' && await page.locator('#backLabel').textContent() === 'Details', 'Play on the page launches the game, with Back to Details');
+  check(s.game === pick && await page.locator('#backLabel').textContent() === 'Details', 'Play on the page launches the game, with Back to Details');
   await tap('#playerSettingsBtn');
   check((await state()).sheet, 'the in-game settings sheet opens');
   await back();
   s = await state();
-  check(!s.sheet && s.game === 'lariat', 'Back closes the sheet and leaves the game open', JSON.stringify(s));
+  check(!s.sheet && s.game === pick, 'Back closes the sheet and leaves the game open', JSON.stringify(s));
   await back();
   s = await state();
-  check(!s.game && s.detail === 'lariat', 'Back closes the game and returns to its page', JSON.stringify(s));
+  check(!s.game && s.detail === pick, 'Back closes the game and returns to its page', JSON.stringify(s));
   await back();
   s = await state();
   check(!s.detail && s.tab === 'home', 'Back again returns Home', JSON.stringify(s));
@@ -127,13 +128,13 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   check(rows === 1 && /Played today/.test(meta), 'Library lists the game just played', `${rows} row, "${meta}"`);
   await tap('.lib-row .lib-open');
   s = await state();
-  check(s.detail === 'lariat', 'a Library row opens the game\'s page');
+  check(s.detail === pick, 'a Library row opens the game\'s page');
   await back();
   check(!(await state()).detail && (await state()).tab === 'library', 'Back from the page returns to Library');
   await tap('.lib-row .lib-play');
   await page.waitForTimeout(400);
   const label = await page.locator('#backLabel').textContent();
-  check((await state()).game === 'lariat' && label === 'Library', 'a game opened from Library offers Back to Library', label);
+  check((await state()).game === pick && label === 'Library', 'a game opened from Library offers Back to Library', label);
   await tap('#backBtn');
   await page.waitForTimeout(150);
   s = await state();
