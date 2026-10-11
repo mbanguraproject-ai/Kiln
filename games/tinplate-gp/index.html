@@ -106,7 +106,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const OFFS = [22.5, 7.5, -7.5, -22.5];          // lane offsets toward the inside of the circuit
   const HALF = 32, TW = 64;                        // track half width and width
   const DS = 4;                                    // sample spacing
-  let GRIP = 400, VTOP = 360, ACC = 470, BRAKE = 560, ROLL = 10;
+  let GRIP = 400, VTOP = 360, ACC = 470, BRAKE = 440, ROLL = 10;
+  const LANE_GRIP = [0.86, 0.95, 1.05, 1.14];         // inside lanes are shorter but hold less speed
   const SLIP_T = 0.12;
   const LOOP_RV = 30, LOOP_VMIN = 205, LOOP_G = LOOP_VMIN * LOOP_VMIN / (5 * LOOP_RV), LOOP_RING = 40;
   const J_RAMP = 28, J_GAP = 34, J_LAND = 28, J_LO = 170, J_HI = 300;
@@ -486,7 +487,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
   const tmpA = { x: 0, y: 0 }, tmpB = { x: 0, y: 0 };
 
-  function vlim(c, lane, i) { return Math.sqrt(GRIP * c.model.grip * TR.gm[i] * TR.lanes[lane].R[i]); }
+  function vlim(c, lane, i) { return Math.sqrt(GRIP * LANE_GRIP[lane] * c.model.grip * TR.gm[i] * TR.lanes[lane].R[i]); }
   // fastest speed now that can still brake down to every limit ahead
   function brakeLimit(c, lane, margin) {
     const L = TR.lanes[lane], N = TR.N, B = BRAKE * (margin || 1);
@@ -1068,7 +1069,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function pickP2Car() { const u = CARS.filter(c => c.id !== selCar && isUnlocked(c)); return (u[0] || CARS.find(c => c.id !== selCar)).id; }
   function beginRace() {
     const cfg = raceConfig(CH.cup, CH.race, CH.seed);
-    const skillBase = Math.min(0.985, 0.86 + 0.018 * CH.race + 0.012 * Math.min(CH.cup, 3));
+    const skillBase = Math.min(0.98, 0.76 + 0.04 * Math.min(CH.cup, 4) + 0.02 * CH.race);
     // the player rotates through the middle lanes; AI fills the rest
     const humanLane = [1, 2, 1, 2, 1, 2][CH.race];
     const lanes = [humanLane];
@@ -2255,7 +2256,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const glowBuckets = Array.from({ length: 12 }, () => ({ n: 0, pts: new Float32Array(300) }));
   // What lies ahead in your lane, sample by sample: 0 green (fine), 1 amber (let go now: a moment's
   // delay and you will be too fast for what is coming), 2 red (too fast even braking now).
-  let REACT = 0.2, RAMP = 0.3;
+  let REACT = 0.14, RAMP = 0.3;
   const glowOut = { n: 0, j: new Int32Array(80), lvl: new Uint8Array(80), fi: new Uint8Array(80) };
   function laneOutlook(c, out) {
     const Ln = TR.lanes[c.lane], N = TR.N, m = c.model;
