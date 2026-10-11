@@ -2180,7 +2180,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const lx = w * LAMP.fx, ly = h * LAMP.fy;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    gfx.light(ctx, lx, ly, Math.max(w, h) * 0.55, '#ffcf7a', 0.06 + Math.sin(t * 7.3) * 0.006 + Math.sin(t * 1.3) * 0.01);
     const R = Math.min(w, h) * 0.55;
     for (const m of motes) {
       const a = m.ph + t * (0.05 + m.z * 0.08);
@@ -2214,6 +2213,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
 
   // Your lane ahead glows green, amber, red: the colour says whether you can still brake for what is coming.
+  const GLOW_COL = ['rgba(120,235,140,', 'rgba(255,176,50,', 'rgba(255,70,45,'];
+  const glowBuckets = Array.from({ length: 12 }, () => ({ n: 0, pts: new Float32Array(300) }));
   function drawGlow() {
     if (G.attract || Kit.keyart) return;
     for (const c of G.cars) {
@@ -2222,22 +2223,34 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       let i = c.i, d = -c.f * (Ln.cum[i + 1] - Ln.cum[i]);
       const reach = 70 + c.v * 0.55;
       let worst = 0;
-      ctx.lineCap = 'round';
-      ctx.globalCompositeOperation = 'lighter';
+      // segments bucketed by colour and fade step: a dozen strokes instead of seventy
+      for (const bk of glowBuckets) bk.n = 0;
       let px = c.x, py = c.y;
       for (let k = 0; k < 70 && d < reach; k++) {
         const j = (i + 1) % N;
         const vb = Math.sqrt(Math.max(0, c.v * c.v - 2 * BRAKE * Math.max(0, d)));
         const ratio = vb / vlim(c, c.lane, j);
         worst = Math.max(worst, ratio);
-        const col = ratio > 1.0 ? [255, 70, 45] : ratio > 0.9 ? [255, 176, 50] : [120, 235, 140];
-        const a = (1 - d / reach) * (ratio > 0.9 ? 0.75 : 0.32);
-        ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${a.toFixed(3)})`;
-        ctx.lineWidth = ratio > 0.9 ? 6.5 : 4.5;
-        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(Ln.x[j], Ln.y[j]); ctx.stroke();
+        const ci = ratio > 1.0 ? 2 : ratio > 0.9 ? 1 : 0;
+        const fi = Math.min(3, Math.floor(d / reach * 4));
+        const bk = glowBuckets[ci * 4 + fi];
+        bk.pts[bk.n++] = px; bk.pts[bk.n++] = py; bk.pts[bk.n++] = Ln.x[j]; bk.pts[bk.n++] = Ln.y[j];
         px = Ln.x[j]; py = Ln.y[j];
         d += Ln.cum[i + 1] - Ln.cum[i];
         i = j;
+      }
+      ctx.lineCap = 'round';
+      ctx.globalCompositeOperation = 'lighter';
+      for (let q = 0; q < 12; q++) {
+        const bk = glowBuckets[q];
+        if (!bk.n) continue;
+        const ci = q >> 2, fi = q & 3, hot = ci > 0;
+        const a = (1 - (fi + 0.5) / 4) * (hot ? 0.8 : 0.34);
+        ctx.strokeStyle = GLOW_COL[ci] + a.toFixed(3) + ')';
+        ctx.lineWidth = hot ? 6.5 : 4.5;
+        ctx.beginPath();
+        for (let m = 0; m < bk.n; m += 4) { ctx.moveTo(bk.pts[m], bk.pts[m + 1]); ctx.lineTo(bk.pts[m + 2], bk.pts[m + 3]); }
+        ctx.stroke();
       }
       ctx.globalCompositeOperation = 'source-over';
       c.glowRatio = worst;
