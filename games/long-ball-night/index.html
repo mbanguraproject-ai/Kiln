@@ -437,7 +437,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   /* ---------- Targets beyond the fence ---------- */
   function targetList() {
     const L = [];
-    L.push({ id: 'wheel', x: WHEEL.x, y: WHEEL.y, z: WHEEL.z, r: WHEEL.r * 0.85, pts: 500 });
+    L.push({ id: 'wheel', x: WHEEL.x, y: WHEEL.y, z: WHEEL.z, r: WHEEL.r * 0.72, pts: 500 });
     if (G.night > 0.12) L.push({ id: 'fish', x: FISH.x, y: FISH.y, z: FISH.z, r: 13, pts: 750 });
     if (G.night > 0.38) L.push({ id: 'lamp', x: LIGHTHOUSE.x, y: LIGHTHOUSE.h + 4, z: LIGHTHOUSE.z, r: 14, pts: 1000 });
     if (G.pIdx >= 1 || G.night > 0.25) L.push({ id: 'kite', x: G.kite.x, y: 100, z: 470, r: 12, pts: 600 });
@@ -451,13 +451,13 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     pr(b.x, b.y, b.z, T1);
     for (const tg of targetList()) {
       pr(tg.x, tg.y, tg.z, T2);
-      const rad = tg.r * T2.k + 9;
+      const rad = tg.r * T2.k + 6;
       if (Math.hypot(T1.x - T2.x, T1.y - T2.y) < rad) { hitTarget(tg, T2.x, T2.y); return; }
     }
   }
   function hitTarget(tg, sx, sy) {
     const f = G.flight;
-    f.hitTarget = tg.id;
+    f.hitTarget = tg.id; if (Kit.debug) window.__lastHit = { id: tg.id, b: { x: G.ball.x | 0, y: G.ball.y | 0, z: G.ball.z | 0 }, sx: sx | 0, sy: sy | 0, res: G.ball.res };
     G.targets++;
     if (tg.id === 'wheel') { G.wheelFlare = 1; G.wheelSpin = 3; G.chase = 3; }
     if (tg.id === 'fish') G.fishFlare = 1;
@@ -699,6 +699,16 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   function nightC(day, night, N) { return N ? night : day; }
 
   function paintBack(g, N, w, h) {
+    if (!N) {
+      // the setting sun, baked into the dusk layer (it fades out with it)
+      pr(0, 0, 5000, T0);
+      const sx = w * 0.8, sy = T0.y - h * 0.025;
+      g.globalCompositeOperation = 'lighter';
+      gfx.light(g, sx, sy, h * 0.3, '#FF9A5A', 0.45);
+      gfx.lightRays(g, sx, sy, { count: 7, length: h * 0.4, spread: 1.3, angle: -Math.PI / 2, width: 0.11, color: '#FFC27A', alpha: 0.1, t: 0 });
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = '#FFD99A'; g.beginPath(); g.arc(sx, sy, h * 0.045, Math.PI, 0); g.fill();
+    }
     // sea from the horizon to the boardwalk
     pr(0, 0, 4000, T0); const hy = T0.y;
     pr(0, 0, 560, T1);
@@ -1051,14 +1061,6 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
   }
   function drawSunMoon(n, lift, t) {
     const w = P.w;
-    if (n < 0.95) {
-      const sx = w * 0.8, sy = P.hor + lift - P.h * 0.03 + n * P.h * 0.08, a = 1 - n;
-      gfx.light(ctx, sx, sy, P.h * 0.32, '#FF9A5A', 0.5 * a);
-      gfx.lightRays(ctx, sx, sy, { count: 7, length: P.h * 0.4, spread: 1.3, angle: -Math.PI / 2, width: 0.11, color: '#FFC27A', alpha: 0.1 * a, t });
-      ctx.globalAlpha = a; ctx.fillStyle = '#FFD99A';
-      ctx.beginPath(); ctx.arc(sx, sy, P.h * 0.045, Math.PI, 0); ctx.fill();
-      ctx.globalAlpha = 1;
-    }
     if (n > 0.3) {
       const a = Kit.smoothstep(0.3, 0.8, n), mx = w * 0.72, my = P.hor * 0.32 + lift * 0.25;
       gfx.light(ctx, mx, my, 70, '#FFF0C8', 0.35 * a);
@@ -1816,6 +1818,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     fx.seed(seed);
     nextSeed = seed; autopilot = true;
     shell.start();
+    newRun(seed, true);
     G.scene = true;
     if (opts.night !== undefined) { G.nightLock = opts.night; G.night = opts.night; }
     if (opts.pre) opts.pre();
@@ -1828,29 +1831,35 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     let n = 0;
     while (n++ < 1200 && !until()) loop.step(1);
     if (opts.post) opts.post();
+    if (opts.keep) return;
     loop.render();
     loop.stop();
   }
   Arcade.scenes({
     art: () => scene(41, {
       night: 0.18, plan: { e: 0.035, dx: 0, dy: -0.32 }, zone: true, golden: false,
-      until: () => G.phase === 'flight' && G.ball && G.ball.vy < 8 && G.ball.z > 200,
-      post: () => { G.chase = 1.5; crowd.ex = 0.8; G.banner = null; G.label = null; },
+      until: () => G.phase === 'flight' && G.ball && G.ball.z > 170,
+      post: () => { G.swing = { t: 0.36, rx: 0.1, ry: 2.6, res: { type: 'hit' }, applied: true }; G.chase = 1.5; crowd.ex = 0.8; G.banner = null; G.label = null; },
     }),
     shot1: () => scene(12, {
       night: 0.08, zone: true, pitchNo: 5,
       pre: () => { G.score = 1290; G.shown = 1290; G.outs = 2.5; G.hr = 3; G.streak = 2; G.auto = false; G.scenePlan = 'take'; test.plan = 'take'; G.pitchNo = 4; },
-      until: () => G.phase === 'pitch' && G.pitch && G.pitch.t / G.pitch.T > 0.62,
+      until: () => G.phase === 'pitch' && G.pitch && G.pitch.t / G.pitch.T > 0.8,
       post: () => { hold.on = true; pr(G.pitch.tgt.x + 0.1, G.pitch.tgt.y + 0.05, 0, T0); hold.x = T0.x; hold.y = T0.y + 80; aimFromPointer(); ret.show = true; G.label.t = 1; },
     }),
-    shot2: () => scene(77, {
-      night: 0.95, golden: true, zone: true, pitchNo: 20,
-      plan: { e: -0.034, dx: 0, dy: -0.12 },
-      pre: () => { G.score = 14820; G.shown = 14820; G.outs = 6; G.hr = 12; G.pIdx = 2; G.pitcher = makePitcher(2, rand); G.streak = 3; G.bestStreak = 3; },
-      until: () => G.flight && G.flight.hitTarget,
-      post: () => { for (let i = 0; i < 8; i++) loop.step(1); G.auto = false; homeRunScene(); },
-    }),
+    shot2: () => scene(77, shot2Opts(SHOT2)),
   });
+  const SHOT2 = { e: -0.025, dx: 0, dy: -0.1 };
+  function shot2Opts(plan, keep) {
+    return {
+      night: 0.95, golden: true, zone: true, pitchNo: 20, keep,
+      plan: Object.assign({}, plan),
+      pre: () => { G.score = 14820; G.shown = 14820; G.outs = 6; G.hr = 12; G.pIdx = 2; G.pitcher = makePitcher(2, rand); G.streak = 3; G.bestStreak = 3; },
+      until: () => (G.flight && G.flight.hitTarget) || G.pitchNo > 21,
+      post: () => { if (keep) return; for (let i = 0; i < 8; i++) loop.step(1); G.auto = false; homeRunScene(); },
+    };
+  }
+  Arcade.test({ tryShot2(e, dx, dy) { scene(77, shot2Opts({ e, dx, dy }, true)); const r = { hit: G.flight && G.flight.hitTarget, pn: G.pitchNo, res: G.ball && G.ball.res, dist: G.flight && G.flight.dist, last: window.__lastHit }; loop.start(); return JSON.stringify(r); } });
   function homeRunScene() {
     // the streak climbs as the golden ball lights the sign
     G.streak = 4; G.stitchPop = 0.6; G.score += 2400; G.shown = G.score - 600;
