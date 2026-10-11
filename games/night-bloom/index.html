@@ -64,6 +64,8 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
 
   /* ================= layout (logical px: height 800) ================= */
   let S = 1, LW = 400, LH = 800, HOR = 512, BY = 640, SAFE_T = 0, SAFE_B = 0, SPAN0 = 30, SPAN1 = 370;
+  let refl = null, reflx = null, FD = 1;
+  const FD_MAX = 1.5; // the fireworks layer is all glow and thin light: 1.5x is crisp enough and saves fill rate
   let land = null, water = null, fwc = null, fwx = null, CAS = null, BARGES = [], BOATS = [], CROWD = [], WINS = [], FLAGS = [];
   const stars = gfx.starfield({ count: 120, seed: 5, size: [0.4, 1.7], layers: 3 });
 
@@ -193,7 +195,8 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     for (let i = 0; i < 4; i++) BOATS.push({ x: r.pick([r.range(10, cx - 230), r.range(cx + 150, LW - 10)]), y: HOR + r.range(14, 40), ph: r.range(0, 6), s: r.range(0.75, 1.05) });
     CROWD = [];
     for (let x2 = -6; x2 < LW + 10; x2 += r.range(11, 17)) CROWD.push({ x: x2, h: r.range(20, 34), hr: r.range(5.5, 7.5), ph: r.range(0, 6), kid: r.chance(0.12), sparkler: r.chance(0.07), lean: r.range(-0.08, 0.08) });
-    fwc = gfx.offscreen(Math.ceil(view.w * dpr), Math.ceil(view.h * dpr));
+    FD = Math.min(dpr, FD_MAX);
+    fwc = gfx.offscreen(Math.ceil(view.w * FD), Math.ceil(view.h * FD));
     fwx = fwc.getContext('2d');
   }
 
@@ -466,7 +469,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     let bonus = ok ? (lit - G.quota) * 25 : 0;
     G.litTotal += lit; G.blooms += W.blooms;
     G.bestChain = Math.max(G.bestChain, W.bestChain);
-    let title, sub = lit + ' of ' + G.quota + ' lit';
+    let title, sub = lit + ' lit  ·  quota ' + G.quota;
     if (G.def.finale) {
       const tot = G.def.shells.filter(s => s.type !== 'smoke').length;
       const pct = Math.round(lit / tot * 100);
@@ -568,7 +571,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       default: add(50, col, VR.chance(0.5) ? C.white : C.gold, 1.35, k, 40, 7.5, 2.1); break;
     }
     if (bloom) {
-      add(16, C.white, '#FFF1C1', 0.55, 1.8, 0, 3, 1.6, 0, true);
+      add(20, C.white, '#FFF1C1', 0.5, 2.6, 0, 9, 1.8, 0, true);
     }
   }
 
@@ -624,7 +627,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       if (b.bloom) {
         if (b.depth === 1) {
           fx.shockwave(b.x * S, b.y * S, { radius: b.R * S * 0.9, color: '#FFF4D8', width: 2, ms: 380 });
-          if (!G.attract) fx.float('Bloom ×2', b.x * S, b.y * S + 40, { color: '#FFFFFF', size: 17, font: SERIF, weight: 700 });
+          if (!G.attract) fx.float('Bloom ×2', b.x * S, b.y * S + 52, { color: '#FFFFFF', size: 17, font: SERIF, weight: 700 });
         }
         sfx('nb-bloom', { pan });
         G.kick = 1;
@@ -806,7 +809,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       for (const b of W.bursts) {
         const k = Math.min(1, b.age / 0.6), fade = 1 - Math.max(0, (b.age - 0.6) / b.linger);
         const col = b.col || C.gold;
-        gfx.light(g, b.x, b.y, b.R * 2.2, col, 0.2 * fade * (1 - k * 0.3));
+        if (b.age < 1.1 && b.type !== 'cross2') gfx.light(g, b.x, b.y, b.R * 1.6, col, 0.26 * (1 - b.age / 1.1));
         if (b.bloom && b.age < 0.25) gfx.light(g, b.x, b.y, b.R * 0.8, '#FFFFFF', (0.25 - b.age) * (b.depth === 1 ? 1.4 : 0.6));
         // the reach of this burst: a faint ring so players read the chain
         const on = !(b.type === 'strobe' && Math.floor(b.age / 0.12) % 2);
@@ -825,7 +828,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       if (p.strobe && ((t * 14 + p.ph) % 2) < 0.9 && p.age > 0.35) continue;
       buckets[p.c * 4 + Math.min(3, Math.floor(a * 4))].push(p);
     }
-    g.lineCap = 'round';
+    g.lineCap = 'butt';
     for (let c = 0; c < COLS.length; c++) {
       const col = COLS[c];
       for (let lv = 0; lv < 4; lv++) {
@@ -840,7 +843,6 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
         g.globalAlpha = a;
         g.fillStyle = lv >= 2 ? '#FFFFFF' : col;
         for (const p of arr) { const s = p.size; g.fillRect(p.x - s / 2, p.y - s / 2, s, s); }
-        if (lv >= 2 && arr.length) for (let j = 0; j < arr.length; j += 3) gfx.light(g, arr[j].x, arr[j].y, arr[j].size * 4, col, a * 0.5);
       }
     }
     g.globalAlpha = 1;
@@ -982,29 +984,32 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     // 5. fireworks layer (rendered once, used twice)
     fwx.setTransform(1, 0, 0, 1, 0, 0);
     fwx.clearRect(0, 0, fwc.width, fwc.height);
-    fwx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
+    fwx.setTransform(FD * S, 0, 0, FD * S, 0, 0);
     drawFireworks(fwx, t);
     // 6. the lake: rippling reflection of the land, then of the show
     const wTop = horS, wH = h - wTop;
-    const sl = 7, n = Math.ceil(wH / sl);
+    const sl = 9, n = Math.ceil(wH / sl);
     const mist = G.mist;
     for (let i = 0; i < n; i++) {
       const dy = i * sl, off = Math.sin(t * 1.4 + i * 0.8) * (0.6 + i * 0.07);
       ctx.drawImage(water, 0, dy * dpr, water.width, sl * dpr, off - 8, wTop + dy, w + 16, sl + 0.5);
     }
+    // the show's reflection: squash and flip the sky half of the fireworks layer into a small buffer once,
+    // then lay it on the lake in rippling bands (water is soft, so half resolution reads as natural blur)
+    const sq = 0.55, rh = Math.min(wH, horS * sq);
+    const RS = Math.max(0.75, dpr * 0.6), rw = Math.ceil(w * RS), rhh = Math.max(1, Math.ceil(rh * RS));
+    if (!refl || refl.width !== rw || refl.height < rhh) { refl = gfx.offscreen(rw, Math.ceil(h * RS)); reflx = refl.getContext('2d'); }
+    reflx.setTransform(1, 0, 0, 1, 0, 0);
+    reflx.clearRect(0, 0, rw, rhh + 1);
+    reflx.setTransform(RS, 0, 0, -RS * sq, 0, horS * sq * RS);
+    reflx.drawImage(fwc, 0, 0, fwc.width, Math.ceil(horS * FD), 0, 0, w, horS);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.42 * (1 - mist * 0.55);
-    const sq = 0.55, rs = 5;
-    const nr = Math.ceil(Math.min(wH, horS * sq) / rs);
+    ctx.globalAlpha = 0.45 * (1 - mist * 0.55);
+    const rs = 6, nr = Math.ceil(rh / rs);
     for (let i = 0; i < nr; i++) {
-      const dy0 = i * rs, dy1 = dy0 + rs;
-      const srcY1 = horS - dy0 / sq, srcY0 = horS - dy1 / sq;
-      if (srcY1 <= 0) break;
-      const off = Math.sin(t * 2.1 + i * 1.3) * (1 + i * 0.12) + Math.sin(t * 0.7 + i * 0.4) * 1.5;
-      ctx.setTransform(dpr, 0, 0, -dpr, off * dpr, (wTop + wTop + dy0 + dy1) * dpr - 0);
-      // after the flip a destination y maps to (top + bottom) - y, so the slice is mirrored in place
-      ctx.drawImage(fwc, 0, Math.max(0, srcY0) * dpr, fwc.width, (srcY1 - Math.max(0, srcY0)) * dpr, 0, wTop + dy0, w, rs * ((srcY1 - Math.max(0, srcY0)) / (rs / sq)));
+      const dy = i * rs, off = Math.sin(t * 2.1 + i * 1.3) * (1 + i * 0.12) + Math.sin(t * 0.7 + i * 0.4) * 1.5;
+      ctx.drawImage(refl, 0, dy * RS, rw, rs * RS, off, wTop + dy, w, rs);
     }
     ctx.restore();
     ctx.save(); ctx.scale(S, S);
@@ -1167,7 +1172,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     if (cs && cs.n >= 2) {
       const a = cs.done ? 1 - cs.t / 0.6 : 1;
       const sz = Math.min(58, 24 + cs.n * 2.2) * (1 + cs.pop * 0.35);
-      const x = Kit.clamp(cs.x * S, 50, w - 50), y = Kit.clamp(cs.y * S - 46, top + 110, h * 0.6);
+      const x = Kit.clamp(cs.x * S, 50, w - 50), y = Kit.clamp(cs.y * S - 72, top + 112, h * 0.6);
       gfx.text(ctx, '×' + cs.n, x, y, { size: sz, weight: 700, font: SERIF, color: cs.n >= 10 ? C.gold : C.cream, stroke: 'rgba(20,10,40,0.7)', strokeWidth: 4, alpha: a });
     }
     // banner
@@ -1182,6 +1187,14 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
       gfx.text(ctx, bn.title, w / 2, y, { size: Math.min(38, w * 0.09), weight: 700, font: SERIF, color: bn.good === false ? '#FFB4A8' : C.gold, alpha: a, stroke: 'rgba(10,8,30,0.6)', strokeWidth: 3 });
       gfx.text(ctx, bn.sub, w / 2, y + 28, { size: 14, weight: 600, font: 'body', color: C.cream, alpha: a });
     }
+    // the wave that introduces a shell type names it in flight
+    if (W && INTRO[G.n] && G.mode === 'wave' && !G.attract) {
+      const nt = INTRO[G.n];
+      for (const s of W.shells) {
+        if (s.st !== 1 || s.type !== nt) continue;
+        gfx.text(ctx, TYPES[nt].name, s.x * S, s.y * S - 18, { size: 11, weight: 700, font: 'body', color: nt === 'smoke' ? '#D9D3E6' : (TYPES[nt].col || C.cream), stroke: 'rgba(10,8,30,0.7)', strokeWidth: 3 });
+      }
+    }
     // teaching: a ghost finger on the glowing shell, and a one-line hint early on
     if (W && G.tutTarget >= 0 && !G.tutTapped) {
       const s = W.shells[G.tutTarget];
@@ -1189,10 +1202,16 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
         const x = s.x * S, y = s.y * S;
         const k = (t * 1.4) % 1, press = k < 0.25 ? k / 0.25 : k < 0.45 ? 1 : Math.max(0, 1 - (k - 0.45) / 0.3);
         const hx = x + 14, hy = y + 26 - press * 8;
-        ctx.save(); ctx.globalAlpha = 0.85;
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.strokeStyle = 'rgba(30,20,60,0.6)'; ctx.lineWidth = 2;
-        gfx.roundRect(ctx, hx - 7, hy - 8, 14, 36, 7).fill();
-        gfx.roundRect(ctx, hx - 7, hy + 14, 34, 34, 12).fill();
+        // a soft glove: index finger, palm and thumb, pressing toward the shell
+        ctx.save(); ctx.globalAlpha = 0.92;
+        ctx.translate(hx, hy); ctx.rotate(-0.35);
+        gfx.softShadow(ctx, 8, 40, 26, 10, 0.3);
+        ctx.fillStyle = '#FFF6E6'; ctx.strokeStyle = 'rgba(60,40,90,0.55)'; ctx.lineWidth = 1.6;
+        gfx.roundRect(ctx, -6, -10, 12, 34, 6).fill(); gfx.roundRect(ctx, -6, -10, 12, 34, 6).stroke();
+        gfx.roundRect(ctx, -8, 12, 34, 30, 11).fill(); gfx.roundRect(ctx, -8, 12, 34, 30, 11).stroke();
+        ctx.beginPath(); ctx.ellipse(-9, 26, 5, 9, -0.5, 0, TAU); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#FFF6E6'; ctx.fillRect(-4.5, 10, 9, 6);
+        ctx.strokeStyle = 'rgba(60,40,90,0.3)'; ctx.beginPath(); ctx.moveTo(6, 13); ctx.lineTo(6, 22); ctx.moveTo(15, 13); ctx.lineTo(15, 22); ctx.stroke();
         ctx.restore();
         if (press > 0.8) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 18 + (1 - press) * 40, 0, TAU); ctx.stroke(); }
         gfx.text(ctx, 'Tap the shell at its peak', w / 2, h * 0.62, { size: 19, weight: 700, font: SERIF, color: C.cream, stroke: 'rgba(10,8,30,0.7)', strokeWidth: 4 });
