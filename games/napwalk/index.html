@@ -1,0 +1,2160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Napwalk</title>
+<meta name="description" content="Napwalk: swipe and every cat steps the same way. Get each cat curled up on its cushion.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Unbounded:wght@600;800&display=swap">
+<style>
+/* A cosy dollhouse living room in late-afternoon sun; in dark mode the same room at evening under a lamp. */
+:root {
+  --bg1: #f3dcc0; --bg2: #e9c6a0; --bg3: #d9a97f; --paper: #efd9bd;
+  --wall: #e9dcc3; --leaf: #9bb28a; --floor1: #d9a066; --floor2: #c4884f; --cap: #f6ecdc; --beam: #ffe2a8;
+  --sage: #7a9e7e; --terra: #c8643b; --mustard: #d7a443; --cream: #fff4e3;
+  --panel: #f6ead6; --panel2: #efdcc0; --ink: #4a2f25; --ink-soft: #7d5a48; --line: #c79a6b; --scrim: rgba(74, 40, 22, 0.42);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg1: #2a2030; --bg2: #221a29; --bg3: #17121c; --paper: #2f2434;
+    --wall: #6f5f68; --leaf: #56684f; --floor1: #8e6141; --floor2: #774e32; --cap: #9d8a86; --beam: #ffb35c;
+    --panel: #3a2b3d; --panel2: #2f2232; --ink: #f6e7d6; --ink-soft: #cdb5a6; --line: #7a5f72; --scrim: rgba(14, 8, 18, 0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg1: #2a2030; --bg2: #221a29; --bg3: #17121c; --paper: #2f2434;
+  --wall: #6f5f68; --leaf: #56684f; --floor1: #8e6141; --floor2: #774e32; --cap: #9d8a86; --beam: #ffb35c;
+  --panel: #3a2b3d; --panel2: #2f2232; --ink: #f6e7d6; --ink-soft: #cdb5a6; --line: #7a5f72; --scrim: rgba(14, 8, 18, 0.6);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { height: 100%; background: var(--bg2); }
+body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--bg2); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+#game { display: block; width: 100%; height: 100%; outline: none; touch-action: none; cursor: grab; }
+
+/* ---- Kit shell as felt and knit: stitched panels, felt-patch buttons ---- */
+.k-shell .k-title-h { font-family: "Unbounded", ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif !important; font-weight: 800 !important;
+  color: #fff4e3 !important; letter-spacing: -0.01em; text-shadow: 0 3px 0 #c8643b, 0 5px 0 #8a3f22, 0 12px 24px rgba(60, 25, 10, 0.5) !important; }
+.k-shell .k-kicker { color: #fff4e3 !important; letter-spacing: 0.3em; text-shadow: 0 1px 2px rgba(60, 25, 10, 0.9), 0 2px 10px rgba(60, 25, 10, 0.8); }
+.k-shell .k-tagline { color: #fff4e3 !important; font-weight: 700; text-shadow: 0 2px 10px rgba(60, 25, 10, 0.85), 0 1px 2px rgba(60, 25, 10, 0.7); }
+.k-shell .k-best { color: #fff4e3 !important; text-shadow: 0 2px 8px rgba(60, 25, 10, 0.8); }
+.k-shell .k-best b { color: #ffe2a8 !important; }
+.k-shell .k-panel { position: relative; border: 0 !important;
+  background: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.6px) 0 0 / 6px 6px, linear-gradient(180deg, var(--panel), var(--panel2)) !important;
+  box-shadow: 0 26px 60px -20px rgba(40, 18, 8, 0.7), inset 0 0 0 3px var(--line) !important; }
+.k-shell .k-panel::after { content: ""; position: absolute; inset: 9px; border: 2px dashed var(--line); border-radius: calc(var(--k-radius, 22px) - 7px); pointer-events: none; opacity: 0.9; }
+.k-shell .k-panel h2, .k-shell .k-eyebrow { font-family: "Unbounded", ui-rounded, system-ui, sans-serif; letter-spacing: 0.04em; }
+.k-shell .k-btn { position: relative; font-weight: 700; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.16), 0 3px 0 rgba(60, 25, 10, 0.18) !important; }
+.k-shell .k-btn::after { content: ""; position: absolute; inset: 5px; border: 1.5px dashed currentColor; border-radius: inherit; opacity: 0.4; pointer-events: none; }
+.k-shell .k-btn.k-primary { background: linear-gradient(180deg, #d5774d, #c25f36) !important; color: #fff4e3 !important; }
+.k-shell .k-stat { background: rgba(122, 158, 126, 0.16) !important; border-radius: 12px; }
+.k-shell .k-newbest { background: #d7a443 !important; color: #3a2414 !important; }
+.k-shell .k-pausebtn { background: #7a9e7e !important; color: #fff4e3 !important; border-radius: 50% !important;
+  box-shadow: inset 0 0 0 2px #5f8263, inset 0 -4px 0 rgba(0, 0, 0, 0.16), 0 4px 10px rgba(60, 25, 10, 0.35) !important; }
+.k-shell .k-pausebtn::after { content: ""; position: absolute; inset: 5px; border: 1.5px dashed rgba(255, 244, 227, 0.75); border-radius: 50%; pointer-events: none; }
+.k-shell .k-toast { border-radius: 14px !important; background: #7a9e7e !important; color: #fff4e3 !important; font-weight: 700; box-shadow: inset 0 0 0 2px #5f8263, 0 8px 18px rgba(40, 18, 8, 0.35) !important; }
+.nw-alt { min-height: 46px !important; font-size: 14px !important; }
+.k-title .nw-alt { min-width: min(240px, 100%); color: #fff4e3 !important; background: rgba(74, 40, 22, 0.5) !important; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Napwalk: swipe or use the arrow keys to move every cat one step; Z undoes, R restarts the room, H shows a hint."></canvas>
+<script src="../../hub/sdk.js"></script>
+<script src="../../hub/kit.js"></script>
+<script>
+(() => {
+  'use strict';
+  Arcade.init({ id: 'napwalk', title: 'Napwalk', version: '1.0.0' });
+  const { gfx, fx, clamp, lerp } = Kit;
+  const TAU = Math.PI * 2, PI = Math.PI;
+  const FD = '"Unbounded", ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif';
+  const FB = '"Figtree", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif';
+  const reduced = !!(Kit.reducedMotion || fx.reduced);
+
+  const view = Kit.view(document.getElementById('game'), { alpha: false });
+  const ctx = view.ctx;
+
+  /* ================================================================ palette */
+  const pal = {};
+  let dark = false;
+  const SKY = [];
+  function readPalette() {
+    for (const k of ['bg1', 'bg2', 'bg3', 'paper', 'wall', 'leaf', 'floor1', 'floor2', 'cap', 'beam', 'cream', 'ink']) pal[k] = Kit.css('--' + k);
+    dark = Kit.isDark();
+    SKY.length = 0; SKY.push(pal.bg1, pal.bg2, pal.bg3);
+    gfx.clearSprites && gfx.clearSprites('nw');
+    dirtyStatic = true;
+  }
+  let dirtyStatic = true;
+
+  /* ================================================================ cats and coats */
+  const COATS = {
+    ginger: { base: '#e8954a', dark: '#b8611f', light: '#f6c48c', belly: '#fbe3c4', eye: '#7bb35a', pat: 'tabby', cush: ['#f0a462', '#d9803c'] },
+    grey: { base: '#9ca4ae', dark: '#68707b', light: '#c9cfd6', belly: '#e6e9ed', eye: '#e8b83a', pat: 'tabby', cush: ['#a9b4c4', '#7f8c9e'] },
+    black: { base: '#34303a', dark: '#1d1a21', light: '#4f4957', belly: '#f4efe6', eye: '#a6e36a', pat: 'tux', cush: ['#5a4a66', '#3e3249'] },
+    calico: { base: '#f6eee2', dark: '#cdbda9', light: '#fffaf2', belly: '#fffaf2', eye: '#e0a03a', pat: 'calico', p1: '#e08a3a', p2: '#3a3236', cush: ['#f2d7b6', '#e0a46a'] },
+    white: { base: '#f7f3ec', dark: '#cfc7bb', light: '#ffffff', belly: '#ffffff', eye: '#6cb6e8', pat: 'plain', cush: ['#cfe3ee', '#9ec2d8'] },
+  };
+  const COAT_LIST = ['ginger', 'grey', 'black', 'calico', 'white'];
+  const NEUTRAL_CUSH = [['#e9a3a0', '#cf7d7a'], ['#e7c46d', '#c99c3c'], ['#a7c4a0', '#7f9f78']];
+
+  /* ================================================================ rules: one step() for play, solver and tests */
+  const DIRN = ['up', 'right', 'down', 'left'];
+  const DXY = { up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0] };
+  // cell: 0 floor, 1 furniture, 2 rug. door[i] = paired cell index or -1. cush[i] = cushion index or -1.
+  function blank(W, H) {
+    return { W, H, cell: new Uint8Array(W * H), door: new Int16Array(W * H).fill(-1), cush: new Int8Array(W * H).fill(-1),
+      furn: [], rugs: [], doors: [], cushions: [], cats: [], yarn: [], matched: false, win: 2, pic: -1 };
+  }
+  function addFurn(R, type, x, y, w, h, v) {
+    R.furn.push({ type, x, y, w, h, v: v || 0 });
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) R.cell[j * R.W + i] = 1;
+  }
+  function addRug(R, x, y, w, h, v) {
+    R.rugs.push({ x, y, w, h, v: v || 0 });
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) R.cell[j * R.W + i] = 2;
+  }
+  function addDoor(R, a, b) { R.door[a] = b; R.door[b] = a; R.doors.push({ a, b, c: R.doors.length }); }
+  function addCush(R, x, y, coat, v) { R.cush[y * R.W + x] = R.cushions.length; R.cushions.push({ x, y, coat, v: v || 0 }); }
+  function initState(R) {
+    return { c: R.cats.map(c => ({ x: c.x, y: c.y, sl: 0, sk: 0 })), y: R.yarn.map(p => ({ x: p.x, y: p.y })) };
+  }
+  const isDone = s => s.c.every(c => c.sl);
+  function key(R, s) {
+    let k = 0;
+    for (const c of s.c) k = k * 243 + (c.y * R.W + c.x) * 3 + (c.sl ? 1 : c.sk ? 2 : 0);
+    for (const p of s.y) k = k * 81 + p.y * R.W + p.x;
+    return k;
+  }
+  // Every awake cat steps one tile in dir. Leading edge first: a cat blocked by a wall, furniture, a sleeping cat or a
+  // blocked cat stays put. Rugs slide a cat until it leaves the rug; yarn rolls on and the cat skips the next swipe;
+  // a tunnel moves a cat to its twin. A cat on its own cushion (any cushion in early rooms) falls asleep.
+  // core() is the one rule implementation: play, the solver, hints and tests all go through it.
+  // P: cat cell indices, F: 0 awake / 1 asleep / 2 skips the next swipe, Y: yarn cell indices. Mutated in place.
+  const OCC = new Int8Array(256).fill(-1), OCCY = new Int8Array(256).fill(-1), ORD = new Int8Array(8), PRJ = new Int16Array(8);
+  function core(R, P, F, Y, dir, ev) {
+    const W = R.W, H = R.H, dx = DXY[dir][0], dy = DXY[dir][1], n = P.length, m = Y.length, cell = R.cell, door = R.door, cush = R.cush;
+    for (let i = 0; i < n; i++) { OCC[P[i]] = i; ORD[i] = i; PRJ[i] = (P[i] % W) * dx + ((P[i] / W) | 0) * dy; }
+    for (let j = 0; j < m; j++) OCCY[Y[j]] = j;
+    for (let a = 1; a < n; a++) { const v = ORD[a]; let b = a - 1; while (b >= 0 && PRJ[ORD[b]] < PRJ[v]) { ORD[b + 1] = ORD[b]; b--; } ORD[b + 1] = v; }
+    for (let k = 0; k < n; k++) {
+      const i = ORD[k];
+      if (F[i] === 1) continue;
+      if (F[i] === 2) { F[i] = 0; if (ev) ev.push({ i, type: 'skip' }); continue; }
+      let x = P[i] % W, y = (P[i] / W) | 0;
+      const path = ev ? [] : null;
+      let blockedBy = null, steps = 0;
+      for (let guard = 0; guard < 40; guard++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) { blockedBy = 'wall'; break; }
+        const ni = ny * W + nx;
+        if (cell[ni] === 1) { blockedBy = 'furn'; break; }
+        if (OCC[ni] >= 0) { blockedBy = F[OCC[ni]] === 1 ? 'sleeper' : 'cat'; break; }
+        const dj = door[ni];
+        if (dj >= 0 && (OCC[dj] >= 0 || OCCY[dj] >= 0)) { blockedBy = 'door'; break; }
+        const yj = OCCY[ni];
+        let batted = false;
+        if (yj >= 0) {
+          const tx = nx + dx, ty = ny + dy, ti = ty * W + tx;
+          if (tx < 0 || ty < 0 || tx >= W || ty >= H || cell[ti] === 1 || OCC[ti] >= 0 || OCCY[ti] >= 0 || cush[ti] >= 0 || door[ti] >= 0) { blockedBy = 'yarn'; break; }
+          OCCY[ni] = -1; OCCY[ti] = yj; Y[yj] = ti; batted = true;
+          if (ev) ev.push({ i: yj, type: 'yarn', cat: i, fx: nx, fy: ny, tx, ty, at: steps });
+        }
+        OCC[y * W + x] = -1; x = nx; y = ny; OCC[ni] = i; steps++;
+        if (ev) path.push({ x: nx, y: ny, rug: cell[ni] === 2 });
+        if (batted) { F[i] = 2; if (ev) path[path.length - 1].yarn = true; break; }
+        if (dj >= 0) { OCC[ni] = -1; x = dj % W; y = (dj / W) | 0; OCC[dj] = i; if (ev) path.push({ x, y, tp: true }); break; }
+        const ci = cush[ni];
+        if (ci >= 0 && (!R.matched || R.cushions[ci].coat === R.cats[i].coat)) { F[i] = 1; break; }
+        if (cell[ni] !== 2) break;
+      }
+      P[i] = y * W + x;
+      if (ev) {
+        const by = blockedBy ? { kind: blockedBy, x: x + dx, y: y + dy } : null;
+        ev.push(steps ? { i, type: 'move', path, sl: F[i] === 1 ? 1 : 0, blockedBy: by } : { i, type: 'bonk', blockedBy: by });
+      }
+    }
+    for (let i = 0; i < n; i++) OCC[P[i]] = -1;
+    for (let j = 0; j < m; j++) OCCY[Y[j]] = -1;
+  }
+  function step(R, s, dir, ev) {
+    const W = R.W, n = s.c.length, m = s.y.length;
+    const P = new Int16Array(n), F = new Int8Array(n), Y = new Int16Array(m);
+    for (let i = 0; i < n; i++) { const c = s.c[i]; P[i] = c.y * W + c.x; F[i] = c.sl ? 1 : c.sk ? 2 : 0; }
+    for (let j = 0; j < m; j++) Y[j] = s.y[j].y * W + s.y[j].x;
+    core(R, P, F, Y, dir, ev);
+    const c = [], y = [];
+    for (let i = 0; i < n; i++) c.push({ x: P[i] % W, y: (P[i] / W) | 0, sl: F[i] === 1 ? 1 : 0, sk: F[i] === 2 ? 1 : 0 });
+    for (let j = 0; j < m; j++) y.push({ x: Y[j] % W, y: (Y[j] / W) | 0 });
+    return { c, y };
+  }
+  // Breadth-first search over joint states for the optimal swipe sequence. null = no solution; { over } = capped.
+  // States live only as their keys (cats: cell*3+flag in base 243, yarn: cell in base 81) and are decoded on the fly.
+  function solve(R, s0, cap) {
+    if (isDone(s0)) return { path: [], n: 1 };
+    const n = s0.c.length, m = s0.y.length;
+    const BP = new Int16Array(n), BF = new Int8Array(n), BY = new Int16Array(m), P = new Int16Array(n), F = new Int8Array(n), Y = new Int16Array(m);
+    const k0 = key(R, s0);
+    const keys = [k0], parent = [-1], dirs = [-1], seen = new Map([[k0, 0]]);
+    for (let h = 0; h < keys.length; h++) {
+      let k = keys[h];
+      for (let j = m - 1; j >= 0; j--) { const r = k % 81; BY[j] = r; k = (k - r) / 81; }
+      for (let i = n - 1; i >= 0; i--) { const r = k % 243; BF[i] = r % 3; BP[i] = (r - BF[i]) / 3; k = (k - r) / 243; }
+      for (let d = 0; d < 4; d++) {
+        P.set(BP); F.set(BF); Y.set(BY);
+        core(R, P, F, Y, DIRN[d]);
+        let nk = 0, done = true;
+        for (let i = 0; i < n; i++) { nk = nk * 243 + P[i] * 3 + F[i]; if (F[i] !== 1) done = false; }
+        for (let j = 0; j < m; j++) nk = nk * 81 + Y[j];
+        if (seen.has(nk)) continue;
+        seen.set(nk, keys.length); keys.push(nk); parent.push(h); dirs.push(d);
+        if (done) {
+          const path = [];
+          for (let j = keys.length - 1; j > 0; j = parent[j]) path.push(dirs[j]);
+          path.reverse();
+          return { path, n: keys.length };
+        }
+        if (keys.length > cap) return { over: true, n: keys.length };
+      }
+    }
+    return null;
+  }
+
+  /* ================================================================ rooms: two hand-made, then generated from seed */
+  function handRoom(n) {
+    const R = blank(6, 8);
+    R.n = n;
+    if (n === 1) {
+      addFurn(R, 'bookcase', 0, 0, 2, 1, 1);
+      addFurn(R, 'plant', 4, 2, 1, 1, 0);
+      addFurn(R, 'armchair', 5, 7, 1, 1, 2);
+      addCush(R, 1, 4, null, 0); addCush(R, 3, 3, null, 1);
+      R.cats.push({ x: 1, y: 5, coat: 'ginger' }, { x: 4, y: 6, coat: 'grey' });
+      R.win = 3; R.pic = 0;
+    } else {
+      addFurn(R, 'bookcase', 4, 0, 2, 1, 2);
+      addFurn(R, 'plant', 5, 5, 1, 1, 1);
+      addFurn(R, 'sofa', 2, 7, 3, 1, 0);
+      addCush(R, 0, 2, null, 2); addCush(R, 1, 2, null, 0);
+      R.cats.push({ x: 2, y: 5, coat: 'calico' }, { x: 4, y: 5, coat: 'black' });
+      R.win = 1; R.pic = 3;
+    }
+    return R;
+  }
+  function roomSpec(n) {
+    const sp = { n, W: 6, H: 8, cats: 2, matched: false, rugs: 0, yarn: 0, doors: 0, furn: [3, 6], band: [3, 6] };
+    if (n <= 10) { const lo = 3 + Math.floor((n - 3) / 3); sp.band = [lo, lo + 3]; }
+    else if (n <= 20) { sp.cats = 3; sp.matched = true; const lo = 5 + Math.floor((n - 11) / 3); sp.band = [lo, lo + 4]; sp.furn = [4, 8]; }
+    else if (n <= 30) { sp.cats = 3; sp.matched = true; sp.rugs = n >= 26 ? 2 : 1; const lo = 6 + Math.floor((n - 21) / 3); sp.band = [lo, lo + 5]; sp.furn = [3, 7]; }
+    else if (n <= 40) { sp.cats = 3; sp.matched = true; sp.rugs = 1; sp.yarn = n >= 36 ? 2 : 1; const lo = 7 + Math.floor((n - 31) / 3); sp.band = [lo, lo + 5]; sp.furn = [3, 7]; }
+    else if (n <= 50) { sp.W = 7; sp.H = 9; sp.cats = 4; sp.matched = true; sp.doors = 1; sp.rugs = n >= 45 ? 1 : 0; sp.yarn = n >= 48 ? 1 : 0; const lo = 8 + Math.floor((n - 41) / 5); sp.band = [lo, lo + 5]; sp.furn = [6, 12]; }
+    else {
+      const r = Kit.rng(n * 31 + 7);
+      sp.W = 7; sp.H = 9; sp.matched = true;
+      sp.cats = n > 60 && r.chance(0.2) ? 5 : 4;
+      const pick = r.int(0, 5);
+      sp.rugs = [1, 0, 1, 1, 0, 2][pick]; sp.yarn = [1, 1, 0, 2, 1, 0][pick]; sp.doors = [0, 1, 1, 0, 1, 1][pick];
+      const lo = Math.min(12, 9 + Math.floor((n - 51) / 12)); sp.band = [lo, lo + 7]; sp.furn = [6, 12];
+    }
+    return sp;
+  }
+  const FURN_T = [
+    { type: 'sofa', w: 3, h: 1, wt: 2 }, { type: 'sofa', w: 2, h: 1, wt: 2 }, { type: 'armchair', w: 1, h: 1, wt: 3 },
+    { type: 'plant', w: 1, h: 1, wt: 4 }, { type: 'bookcase', w: 2, h: 1, top: true, wt: 3 }, { type: 'table', w: 2, h: 2, wt: 1 },
+    { type: 'table', w: 2, h: 1, wt: 2 }, { type: 'lamp', w: 1, h: 1, wt: 2 },
+  ];
+  const FURN_WT = FURN_T.reduce((a, f) => a + f.wt, 0);
+  function attempt(sp, rng) {
+    const R = blank(sp.W, sp.H), W = sp.W, H = sp.H;
+    R.n = sp.n; R.matched = sp.matched;
+    const free = (x, y, w, h) => {
+      if (x < 0 || y < 0 || x + w > W || y + h > H) return false;
+      for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { const k = j * W + i; if (R.cell[k] !== 0 || R.door[k] >= 0 || R.cush[k] >= 0) return false; }
+      return true;
+    };
+    for (let k = 0; k < sp.rugs; k++) for (let t = 0; t < 30; t++) {
+      const rw = rng.int(2, 3), rh = rng.int(2, 4), x = rng.int(0, W - rw), y = rng.int(1, H - rh);
+      if (free(x, y, rw, rh)) { addRug(R, x, y, rw, rh, rng.int(0, 2)); break; }
+    }
+    const target = rng.int(sp.furn[0], sp.furn[1]);
+    let cells = 0;
+    for (let t = 0; t < 80 && cells < target; t++) {
+      let r = rng.next() * FURN_WT, f = FURN_T[0];
+      for (const ft of FURN_T) { r -= ft.wt; if (r <= 0) { f = ft; break; } }
+      const x = rng.int(0, W - f.w), y = f.top ? 0 : rng.int(0, H - f.h);
+      if (f.top && R.furn.some(o => o.type === 'bookcase')) continue;
+      if (free(x, y, f.w, f.h)) { addFurn(R, f.type, x, y, f.w, f.h, rng.int(0, 2)); cells += f.w * f.h; }
+    }
+    const floor = () => { const out = []; for (let i = 0; i < W * H; i++) if (R.cell[i] === 0 && R.door[i] < 0 && R.cush[i] < 0) out.push(i); return out; };
+    for (let k = 0; k < sp.doors; k++) {
+      const fl = rng.shuffle(floor());
+      let done = false;
+      for (let a = 0; a < fl.length && !done; a++) for (let b = a + 1; b < fl.length; b++) {
+        const ax = fl[a] % W, ay = (fl[a] / W) | 0, bx = fl[b] % W, by = (fl[b] / W) | 0;
+        if (Math.abs(ax - bx) + Math.abs(ay - by) >= 4) { addDoor(R, fl[a], fl[b]); done = true; break; }
+      }
+    }
+    const coats = rng.shuffle(COAT_LIST.slice()).slice(0, sp.cats);
+    let fl = rng.shuffle(floor());
+    if (fl.length < sp.cats * 2 + sp.yarn + 2) return null;
+    for (let k = 0; k < sp.cats; k++) { const i = fl.pop(); addCush(R, i % W, (i / W) | 0, sp.matched ? coats[k] : null, rng.int(0, 2)); }
+    fl = fl.filter(i => R.cush[i] < 0);
+    for (let k = 0; k < sp.yarn; k++) { const i = fl.pop(); R.yarn.push({ x: i % W, y: (i / W) | 0, v: rng.int(0, 2) }); }
+    for (let k = 0; k < sp.cats; k++) { const i = fl.pop(); R.cats.push({ x: i % W, y: (i / W) | 0, coat: coats[k] }); }
+    R.win = rng.int(0, W - 2);
+    R.pic = rng.chance(0.7) ? rng.int(0, W - 1) : -1;
+    return R;
+  }
+  function judge(R) {
+    const s0 = initState(R), res = solve(R, s0, 25000);
+    if (!res || res.over || res.path.length < 2) return null;
+    const moved = new Array(R.cats.length).fill(0);
+    let s = s0;
+    for (const d of res.path) { const ns = step(R, s, DIRN[d]); ns.c.forEach((c, i) => { if (c.x !== s.c[i].x || c.y !== s.c[i].y) moved[i]++; }); s = ns; }
+    const dirs = new Set(res.path).size, par = res.path.length;
+    return { par, path: res.path, every2: moved.every(m => m >= 2), dirsOk: dirs >= (par >= 6 ? 3 : 2) };
+  }
+  const roomCache = new Map();
+  // A generator, so the next room can be built a few milliseconds per frame while the player thinks.
+  function* genRoom(n) {
+    const t0 = performance.now();
+    let R;
+    if (n <= 2) { R = handRoom(n); const j = judge(R); R.par = j.par; R.sol = j.path; }
+    else {
+      const sp = roomSpec(n);
+      let best = null, bestD = 1e9;
+      for (let a = 0; a < 400; a++) {
+        if (a >= 60 && best) break;
+        const rng = Kit.rng(n * 7919 + a);
+        const C = attempt(sp, rng);
+        const j = C && judge(C);
+        if (j) {
+          const d = (j.par < sp.band[0] ? sp.band[0] - j.par : j.par > sp.band[1] ? j.par - sp.band[1] : 0) + (j.every2 ? 0 : 3) + (j.dirsOk ? 0 : 3);
+          if (d < bestD) { bestD = d; best = C; C.par = j.par; C.sol = j.path; C.att = a; }
+          if (d === 0) break;
+        }
+        yield a;
+      }
+      R = best || handRoom(2);
+    }
+    R.ms = performance.now() - t0;
+    roomCache.set(n, R);
+    return R;
+  }
+  let pre = null;
+  function getRoom(n) {
+    if (roomCache.has(n)) return roomCache.get(n);
+    if (pre && pre.n === n) pre = null;
+    const it = genRoom(n);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
+  function prefetch(n) { if (!roomCache.has(n) && !(pre && pre.n === n)) pre = { n, it: genRoom(n) }; }
+  function runPrefetch() {
+    if (!pre) return;
+    const t0 = performance.now();
+    while (pre && performance.now() - t0 < 5) { if (pre.it.next().done) pre = null; }
+  }
+
+  /* ================================================================ save and run */
+  const runSave = () => Object.assign({ room: 1, stars: {}, total: 0, perfect: 0, solved: 0 }, Kit.save.get('run', null) || {});
+  let RUN = runSave();
+  function storeRun() { Kit.save.set('run', RUN); Arcade.progress(RUN.room > 1 ? { label: 'Room ' + RUN.room } : null); }
+
+  /* ================================================================ game state */
+  // G: the room in play. mode 'play' or 'attract' (title screen: the room solves itself, silent).
+  let G = null, nextStart = null;
+  function mkCatV(R, i) {
+    const c = R.cats[i];
+    return { i, coat: c.coat, x: c.x, y: c.y, z: 0, sq: 0, face: 'down', pose: 'sit', curl: 0, segs: [], blink: Math.random() * 3, ph: Math.random() * 6,
+      bonk: 0, sweat: 0, sleepT: -1, spin: 0, yawn: 0, drop: 0, zT: Math.random() * 1.5, purr: 0, wake: 0, tangle: 0, hopSnd: 0, look: 0, joy: 0 };
+  }
+  function loadRoom(n, mode) {
+    const R = getRoom(n);
+    G = { R, n, mode: mode || 'play', s: initState(R), hist: [], hinted: false, hintDir: null, t: 0, idle: 0, queued: null, timers: [],
+      cats: R.cats.map((c, i) => mkCatV(R, i)), yarnV: R.yarn.map(p => ({ x: p.x, y: p.y, rot: 0, segs: [], v: p.v || 0 })),
+      clear: null, stuck: false, pulse: null, pulseFor: -1, tip: null, tipA: 0, ghost: n === 1 && mode !== 'attract', intro: 0,
+      beam: 0, card: null, auto: null, silent: mode === 'attract', solvedOnce: false, kicks: [0, 0, 0], moveKick: 0 };
+    G.tip = TIPS[n] || null;
+    // the cats drop in, one after another
+    G.cats.forEach((c, k) => { c.drop = 1; c.segs.push({ type: 'wait', dur: 0.12 + k * 0.09 }, { type: 'drop', dur: 0.36 }); });
+    dirtyStatic = true;
+    layout();
+    if (G.mode === 'play') {
+      if (n > 1) sfx('nw_enter');
+      Arcade.progress(RUN.room > 1 ? { label: 'Room ' + RUN.room } : null);
+      // generate the next room while the player is thinking
+      later(0.5, () => { if (G && G.n === n) prefetch(n + 1); });
+    }
+  }
+  const TIPS = {
+    1: 'Swipe: every cat steps the same way',
+    2: 'Walls can hold one cat while the other walks on',
+    3: 'A sleeping cat is a wall too',
+    11: 'Now each cat wants the cushion with its face on it',
+    21: 'Rugs are slippery: cats slide right across',
+    31: 'Yarn! A cat that bats it skips the next swipe',
+    41: 'Cat tunnels: in one end, out the other',
+    51: 'Every room in the house is open now. Sweet dreams!',
+  };
+  function later(sec, fn) { if (G) G.timers.push({ t: sec, fn }); }
+  const sfx = (name, o) => { if (G && G.silent) return false; return Kit.sfx(name, o); };
+  const haptic = p => { if (G && G.silent) return; Kit.haptic(p); };
+
+  const busy = () => G && (G.cats.some(c => c.segs.length) || G.yarnV.some(y => y.segs.length));
+  function onSwipe(dir) {
+    if (!G) return;
+    if (G.card) { if (G.card.t > 0.55) nextRoom(); return; }
+    if (G.clear) return;
+    if (busy()) { G.queued = dir; return; }
+    doMove(dir);
+  }
+  const HOP = 0.15, SLIDE = 0.075;
+  function doMove(dir) {
+    if (!G || G.clear) return;
+    const ev = [];
+    const ns = step(G.R, G.s, dir, ev);
+    G.idle = 0; G.pulse = null;
+    if (key(G.R, ns) === key(G.R, G.s)) {
+      // nobody could move: everyone bonks
+      let k = 0;
+      for (const e of ev) if (e.type === 'bonk') bonkCat(G.cats[e.i], dir, k++ * 0.03, e.blockedBy);
+      if (k) { sfx('nw_mrrp', { pitch: Kit.rng().range(-2, 2) }); haptic(10); }
+      return;
+    }
+    G.hist.push(G.s);
+    G.s = ns;
+    G.hintDir = null;
+    G.ghost = false;
+    G.stuck = false;
+    G.moveKick = 1;
+    if (G.mode === 'play' && G.tip && G.hist.length >= 3 && !TIP_STICKY[G.n]) G.tip = null;
+    animate(ev, dir);
+    if (isDone(ns)) {
+      const wait = settleTime() + 0.25;
+      G.clear = { t: -wait };
+    } else if (G.mode === 'play') {
+      const w = settleTime() + 0.05;
+      const at = G.hist.length;
+      later(w, () => checkStuck(at));
+    }
+  }
+  const TIP_STICKY = {};
+  function settleTime() {
+    let m = 0;
+    for (const c of G.cats) { let d = 0; for (const s of c.segs) d += s.dur - (s.t || 0); m = Math.max(m, d + (c.sleepPending ? 1.0 : 0)); }
+    return m;
+  }
+  function bonkCat(c, dir, delay, by) {
+    c.segs.push({ type: 'wait', dur: delay }, { type: 'bonk', dur: 0.36, dx: DXY[dir][0], dy: DXY[dir][1] });
+    c.face = dir;
+  }
+  function animate(ev, dir) {
+    const d = DXY[dir];
+    let k = 0, bonks = 0, slid = false, tp = false;
+    const cats = G.cats;
+    for (const e of ev) {
+      if (e.type === 'move') {
+        const c = cats[e.i], delay = k++ * 0.03;
+        c.face = dir; c.look = 0;
+        if (c.sleepT >= 0 || c.pose === 'curl') { c.pose = 'sit'; c.curl = 0; c.sleepT = -1; }
+        c.segs.push({ type: 'wait', dur: delay });
+        let px = c.x, py = c.y, prevRug = G.R.cell[Math.round(py) * G.R.W + Math.round(px)] === 2;
+        let tl = delay;
+        for (const p of e.path) {
+          if (p.tp) {
+            c.segs.push({ type: 'tpout', dur: 0.12, x: px, y: py }, { type: 'tpin', dur: 0.2, fx: p.x, fy: p.y, tx: p.x, ty: p.y });
+            tp = true;
+          } else {
+            const sliding = p.rug && prevRug;
+            c.segs.push({ type: sliding ? 'slide' : 'hop', dur: sliding ? SLIDE : HOP, fx: px, fy: py, tx: p.x, ty: p.y, yarn: p.yarn });
+            if (p.rug) slid = true;
+            prevRug = p.rug;
+          }
+          tl += HOP;
+          px = p.x; py = p.y;
+        }
+        if (e.sl) { c.sleepPending = true; c.segs.push({ type: 'settle', dur: 0.05 }); }
+        if (e.blockedBy && e.path.length && !e.sl && !e.path[e.path.length - 1].yarn && !e.path[e.path.length - 1].tp && e.path[e.path.length - 1].rug) c.segs.push({ type: 'bonk', dur: 0.3, dx: d[0], dy: d[1], soft: true });
+      } else if (e.type === 'bonk') {
+        bonkCat(cats[e.i], dir, k * 0.03 + 0.04, e.blockedBy); bonks++;
+      } else if (e.type === 'skip') {
+        const c = cats[e.i];
+        c.segs.push({ type: 'tangle', dur: 0.42 });
+        later(0.05, () => sfx('nw_skip', { pitch: Kit.rng().range(-1, 2) }));
+      }
+    }
+    for (const e of ev) if (e.type === 'yarn') {
+      const y = G.yarnV[e.i];
+      const ci = ev.filter(x => x.type === 'move').findIndex(x => x.i === e.cat);
+      const delay = Math.max(0, ci) * 0.03 + e.at * HOP + HOP * 0.65;
+      y.segs.push({ type: 'wait', dur: delay }, { type: 'roll', dur: 0.26, fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty });
+      later(delay, () => { sfx('nw_boing', { pitch: Kit.rng().range(-2, 2) }); haptic(8); const p = tileC(e.fx + 0.5, e.fy + 0.5); fx.burst(p.x, p.y, { count: 8, color: YARN_C[y.v], speed: [40, 120], life: [0.2, 0.45], size: [1.5, 3] }); });
+    }
+    if (bonks) later(0.06, () => { sfx('nw_mrrp', { pitch: Kit.rng().range(-2, 2) }); haptic(10); });
+    if (slid) later(HOP * 0.8, () => sfx('nw_slide'));
+    if (tp) later(HOP, () => sfx('nw_door'));
+  }
+  function bigWhoosh() { sfx('nw_undo'); }
+  function setVisual(s, how) {
+    // glide every cat back to where the logic says (undo, restart room)
+    G.cats.forEach((c, i) => {
+      const t = s.c[i];
+      c.segs.length = 0; c.sleepPending = false;
+      if (c.x !== t.x || c.y !== t.y) c.segs.push({ type: 'wait', dur: how === 'restart' ? i * 0.04 : 0 }, { type: 'glide', dur: how === 'restart' ? 0.32 : 0.2, fx: c.x, fy: c.y, tx: t.x, ty: t.y });
+      if (t.sl) { c.pose = 'curl'; c.curl = 1; c.sleepT = 9; }
+      else { if (c.pose === 'curl') c.wake = 0.4; c.pose = 'sit'; c.curl = 0; c.sleepT = -1; }
+      c.tangle = t.sk ? 1 : 0;
+    });
+    G.yarnV.forEach((y, j) => {
+      const t = s.y[j];
+      y.segs.length = 0;
+      if (y.x !== t.x || y.y !== t.y) y.segs.push({ type: 'roll', dur: 0.2, fx: y.x, fy: y.y, tx: t.x, ty: t.y, back: true });
+    });
+  }
+  function undo() {
+    if (!G || G.clear || G.mode !== 'play') return;
+    if (!G.hist.length) { sfx('nw_stuck'); return; }
+    G.s = G.hist.pop();
+    G.idle = 0; G.pulse = null; G.hintDir = null; G.stuck = false; G.queued = null; G.moveKick = 1;
+    setVisual(G.s, 'undo');
+    bigWhoosh();
+    haptic(6);
+    for (const c of G.cats) { const p = tileC(c.x + 0.5, c.y + 0.5); fx.burst(p.x, p.y, { count: 5, color: ['#fff4e3', '#ffe2a8'], speed: [20, 70], life: [0.2, 0.4], size: [1.5, 2.5] }); }
+  }
+  function restartRoom() {
+    if (!G || G.clear || G.mode !== 'play') return;
+    if (!G.hist.length) return;
+    G.s = initState(G.R);
+    G.hist = []; G.idle = 0; G.pulse = null; G.hintDir = null; G.stuck = false; G.queued = null; G.moveKick = 1;
+    setVisual(G.s, 'restart');
+    sfx('nw_restart');
+    haptic(12);
+    fx.flash('#fff4e3', 160, 0.18);
+  }
+  function hint() {
+    if (!G || G.clear || G.mode !== 'play' || busy()) return;
+    const res = solve(G.R, G.s, 200000);
+    if (res && res.path && res.path.length) {
+      G.hintDir = DIRN[res.path[0]];
+      if (!G.hinted) { G.hinted = true; note('Hinted rooms top out at two paws'); }
+      sfx('nw_hint');
+      haptic(8);
+    } else if (res === null) {
+      G.stuck = true; sfx('nw_stuck');
+    } else note('Even the cats are thinking about this one...');
+  }
+  function note(text) { if (G) G.note = { text, t: 2.6 }; }
+  function checkStuck(at) {
+    if (!G || G.clear || G.hist.length !== at || G.mode !== 'play') return;
+    const res = solve(G.R, G.s, 20000);
+    if (res === null) { G.stuck = true; sfx('nw_stuck'); }
+  }
+  function starsFor(moves, par, hinted) {
+    let s = moves <= par ? 3 : moves <= par + 3 ? 2 : 1;
+    return hinted ? Math.min(2, s) : s;
+  }
+  function roomSolved() {
+    const moves = G.hist.length, par = G.R.par, st = starsFor(moves, par, G.hinted);
+    G.card = { t: 0, stars: st, moves, par, stamped: 0, btns: [] };
+    if (G.mode !== 'play') return;
+    const n = G.n, prev = RUN.stars[n] || 0;
+    if (st > prev) { RUN.total += st - prev; RUN.stars[n] = st; if (st === 3) RUN.perfect++; }
+    if (n >= RUN.room) { RUN.room = n + 1; RUN.solved = Math.max(RUN.solved, n); }
+    SESSION.rooms++; SESSION.stars += st;
+    storeRun();
+    Arcade.track('level_complete', { room: n, stars: st, moves, par });
+    if (n === 1 && !Kit.save.get('taught', false)) { Kit.save.set('taught', true); Arcade.track('tutorial_complete'); }
+    G.card.total = RUN.total;
+  }
+  const SESSION = { rooms: 0, stars: 0 };
+  function nextRoom() {
+    if (!G || !G.card) return;
+    sfx('nw_tap');
+    loadRoom(G.n + 1);
+  }
+  function replayRoom() { if (!G || !G.card) return; sfx('nw_tap'); loadRoom(G.n); }
+
+  /* ================================================================ update */
+  function update(dt) {
+    if (!G) return;
+    G.t += dt;
+    for (let i = G.timers.length - 1; i >= 0; i--) { const tm = G.timers[i]; tm.t -= dt; if (tm.t <= 0) { G.timers.splice(i, 1); tm.fn(); } }
+    for (const c of G.cats) updateCat(c, dt);
+    for (const y of G.yarnV) updateYarn(y, dt);
+    for (let i = 0; i < 3; i++) G.kicks[i] *= Math.exp(-dt * 4);
+    G.moveKick = Math.max(0, G.moveKick - dt * 4);
+    if (G.queued && !busy()) { const q = G.queued; G.queued = null; doMove(q); }
+    if (G.clear) {
+      G.clear.t += dt;
+      if (G.clear.t >= 0 && !G.clear.fired) { G.clear.fired = true; celebrate(); }
+      G.beam = Math.min(1, G.beam + dt * 1.5);
+    } else G.beam = Math.max(0, G.beam - dt);
+    if (G.card) updateCard(dt);
+    if (G.note) { G.note.t -= dt; if (G.note.t <= 0) G.note = null; }
+    G.tipA = Kit.approach(G.tipA, (G.tip || G.stuck || G.note) && !G.card ? 1 : 0, dt * 3);
+    if (G.mode === 'play' && !G.clear && !busy()) {
+      G.idle += dt;
+      if (G.idle > 10 && G.n <= 6 && G.pulseFor !== G.hist.length) findPulse();
+    }
+    if (G.mode === 'attract') attract(dt);
+    updateMotes(dt);
+    updateZ(dt);
+  }
+  function findPulse() {
+    G.pulseFor = G.hist.length;
+    const res = solve(G.R, G.s, 30000);
+    if (!res || !res.path) return;
+    let s = G.s;
+    for (const d of res.path) {
+      const ev = [];
+      const ns = step(G.R, s, DIRN[d], ev);
+      const b = ev.find(e => e.type === 'bonk' && e.blockedBy && (e.blockedBy.kind === 'wall' || e.blockedBy.kind === 'furn' || e.blockedBy.kind === 'sleeper'));
+      if (b) { G.pulse = Object.assign({ cat: b.i, t: 0 }, b.blockedBy); return; }
+      s = ns;
+    }
+  }
+  function updateCat(c, dt) {
+    c.blink -= dt;
+    if (c.blink < -0.12) c.blink = 2 + Math.random() * 3.5;
+    c.ph += dt;
+    c.sq *= Math.exp(-dt * 10);
+    c.bonk = Math.max(0, c.bonk - dt);
+    c.wake = Math.max(0, c.wake - dt);
+    c.joy = Math.max(0, c.joy - dt);
+    c.drop = c.drop > 0 && !c.segs.some(s => s.type === 'drop') ? 0 : c.drop;
+    let left = dt;
+    while (c.segs.length && left > 0) {
+      const s = c.segs[0];
+      s.t = (s.t || 0);
+      const use = Math.min(left, s.dur - s.t);
+      s.t += use; left -= use;
+      const p = s.dur > 0 ? clamp(s.t / s.dur, 0, 1) : 1;
+      if (s.type === 'hop') {
+        const e = Kit.ease.sineInOut(p);
+        c.x = lerp(s.fx, s.tx, e); c.y = lerp(s.fy, s.ty, e);
+        c.z = Math.sin(PI * p) * 0.2;
+        c.sq = p < 0.5 ? -0.12 * Math.sin(PI * p * 2) : c.sq;
+      } else if (s.type === 'slide') {
+        c.x = lerp(s.fx, s.tx, p); c.y = lerp(s.fy, s.ty, p); c.z = 0; c.sq = -0.06;
+        if (!reduced && Math.random() < 0.5) { const q = tileC(c.x + 0.5, c.y + 0.8); fx.burst(q.x, q.y, { count: 1, color: '#fff4e3', speed: [10, 30], life: [0.2, 0.4], size: [1.5, 2.5] }); }
+      } else if (s.type === 'glide') {
+        const e = Kit.ease.cubicInOut(p);
+        c.x = lerp(s.fx, s.tx, e); c.y = lerp(s.fy, s.ty, e); c.z = Math.sin(PI * p) * 0.06;
+      } else if (s.type === 'tpout') { c.tps = 1 - p; }
+      else if (s.type === 'tpin') { c.x = s.tx; c.y = s.ty; c.tps = Kit.ease.backOut(p); }
+      else if (s.type === 'bonk') { c.bonkP = p; c.bonkD = [s.dx, s.dy]; }
+      else if (s.type === 'tangle') { c.tangleP = p; }
+      else if (s.type === 'drop') { c.drop = 1 - Kit.ease.bounceOut(p); }
+      if (s.t >= s.dur) {
+        c.segs.shift();
+        if (s.type === 'hop' || s.type === 'slide') {
+          c.x = s.tx; c.y = s.ty; c.z = 0;
+          if (s.type === 'hop') { c.sq = 0.16; stepSound(c); }
+          if (s.yarn) { c.tangle = 1; c.sq = 0.2; }
+        } else if (s.type === 'tpin') { c.tps = 1; puff(c.x, c.y); }
+        else if (s.type === 'tpout') { puff(c.x, c.y); }
+        else if (s.type === 'bonk') {
+          c.bonkP = 0;
+          if (!s.soft) { c.bonk = 0.5; c.sweat = 0.7; }
+        } else if (s.type === 'tangle') { c.tangleP = 0; c.tangle = G.s.c[c.i].sk ? 1 : 0; }
+        else if (s.type === 'drop') { c.drop = 0; c.sq = 0.22; if (G.mode === 'play') sfx('nw_plop', { pitch: Kit.rng().range(-3, 3), vol: 0.6 }); }
+        else if (s.type === 'settle' && c.sleepPending) { c.sleepPending = false; fallAsleep(c); }
+      }
+    }
+    if (!c.segs.length && c.tangle && !G.s.c[c.i].sk) c.tangle = 0;
+    c.sweat = Math.max(0, c.sweat - dt);
+    if (c.sleepT >= 0 && c.sleepT < 2) {
+      c.sleepT += dt;
+      const T = c.sleepT;
+      if (reduced) { c.curl = clamp(T / 0.3, 0, 1); }
+      else {
+        c.yawn = T < 0.45 ? Math.sin(clamp(T / 0.45, 0, 1) * PI) : 0;
+        c.sq = T < 0.4 ? -0.16 * Math.sin(clamp(T / 0.4, 0, 1) * PI) : c.sq;
+        c.spin = T >= 0.4 && T < 1.0 ? (T - 0.4) / 0.6 : 0;
+        c.curl = clamp((T - 0.95) / 0.3, 0, 1);
+      }
+      if (c.curl >= 1) c.pose = 'curl';
+    }
+  }
+  function fallAsleep(c) {
+    c.sleepT = 0;
+    const p = tileC(c.x + 0.5, c.y + 0.5);
+    sfx('nw_yawn', { pitch: Kit.rng().range(-2, 2), delay: 20 });
+    later(0.95, () => {
+      sfx('nw_purr'); sfx('nw_chime', { pitch: Kit.rng().int(-2, 3) });
+      haptic(25);
+      fx.burst(p.x, p.y - L.t * 0.2, { count: 14, color: ['#ffe2a8', '#fff4e3', '#f2a7a0'], shape: 'star', speed: [30, 110], life: [0.4, 0.8], size: [2, 4], glow: true, gravity: -40 });
+      fx.shockwave(p.x, p.y, { radius: L.t * 0.8, color: '#fff4e3', width: 3 });
+      for (let k = 0; k < 2; k++) spawnZ(c, k * 0.4);
+    });
+  }
+  function stepSound(c) {
+    // three tiny pitter-patter clicks per cat step, staggered between cats
+    if (G.t - c.hopSnd < 0.05) return;
+    c.hopSnd = G.t;
+    sfx('nw_step', { pitch: (c.i % 3) * 2 - 2 + Kit.rng().range(-1, 1), vol: 0.9, force: true });
+  }
+  function puff(x, y) {
+    const p = tileC(x + 0.5, y + 0.55);
+    fx.burst(p.x, p.y, { count: 10, color: ['#fff4e3', '#e9dcc3'], speed: [30, 90], life: [0.25, 0.5], size: [2, 4], sizeEnd: 0.3 });
+  }
+  function updateYarn(y, dt) {
+    let left = dt;
+    while (y.segs.length && left > 0) {
+      const s = y.segs[0];
+      s.t = s.t || 0;
+      const use = Math.min(left, s.dur - s.t);
+      s.t += use; left -= use;
+      const p = clamp(s.t / s.dur, 0, 1);
+      if (s.type === 'roll') {
+        const e = Kit.ease.cubicOut(p);
+        y.x = lerp(s.fx, s.tx, e); y.y = lerp(s.fy, s.ty, e);
+        y.rot += (s.back ? -1 : 1) * dt * 14;
+        y.hop = Math.sin(PI * p) * 0.12;
+      }
+      if (s.t >= s.dur) { y.segs.shift(); if (s.type === 'roll') { y.x = s.tx; y.y = s.ty; y.hop = 0; } }
+    }
+  }
+  function celebrate() {
+    roomSolved();
+    const R = G.R;
+    sfx('nw_solve');
+    Kit.music.duck(0.35, 1600);
+    haptic([20, 40, 20]);
+    for (const c of G.cats) { c.purr = 1.6; c.joy = 1.6; }
+    const cx = L.ox + L.gw / 2, cy = L.oy + L.gh / 2;
+    if (!G.silent) fx.flash('#fff1d0', 220, 0.25);
+    for (let k = 0; k < (reduced ? 6 : 16); k++) hearts.push({ x: L.ox + Math.random() * L.gw, y: L.oy + L.gh * (0.3 + Math.random() * 0.7), vy: -(30 + Math.random() * 40), t: -Math.random() * 0.6, s: 0.6 + Math.random() * 0.7, ph: Math.random() * 6, life: 1.6 + Math.random() * 0.8 });
+    if (!G.silent) fx.shockwave(cx, cy, { radius: L.gw * 0.7, color: '#ffe2a8', width: 5 });
+    void R;
+  }
+  function updateCard(dt) {
+    const C = G.card;
+    C.t += dt;
+    const times = [0.45, 0.75, 1.05];
+    while (C.stamped < 3 && C.t >= times[C.stamped]) {
+      const k = C.stamped++;
+      if (k < C.stars) { sfx('nw_stamp', { pitch: k * 3 }); haptic(18); C.kick = 1; stampFx = { k, t: 0 }; }
+      else sfx('nw_tap', { vol: 0.4 });
+    }
+    if (stampFx) stampFx.t += dt;
+  }
+  let stampFx = null;
+  function attract(dt) {
+    if (G.clear) { if (G.clear.t > 2.4) loadRoom(G.n, 'attract'); return; }
+    if (!G.auto) G.auto = { path: G.R.sol.slice(), i: 0, t: -0.8 };
+    const A = G.auto;
+    A.t += dt;
+    if (A.t > 0.7 && !busy() && A.i < A.path.length) { A.t = 0; doMove(DIRN[A.path[A.i++]]); }
+  }
+
+  /* ---------------- ambient: dust motes, Zzz, hearts */
+  const motes = [];
+  for (let i = 0; i < 34; i++) motes.push({ u: Math.random(), v: Math.random(), s: 0.5 + Math.random() * 1.4, ph: Math.random() * 6, sp: 0.01 + Math.random() * 0.02 });
+  function updateMotes(dt) { for (const m of motes) { m.v += m.sp * dt; m.u += Math.sin(G.t * 0.3 + m.ph) * 0.004 * dt * 10; if (m.v > 1) { m.v = 0; m.u = Math.random(); } } }
+  const zs = [], hearts = [];
+  function spawnZ(c, delay) { zs.push({ c, t: -(delay || 0), x: 0, y: 0, s: 0.7 + Math.random() * 0.5, ph: Math.random() * 6 }); }
+  function updateZ(dt) {
+    for (const c of G.cats) if (c.pose === 'curl' && G.s.c[c.i] && G.s.c[c.i].sl) { c.zT -= dt; if (c.zT <= 0) { c.zT = 1.4 + Math.random() * 0.8; spawnZ(c, 0); } }
+    for (let i = zs.length - 1; i >= 0; i--) { const z = zs[i]; z.t += dt; if (z.t > 2.2 || !G.cats.includes(z.c)) zs.splice(i, 1); }
+    for (let i = hearts.length - 1; i >= 0; i--) { const h = hearts[i]; h.t += dt; if (h.t > 0) h.y += h.vy * dt; if (h.t > h.life) hearts.splice(i, 1); }
+  }
+
+  /* ================================================================ layout */
+  const L = { t: 60, ox: 0, oy: 0, gw: 0, gh: 0, wallH: 0, side: 8, front: 16, land: false, rodY: 22, btns: [], tags: [] };
+  const safeProbe = document.createElement('div');
+  safeProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+  document.body.appendChild(safeProbe);
+  function safe(name) { const cs = getComputedStyle(safeProbe); const v = parseFloat(name === 't' ? cs.paddingTop : cs.paddingBottom); return isNaN(v) ? 0 : v; }
+  let SAFE_T = 0, SAFE_B = 0;
+  function layout() {
+    const w = view.w, h = view.h, R = G ? G.R : null;
+    const W = R ? R.W : 6, H = R ? R.H : 8;
+    SAFE_T = safe('t'); SAFE_B = safe('b');
+    const land = w > h * 0.95 && w >= 560;
+    L.land = land;
+    const ka = Kit.keyart;
+    const ROWS = H + 1.62; // floor rows + back wall + front edge
+    let t, top, availH;
+    if (ka) { t = Math.min((w - 28) / W, (h - 24) / ROWS); top = (h - t * ROWS) / 2; availH = h; }
+    else if (land) {
+      L.colW = clamp(w * 0.2, 150, 300);
+      t = Math.min((w - 2 * L.colW) / W, (h - 36 - SAFE_T - SAFE_B) / ROWS);
+      top = SAFE_T + (h - SAFE_T - SAFE_B - t * ROWS) / 2;
+    } else {
+      const small = h < 700;
+      const hudH = SAFE_T + (small ? 92 : 112), botH = SAFE_B + (small ? 128 : 162);
+      t = Math.min((w - 24) / W, (h - hudH - botH) / ROWS);
+      top = hudH + Math.max(0, (h - hudH - botH - t * ROWS) * 0.45);
+    }
+    t = Math.floor(Math.min(t, 104));
+    L.t = t;
+    L.wallH = Math.round(t * 1.3);
+    L.side = Math.max(6, Math.round(t * 0.17));
+    L.front = Math.round(t * 0.32);
+    L.gw = W * t; L.gh = H * t;
+    L.ox = Math.round((w - L.gw) / 2);
+    L.oy = Math.round(top + L.wallH);
+    L.rodY = SAFE_T + 22;
+    // felt patch buttons
+    const r = clamp(t * 0.5, 25, 32);
+    L.btns = [];
+    const names = ['undo', 'restart', 'hint'];
+    if (land) {
+      const bx = (L.ox + L.gw + L.side + w) / 2, by0 = h - SAFE_B - 70 - 2 * 96;
+      names.forEach((n, i) => L.btns.push({ id: n, x: bx, y: Math.max(by0 + i * 96, 90 + i * 96), r }));
+    } else {
+      const by = h - SAFE_B - (h < 700 ? 52 : 66), gap = Math.min(104, w * 0.27);
+      names.forEach((n, i) => L.btns.push({ id: n, x: w / 2 + (i - 1) * gap, y: by, r }));
+    }
+    L.ribbonY = land ? 0 : Math.min(L.oy + L.gh + L.front + 30, L.btns[0].y - r - 38);
+    // felt tags hanging from the rod
+    L.tags = [];
+    if (land) {
+      const cx = (L.ox - L.side) / 2, tw = clamp(L.colW * 0.62, 100, 150);
+      // chained: each tag hangs from the one above it
+      [0, 1, 2].forEach(i => L.tags.push({ x: cx - tw / 2, y: L.rodY + 20 + i * 86, w: tw, h: 66, thread: 20, py: i ? L.rodY + 20 + (i - 1) * 86 + 66 : L.rodY }));
+      L.ribbonX = cx; L.ribbonW = Math.min(L.colW - 24, 260); L.ribbonY = L.rodY + 20 + 3 * 84 + 30;
+    } else {
+      const avail = w - 84 - 12, tw = Math.min(96, (avail - 16) / 3), th = h < 700 ? 54 : 62;
+      [0, 1, 2].forEach(i => L.tags.push({ x: 12 + i * (tw + 8), y: L.rodY + 14 + (i % 2) * 6, w: tw, h: th, thread: 14 + (i % 2) * 6, py: L.rodY }));
+      L.ribbonX = w / 2; L.ribbonW = Math.min(w - 32, 420);
+      // short screens: the hint ribbon sits on the back wall instead of over the floor
+      if (L.btns[0].y - r - 22 - (L.oy + L.gh + L.front) < 52) L.ribbonY = L.oy - L.wallH * 0.5;
+    }
+    dirtyStatic = true;
+  }
+  view.onResize(() => { layout(); });
+  const tileC = (gx, gy) => ({ x: L.ox + gx * L.t, y: L.oy + gy * L.t });
+
+  /* ================================================================ static art: backdrop and dollhouse room */
+  let bgCanvas = null, roomCanvas = null, roomBox = null;
+  function mkCanvas(w, h) {
+    const d = gfx.dpr, c = gfx.offscreen(Math.max(1, Math.ceil(w * d)), Math.max(1, Math.ceil(h * d)));
+    const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+    return { c, g };
+  }
+  function rebuildStatic() {
+    dirtyStatic = false;
+    const w = view.w, h = view.h;
+    // ---- backdrop: the bigger room around the dollhouse
+    const B = mkCanvas(w, h), b = B.g;
+    const gr = b.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, pal.bg1); gr.addColorStop(0.62, pal.bg2); gr.addColorStop(1, pal.bg3);
+    b.fillStyle = gr; b.fillRect(0, 0, w, h);
+    // striped wallpaper
+    b.globalAlpha = dark ? 0.08 : 0.12;
+    b.fillStyle = dark ? '#000' : '#fff';
+    for (let x = 0; x < w; x += 36) b.fillRect(x, 0, 14, h * 0.7);
+    b.globalAlpha = 1;
+    // wainscot panels below a chair rail
+    const rail = h * 0.7;
+    b.fillStyle = dark ? 'rgba(0,0,0,0.22)' : 'rgba(120,70,40,0.14)';
+    b.fillRect(0, rail, w, h - rail);
+    b.fillStyle = dark ? 'rgba(255,220,180,0.08)' : 'rgba(255,250,240,0.5)';
+    b.fillRect(0, rail - 3, w, 3);
+    b.fillStyle = dark ? 'rgba(0,0,0,0.25)' : 'rgba(120,70,40,0.18)';
+    b.fillRect(0, rail, w, 2);
+    for (let x = 18; x < w - 40; x += 120) {
+      b.strokeStyle = dark ? 'rgba(255,220,180,0.07)' : 'rgba(255,250,240,0.35)';
+      b.lineWidth = 2;
+      gfx.roundRect(b, x, rail + 22, 96, h - rail - 44, 6).stroke();
+    }
+    // the dollhouse casts a soft shadow onto the backdrop
+    const bx = L.ox - L.side, by = L.oy - L.wallH - L.side, bw = L.gw + 2 * L.side, bh = L.wallH + L.gh + L.front + L.side;
+    gfx.softShadow(b, bx + bw / 2, by + bh + 4, bw * 0.62, Math.max(18, L.t * 0.5), dark ? 0.55 : 0.32);
+    gfx.softShadow(b, bx + bw / 2 + 10, by + bh / 2 + 16, bw * 0.62, bh * 0.56, dark ? 0.4 : 0.18);
+    bgCanvas = B.c;
+
+    // ---- the room itself
+    if (!G) return;
+    const R = G.R, t = L.t, pad = 4;
+    roomBox = { x: bx - pad, y: by - pad, w: bw + pad * 2, h: bh + pad * 2 };
+    const RC = mkCanvas(roomBox.w, roomBox.h), g = RC.g;
+    g.translate(-roomBox.x, -roomBox.y);
+    drawRoomStatic(g, R);
+    roomCanvas = RC.c;
+  }
+  function drawRoomStatic(g, R) {
+    const t = L.t, ox = L.ox, oy = L.oy, gw = L.gw, gh = L.gh, wallTop = oy - L.wallH, S = L.side;
+    const rnd = Kit.rng(R.n * 13 + 5);
+    // back wall with a botanical repeat
+    g.fillStyle = pal.wall;
+    g.fillRect(ox, wallTop, gw, L.wallH);
+    g.save();
+    g.beginPath(); g.rect(ox, wallTop, gw, L.wallH); g.clip();
+    const sp = Math.max(18, t * 0.46);
+    for (let j = 0, y = wallTop + sp * 0.4; y < oy; j++, y += sp * 0.8) {
+      for (let x = ox + (j % 2 ? sp / 2 : 0); x < ox + gw + sp; x += sp) sprig(g, x, y, sp * 0.32, pal.leaf);
+    }
+    g.restore();
+    // crown moulding and skirting
+    g.fillStyle = dark ? 'rgba(0,0,0,0.18)' : 'rgba(120,80,50,0.16)';
+    g.fillRect(ox, wallTop, gw, t * 0.07);
+    const sk = Math.max(5, t * 0.13);
+    g.fillStyle = dark ? '#8d7c78' : '#fbf3e6';
+    g.fillRect(ox, oy - sk, gw, sk);
+    g.fillStyle = dark ? 'rgba(0,0,0,0.25)' : 'rgba(120,80,50,0.18)';
+    g.fillRect(ox, oy - sk, gw, 1.5);
+    // window
+    const ww = t * 1.7, wx = ox + clamp(R.win, 0, R.W - 2) * t + (2 * t - ww) / 2, wy = wallTop + L.wallH * 0.13, wh = L.wallH * 0.62;
+    L.win = { x: wx, y: wy, w: ww, h: wh };
+    g.fillStyle = dark ? '#5a3f2f' : '#a8714a';
+    gfx.roundRect(g, wx - 5, wy - 5, ww + 10, wh + 10, 6).fill();
+    const sky = g.createLinearGradient(0, wy, 0, wy + wh);
+    if (dark) { sky.addColorStop(0, '#141a3a'); sky.addColorStop(1, '#3b2f5c'); } else { sky.addColorStop(0, '#9fd0e6'); sky.addColorStop(0.65, '#ffe2b0'); sky.addColorStop(1, '#ffc58a'); }
+    g.fillStyle = sky;
+    gfx.roundRect(g, wx, wy, ww, wh, 3).fill();
+    g.save();
+    gfx.roundRect(g, wx, wy, ww, wh, 3); g.clip();
+    if (dark) {
+      g.fillStyle = '#fff6d8'; g.beginPath(); g.arc(wx + ww * 0.72, wy + wh * 0.3, t * 0.13, 0, TAU); g.fill();
+      g.fillStyle = '#141a3a'; g.beginPath(); g.arc(wx + ww * 0.76, wy + wh * 0.26, t * 0.12, 0, TAU); g.fill();
+      for (let k = 0; k < 9; k++) { g.fillStyle = 'rgba(255,255,255,' + (0.4 + rnd.next() * 0.5) + ')'; g.fillRect(wx + rnd.next() * ww, wy + rnd.next() * wh * 0.6, 1.5, 1.5); }
+    } else {
+      g.fillStyle = 'rgba(255,248,225,0.95)'; g.beginPath(); g.arc(wx + ww * 0.28, wy + wh * 0.7, t * 0.2, 0, TAU); g.fill();
+    }
+    // distant rooftops and a tree
+    g.fillStyle = dark ? '#221c38' : '#c79a7a';
+    g.beginPath(); g.moveTo(wx, wy + wh);
+    for (let x = 0; x <= ww; x += ww / 6) g.lineTo(wx + x, wy + wh * (0.78 - (Math.floor(x / (ww / 6)) % 2) * 0.1));
+    g.lineTo(wx + ww, wy + wh); g.fill();
+    g.fillStyle = dark ? '#1b2a2a' : '#7f9f6c';
+    g.beginPath(); g.arc(wx + ww * 0.12, wy + wh * 0.6, t * 0.28, 0, TAU); g.arc(wx + ww * 0.25, wy + wh * 0.75, t * 0.22, 0, TAU); g.fill();
+    g.restore();
+    g.strokeStyle = dark ? '#6b4b38' : '#fbf3e6'; g.lineWidth = Math.max(2, t * 0.05);
+    g.beginPath(); g.moveTo(wx + ww / 2, wy); g.lineTo(wx + ww / 2, wy + wh); g.moveTo(wx, wy + wh * 0.45); g.lineTo(wx + ww, wy + wh * 0.45); g.stroke();
+    g.fillStyle = dark ? '#6b4b38' : '#fbf3e6';
+    g.fillRect(wx - 9, wy + wh + 3, ww + 18, Math.max(4, t * 0.09));
+    // little curtains
+    for (const side of [-1, 1]) {
+      const cx = side < 0 ? wx - 4 : wx + ww + 4;
+      g.fillStyle = dark ? '#7a3f4c' : '#d98a8a';
+      g.beginPath(); g.moveTo(cx, wy - 8); g.lineTo(cx - side * ww * 0.26, wy - 8); g.quadraticCurveTo(cx - side * ww * 0.05, wy + wh * 0.55, cx - side * ww * 0.14, wy + wh + 2); g.lineTo(cx, wy + wh + 2); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(cx - side * ww * 0.1, wy - 6); g.quadraticCurveTo(cx - side * ww * 0.02, wy + wh * 0.5, cx - side * ww * 0.07, wy + wh); g.stroke();
+    }
+    g.fillStyle = dark ? '#5a3f2f' : '#8a5a3b';
+    g.fillRect(wx - ww * 0.35, wy - 10, ww * 1.7, 3);
+    // a framed cat portrait
+    if (R.pic >= 0 && Math.abs(R.pic + 0.5 - (R.win + 1)) > 1.7) {
+      const px = ox + (R.pic + 0.5) * t, py = wallTop + L.wallH * 0.42, fw = t * 0.62, fh = t * 0.5;
+      g.fillStyle = dark ? '#7a5a2a' : '#c9973f';
+      gfx.roundRect(g, px - fw / 2 - 3, py - fh / 2 - 3, fw + 6, fh + 6, 3).fill();
+      g.fillStyle = dark ? '#3c3346' : '#f3e2c4';
+      g.fillRect(px - fw / 2, py - fh / 2, fw, fh);
+      g.fillStyle = dark ? '#cfa36f' : '#e8954a';
+      g.beginPath(); g.arc(px, py + fh * 0.12, fh * 0.26, 0, TAU); g.fill();
+      g.beginPath(); g.moveTo(px - fh * 0.24, py); g.lineTo(px - fh * 0.2, py - fh * 0.3); g.lineTo(px - fh * 0.05, py - fh * 0.1); g.fill();
+      g.beginPath(); g.moveTo(px + fh * 0.24, py); g.lineTo(px + fh * 0.2, py - fh * 0.3); g.lineTo(px + fh * 0.05, py - fh * 0.1); g.fill();
+    }
+    // floor planks: two planks per tile row, staggered seams, grain lines
+    g.save();
+    g.beginPath(); g.rect(ox, oy, gw, gh); g.clip();
+    const ph = t / 2;
+    for (let r = 0; r < R.H * 2; r++) {
+      const y = oy + r * ph;
+      let x = ox - ((r * 37) % 5) * t * 0.4;
+      let k = 0;
+      while (x < ox + gw) {
+        const len = t * (1.6 + ((r * 7 + k * 3) % 4) * 0.5);
+        g.fillStyle = (r + k) % 2 ? pal.floor1 : pal.floor2;
+        g.fillRect(x, y, len, ph);
+        g.strokeStyle = dark ? 'rgba(40,20,10,0.35)' : 'rgba(120,70,30,0.22)';
+        g.lineWidth = 0.8;
+        for (let q = 1; q <= 2; q++) {
+          g.beginPath();
+          const yy = y + ph * q / 3;
+          g.moveTo(x + 3, yy);
+          for (let xx = 0; xx < len - 6; xx += 8) g.lineTo(x + 3 + xx, yy + Math.sin((xx + r * 13 + k * 7) * 0.09) * 1.2);
+          g.stroke();
+        }
+        g.fillStyle = dark ? 'rgba(20,10,5,0.5)' : 'rgba(110,60,25,0.38)';
+        g.fillRect(x, y, 1.2, ph);
+        x += len; k++;
+      }
+      g.fillStyle = dark ? 'rgba(20,10,5,0.45)' : 'rgba(110,60,25,0.32)';
+      g.fillRect(ox, y, gw, 1);
+    }
+    // gentle tile check so the grid reads
+    for (let j = 0; j < R.H; j++) for (let i = 0; i < R.W; i++) if ((i + j) % 2) { g.fillStyle = dark ? 'rgba(255,230,200,0.035)' : 'rgba(255,245,225,0.09)'; g.fillRect(ox + i * t, oy + j * t, t, t); }
+    g.fillStyle = dark ? 'rgba(255,230,200,0.12)' : 'rgba(255,248,235,0.4)';
+    for (let j = 1; j < R.H; j++) for (let i = 1; i < R.W; i++) { g.beginPath(); g.arc(ox + i * t, oy + j * t, 1.3, 0, TAU); g.fill(); }
+    // rugs
+    for (const r of R.rugs) drawRug(g, r, t, ox, oy);
+    // ambient occlusion along the back and side walls
+    let ao = g.createLinearGradient(0, oy, 0, oy + t * 0.45);
+    ao.addColorStop(0, 'rgba(60,30,15,0.32)'); ao.addColorStop(1, 'rgba(60,30,15,0)');
+    g.fillStyle = ao; g.fillRect(ox, oy, gw, t * 0.45);
+    ao = g.createLinearGradient(ox, 0, ox + t * 0.3, 0);
+    ao.addColorStop(0, 'rgba(60,30,15,0.25)'); ao.addColorStop(1, 'rgba(60,30,15,0)');
+    g.fillStyle = ao; g.fillRect(ox, oy, t * 0.3, gh);
+    ao = g.createLinearGradient(ox + gw, 0, ox + gw - t * 0.3, 0);
+    ao.addColorStop(0, 'rgba(60,30,15,0.25)'); ao.addColorStop(1, 'rgba(60,30,15,0)');
+    g.fillStyle = ao; g.fillRect(ox + gw - t * 0.3, oy, t * 0.3, gh);
+    g.restore();
+    // tunnels
+    for (const d of R.doors) { drawTunnel(g, d.a, d.c, R); drawTunnel(g, d.b, d.c, R); }
+    // cushions
+    R.cushions.forEach(c => drawCushion(g, ox + (c.x + 0.5) * t, oy + (c.y + 0.5) * t, t, c, R.matched));
+    // dollhouse walls: cut-away caps on three sides, cross-section at the front
+    const capC = pal.cap, capD = dark ? '#6d5d5a' : '#d9c7ae';
+    g.fillStyle = capC;
+    g.fillRect(ox - S, wallTop - S, gw + 2 * S, S);
+    g.fillRect(ox - S, wallTop - S, S, L.wallH + gh + S);
+    g.fillRect(ox + gw, wallTop - S, S, L.wallH + gh + S);
+    g.fillStyle = capD;
+    g.fillRect(ox - S, wallTop - S, gw + 2 * S, 1.5); g.fillRect(ox - S, wallTop - S, 1.5, L.wallH + gh + S); g.fillRect(ox + gw + S - 1.5, wallTop - S, 1.5, L.wallH + gh + S);
+    g.fillStyle = dark ? 'rgba(0,0,0,0.25)' : 'rgba(110,70,40,0.2)';
+    g.fillRect(ox - 1.5, wallTop, 1.5, L.wallH + gh); g.fillRect(ox + gw, wallTop, 1.5, L.wallH + gh); g.fillRect(ox, wallTop - 1.5, gw, 1.5);
+    // front cross-section
+    const fy = oy + gh;
+    const fg = g.createLinearGradient(0, fy, 0, fy + L.front);
+    fg.addColorStop(0, dark ? '#5e3d27' : '#9a643b'); fg.addColorStop(1, dark ? '#3e281a' : '#744628');
+    g.fillStyle = fg; g.fillRect(ox - S, fy, gw + 2 * S, L.front);
+    g.fillStyle = dark ? '#7a5236' : '#b97c4b'; g.fillRect(ox - S, fy, gw + 2 * S, 2.5);
+    g.fillStyle = dark ? 'rgba(0,0,0,0.25)' : 'rgba(60,30,15,0.2)';
+    for (let x = ox - S + t * 0.5; x < ox + gw + S; x += t * 0.5) g.fillRect(x, fy + 4, 1.2, L.front - 6);
+  }
+  function sprig(g, x, y, s, col) {
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1;
+    g.globalAlpha = 0.55;
+    g.beginPath(); g.moveTo(x, y + s); g.quadraticCurveTo(x + s * 0.2, y, x - s * 0.1, y - s * 0.8); g.stroke();
+    for (const [lx, ly, a] of [[0.05, 0.35, -0.8], [0.1, -0.1, 0.9], [-0.02, -0.5, -0.6]]) {
+      g.beginPath(); g.ellipse(x + lx * s + (a > 0 ? s * 0.22 : -s * 0.22), y + ly * s, s * 0.26, s * 0.11, a, 0, TAU); g.fill();
+    }
+    g.globalAlpha = 0.35; g.fillStyle = dark ? '#c98a7a' : '#d98a8a';
+    g.beginPath(); g.arc(x - s * 0.1, y - s * 0.85, s * 0.12, 0, TAU); g.fill();
+    g.globalAlpha = 1;
+  }
+  const RUG_C = [['#c76b7e', '#3f4f8a', '#f3e2c4'], ['#3f4f8a', '#c76b7e', '#f3e2c4'], ['#d7a443', '#3c7d7a', '#fbf0dc']];
+  function drawRug(g, r, t, ox, oy) {
+    const [a, b, c] = RUG_C[r.v % 3];
+    const x = ox + r.x * t + 4, y = oy + r.y * t + 4, w = r.w * t - 8, h = r.h * t - 8;
+    g.fillStyle = 'rgba(60,30,15,0.25)'; g.fillRect(x + 2, y + 3, w, h);
+    g.fillStyle = a; g.fillRect(x, y, w, h);
+    const bd = Math.max(5, t * 0.14);
+    g.fillStyle = b; g.fillRect(x, y, w, bd); g.fillRect(x, y + h - bd, w, bd); g.fillRect(x, y, bd, h); g.fillRect(x + w - bd, y, bd, h);
+    // zigzag on the border
+    g.strokeStyle = c; g.lineWidth = 1.4;
+    for (const yy of [y + bd / 2, y + h - bd / 2]) { g.beginPath(); for (let xx = x + 2, k = 0; xx < x + w - 2; xx += bd * 0.6, k++) g.lineTo(xx, yy + (k % 2 ? -bd * 0.22 : bd * 0.22)); g.stroke(); }
+    // kilim diamonds
+    const cols = r.w, rows = r.h;
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const cx = ox + (r.x + i + 0.5) * t, cy = oy + (r.y + j + 0.5) * t, s = t * 0.26;
+      g.fillStyle = (i + j) % 2 ? b : c;
+      g.beginPath(); g.moveTo(cx, cy - s); g.lineTo(cx + s, cy); g.lineTo(cx, cy + s); g.lineTo(cx - s, cy); g.closePath(); g.fill();
+      g.fillStyle = a;
+      g.beginPath(); g.moveTo(cx, cy - s * 0.45); g.lineTo(cx + s * 0.45, cy); g.lineTo(cx, cy + s * 0.45); g.lineTo(cx - s * 0.45, cy); g.closePath(); g.fill();
+    }
+    // fringe
+    g.strokeStyle = c; g.lineWidth = 1;
+    for (let yy = y + 3; yy < y + h - 2; yy += 3.5) { g.beginPath(); g.moveTo(x, yy); g.lineTo(x - 4, yy); g.moveTo(x + w, yy); g.lineTo(x + w + 4, yy); g.stroke(); }
+    if (dark) { g.fillStyle = 'rgba(20,10,30,0.28)'; g.fillRect(x, y, w, h); }
+  }
+  const TUN_C = ['#3f8f8c', '#8e5a8a'];
+  function drawTunnel(g, idx, c, R) {
+    const t = L.t, x = L.ox + (idx % R.W + 0.5) * t, y = L.oy + (((idx / R.W) | 0) + 0.5) * t;
+    const col = TUN_C[c % 2];
+    gfx.softShadow(g, x, y + t * 0.08, t * 0.44, t * 0.3, 0.35);
+    g.fillStyle = col;
+    g.beginPath(); g.ellipse(x, y, t * 0.42, t * 0.36, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.18)';
+    g.beginPath(); g.ellipse(x, y - t * 0.04, t * 0.4, t * 0.3, 0, PI, TAU); g.fill();
+    const hole = g.createRadialGradient(x, y + t * 0.03, 1, x, y + t * 0.03, t * 0.25);
+    hole.addColorStop(0, '#120a10'); hole.addColorStop(1, '#3a2430');
+    g.fillStyle = hole;
+    g.beginPath(); g.ellipse(x, y + t * 0.03, t * 0.25, t * 0.2, 0, 0, TAU); g.fill();
+    g.setLineDash([3, 3]); g.strokeStyle = 'rgba(255,244,227,0.7)'; g.lineWidth = 1.3;
+    g.beginPath(); g.ellipse(x, y, t * 0.35, t * 0.29, 0, 0, TAU); g.stroke();
+    g.setLineDash([]);
+  }
+  function drawCushion(g, x, y, t, c, matched) {
+    const cols = matched && c.coat ? COATS[c.coat].cush : NEUTRAL_CUSH[c.v % 3];
+    const s = t * 0.84, r = t * 0.2, yy = y + t * 0.04;
+    gfx.softShadow(g, x, yy + s * 0.42, s * 0.55, t * 0.16, 0.4);
+    g.fillStyle = cols[1];
+    gfx.roundRect(g, x - s / 2, yy - s / 2 + 4, s, s, r).fill();
+    const grd = g.createLinearGradient(x, yy - s / 2, x, yy + s / 2);
+    grd.addColorStop(0, gfx.mix(cols[0], '#ffffff', 0.25)); grd.addColorStop(1, cols[0]);
+    g.fillStyle = grd;
+    gfx.roundRect(g, x - s / 2, yy - s / 2, s, s - 2, r).fill();
+    if (matched && c.coat === 'calico') {
+      g.save(); gfx.roundRect(g, x - s / 2, yy - s / 2, s, s - 2, r); g.clip();
+      g.fillStyle = '#e08a3a'; g.fillRect(x - s / 2, yy - s / 2, s / 2, s / 2);
+      g.fillStyle = '#5a4a46'; g.fillRect(x, yy, s / 2, s / 2);
+      g.restore();
+    }
+    // piping
+    const pip = matched && c.coat ? COATS[c.coat].dark : cols[1];
+    g.strokeStyle = pip; g.lineWidth = Math.max(2, t * 0.05);
+    gfx.roundRect(g, x - s / 2 + 1, yy - s / 2 + 1, s - 2, s - 4, r).stroke();
+    // tufts
+    g.fillStyle = 'rgba(0,0,0,0.16)';
+    for (const [dx, dy] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.2], [0.22, 0.2]]) { g.beginPath(); g.arc(x + dx * s, yy + dy * s, t * 0.035, 0, TAU); g.fill(); }
+    if (matched && c.coat) {
+      // embroidered cat-face emblem in the coat's colours: matching is visible at a glance
+      const C = COATS[c.coat], er = t * 0.17;
+      g.fillStyle = C.base;
+      g.beginPath(); g.moveTo(x - er * 0.95, yy - er * 0.15); g.lineTo(x - er * 0.75, yy - er * 1.15); g.lineTo(x - er * 0.2, yy - er * 0.75); g.fill();
+      g.beginPath(); g.moveTo(x + er * 0.95, yy - er * 0.15); g.lineTo(x + er * 0.75, yy - er * 1.15); g.lineTo(x + er * 0.2, yy - er * 0.75); g.fill();
+      g.beginPath(); g.ellipse(x, yy, er, er * 0.85, 0, 0, TAU); g.fill();
+      if (c.coat === 'calico') { g.fillStyle = C.p1; g.beginPath(); g.arc(x - er * 0.45, yy - er * 0.3, er * 0.45, 0, TAU); g.fill(); }
+      if (C.pat === 'tabby') { g.strokeStyle = C.dark; g.lineWidth = 1.4; g.beginPath(); for (const k of [-0.3, 0, 0.3]) { g.moveTo(x + k * er, yy - er * 0.75); g.lineTo(x + k * er, yy - er * 0.35); } g.stroke(); }
+      g.setLineDash([2, 2]); g.strokeStyle = c.coat === 'white' ? '#6f8fa8' : '#fff4e3'; g.lineWidth = 1.1;
+      g.beginPath(); g.ellipse(x, yy, er * 1.08, er * 0.93, 0, 0, TAU); g.stroke(); g.setLineDash([]);
+      g.fillStyle = c.coat === 'black' ? C.eye : '#3a2a22';
+      g.beginPath(); g.arc(x - er * 0.38, yy - er * 0.05, er * 0.12, 0, TAU); g.arc(x + er * 0.38, yy - er * 0.05, er * 0.12, 0, TAU); g.fill();
+    } else {
+      g.fillStyle = cols[1];
+      g.beginPath(); g.arc(x, yy, t * 0.07, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.5)';
+      g.beginPath(); g.arc(x - t * 0.02, yy - t * 0.02, t * 0.025, 0, TAU); g.fill();
+    }
+  }
+
+  /* ---------------- furniture sprites (drawn y-sorted with the cats, so they occlude properly) */
+  const FURN_UP = { sofa: 0.28, armchair: 0.3, bookcase: 1.1, table: 0.22, lamp: 0.95, plant: 0 };
+  const FAB = [['#7a9e7e', '#93b896', '#5c7f60'], ['#d7a443', '#e8c06a', '#b0832c'], ['#c9867f', '#dea29b', '#a5625c']];
+  function furnSprite(f) {
+    const t = L.t, up = FURN_UP[f.type], w = f.w * t, h = (f.h + up) * t;
+    return gfx.sprite('nw|' + f.type + '|' + f.w + 'x' + f.h + '|' + f.v + '|' + t + '|' + (dark ? 1 : 0), w, h, (g) => paintFurn(g, f, t, w, h, up * t));
+  }
+  function paintFurn(g, f, t, w, h, U) {
+    const fab = FAB[f.v % 3];
+    if (f.type === 'sofa' || f.type === 'armchair') {
+      const m = t * 0.06;
+      // base / front face
+      g.fillStyle = fab[2]; gfx.roundRect(g, m, U * 0.55, w - 2 * m, h - U * 0.55 - m, t * 0.18).fill();
+      // backrest with stripes
+      g.fillStyle = fab[0]; gfx.roundRect(g, m, m, w - 2 * m, U + t * 0.28, t * 0.2).fill();
+      g.save(); gfx.roundRect(g, m, m, w - 2 * m, U + t * 0.28, t * 0.2); g.clip();
+      g.fillStyle = fab[1];
+      for (let x = m + t * 0.08; x < w; x += t * 0.22) g.fillRect(x, 0, t * 0.08, h);
+      g.restore();
+      // seat cushions
+      const seats = Math.max(1, f.w), sw = (w - 2 * m - t * 0.36) / seats;
+      for (let k = 0; k < seats; k++) {
+        const sx = m + t * 0.18 + k * sw;
+        g.fillStyle = fab[0]; gfx.roundRect(g, sx + 1, U + t * 0.18, sw - 2, t * 0.5, t * 0.12).fill();
+        g.fillStyle = 'rgba(255,255,255,0.18)'; gfx.roundRect(g, sx + 3, U + t * 0.2, sw - 6, t * 0.16, t * 0.08).fill();
+      }
+      // armrests
+      for (const ax of [m, w - m - t * 0.2]) {
+        g.fillStyle = fab[2]; gfx.roundRect(g, ax, U * 0.6, t * 0.2, h - U * 0.6 - m - 1, t * 0.1).fill();
+        g.fillStyle = fab[1]; gfx.roundRect(g, ax, U * 0.6, t * 0.2, t * 0.3, t * 0.1).fill();
+      }
+      g.fillStyle = 'rgba(40,20,10,0.25)'; g.fillRect(m + t * 0.1, h - m - t * 0.1, w - 2 * m - t * 0.2, t * 0.06);
+      // a throw cushion
+      g.fillStyle = f.v % 2 ? '#e9a3a0' : '#f3e2c4';
+      g.save(); g.translate(w - m - t * 0.42, U + t * 0.12); g.rotate(-0.25); gfx.roundRect(g, -t * 0.16, -t * 0.14, t * 0.32, t * 0.28, t * 0.08).fill(); g.restore();
+    } else if (f.type === 'bookcase') {
+      const m = t * 0.05;
+      g.fillStyle = dark ? '#5a3a26' : '#8a5a3b'; gfx.roundRect(g, m, 0, w - 2 * m, h - m, t * 0.06).fill();
+      g.fillStyle = dark ? '#3a2418' : '#5e3a24'; g.fillRect(m + t * 0.08, t * 0.1, w - 2 * m - t * 0.16, h - t * 0.3);
+      const shelves = 3, shH = (h - t * 0.3) / shelves, rr = Kit.rng(f.v * 17 + f.x * 3 + 1);
+      const spines = ['#c8643b', '#7a9e7e', '#d7a443', '#3f4f8a', '#c76b7e', '#f3e2c4', '#5c7f60'];
+      for (let s = 0; s < shelves; s++) {
+        const by = t * 0.1 + (s + 1) * shH;
+        let x = m + t * 0.1;
+        while (x < w - m - t * 0.16) {
+          const bw = t * (0.07 + rr.next() * 0.07), bh = shH * (0.6 + rr.next() * 0.32);
+          if (rr.chance(0.12)) { x += bw; continue; }
+          g.fillStyle = rr.pick(spines); g.fillRect(x, by - bh, bw - 1, bh);
+          g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x + 1, by - bh + 3, bw - 3, 1.5);
+          x += bw;
+        }
+        g.fillStyle = dark ? '#6b4630' : '#a8714a'; g.fillRect(m + t * 0.06, by, w - 2 * m - t * 0.12, t * 0.05);
+      }
+      g.fillStyle = 'rgba(40,20,10,0.3)'; g.fillRect(m, h - m - t * 0.06, w - 2 * m, t * 0.06);
+    } else if (f.type === 'table') {
+      const m = t * 0.1, top = U + t * 0.05, th = h - top - t * 0.28;
+      g.fillStyle = dark ? '#4a2f1e' : '#7a4c2c';
+      for (const lx of [m + t * 0.08, w - m - t * 0.2]) g.fillRect(lx, top + th - 4, t * 0.12, t * 0.3);
+      g.fillStyle = dark ? '#6b4630' : '#9a6038'; gfx.roundRect(g, m, top + 6, w - 2 * m, th, t * 0.14).fill();
+      g.fillStyle = dark ? '#8a5c3e' : '#c08350'; gfx.roundRect(g, m, top, w - 2 * m, th - 4, t * 0.14).fill();
+      g.strokeStyle = 'rgba(80,40,15,0.25)'; g.lineWidth = 1;
+      for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(m + 6, top + k * th / 4); g.bezierCurveTo(w * 0.3, top + k * th / 4 - 3, w * 0.6, top + k * th / 4 + 3, w - m - 6, top + k * th / 4); g.stroke(); }
+      // tea for two and a vase
+      const cx = w * 0.32, cy = top + th * 0.45;
+      g.fillStyle = '#fbf3e6'; g.beginPath(); g.ellipse(cx, cy, t * 0.14, t * 0.1, 0, 0, TAU); g.fill();
+      g.fillStyle = '#e9a3a0'; g.beginPath(); g.ellipse(cx, cy - 2, t * 0.08, t * 0.06, 0, 0, TAU); g.fill();
+      g.fillStyle = '#8a5a3b'; g.beginPath(); g.ellipse(cx, cy - 3, t * 0.055, t * 0.035, 0, 0, TAU); g.fill();
+      const vx = w * 0.7, vy = top + th * 0.4;
+      g.fillStyle = '#3f4f8a'; gfx.roundRect(g, vx - t * 0.07, vy - t * 0.12, t * 0.14, t * 0.2, t * 0.05).fill();
+      for (const [dx, dy, col] of [[-0.08, -0.22, '#c8643b'], [0.06, -0.26, '#d7a443'], [0, -0.32, '#e9a3a0']]) { g.fillStyle = col; g.beginPath(); g.arc(vx + dx * t, vy + dy * t, t * 0.06, 0, TAU); g.fill(); }
+    } else if (f.type === 'lamp') {
+      const cx = w / 2, by = h - t * 0.3;
+      g.fillStyle = dark ? '#4a2f1e' : '#7a4c2c'; g.fillRect(cx - t * 0.2, by - t * 0.02, t * 0.08, t * 0.26); g.fillRect(cx + t * 0.12, by - t * 0.02, t * 0.08, t * 0.26);
+      g.fillStyle = dark ? '#8a5c3e' : '#c08350'; g.beginPath(); g.ellipse(cx, by, t * 0.34, t * 0.2, 0, 0, TAU); g.fill();
+      g.fillStyle = dark ? '#6b4630' : '#9a6038'; g.beginPath(); g.ellipse(cx, by + 3, t * 0.34, t * 0.2, 0, 0, PI); g.fill();
+      g.fillStyle = '#c9973f'; g.fillRect(cx - 1.5, by - t * 0.6, 3, t * 0.6);
+      g.beginPath(); g.ellipse(cx, by - 2, t * 0.11, t * 0.05, 0, 0, TAU); g.fill();
+      g.fillStyle = dark ? '#ffd9a0' : '#f3e2c4';
+      g.beginPath(); g.moveTo(cx - t * 0.14, by - t * 0.84); g.lineTo(cx + t * 0.14, by - t * 0.84); g.lineTo(cx + t * 0.26, by - t * 0.52); g.lineTo(cx - t * 0.26, by - t * 0.52); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(200,100,59,0.6)'; g.fillRect(cx - t * 0.25, by - t * 0.57, t * 0.5, t * 0.04);
+    } else if (f.type === 'plant') {
+      // pot only; leaves sway and are drawn live
+      const cx = w / 2, by = h - t * 0.14;
+      g.fillStyle = '#a84f2c'; g.beginPath(); g.moveTo(cx - t * 0.26, by - t * 0.42); g.lineTo(cx + t * 0.26, by - t * 0.42); g.lineTo(cx + t * 0.19, by); g.lineTo(cx - t * 0.19, by); g.closePath(); g.fill();
+      g.fillStyle = '#c8643b'; g.beginPath(); g.moveTo(cx - t * 0.26, by - t * 0.42); g.lineTo(cx + t * 0.04, by - t * 0.42); g.lineTo(cx - t * 0.02, by); g.lineTo(cx - t * 0.19, by); g.closePath(); g.fill();
+      g.fillStyle = '#d97a4f'; gfx.roundRect(g, cx - t * 0.3, by - t * 0.5, t * 0.6, t * 0.12, 3).fill();
+      g.fillStyle = '#4a2f1e'; g.beginPath(); g.ellipse(cx, by - t * 0.47, t * 0.24, t * 0.05, 0, 0, TAU); g.fill();
+    }
+  }
+  function drawPlantLeaves(f, time) {
+    const t = L.t, cx = L.ox + (f.x + 0.5) * t, by = L.oy + (f.y + 1) * t - t * 0.14 - t * 0.47;
+    const leaves = 7, col = dark ? ['#4f7a48', '#3b6136'] : ['#7aa564', '#5c8a4c'];
+    for (let k = 0; k < leaves; k++) {
+      const a = -PI / 2 + (k - (leaves - 1) / 2) * 0.42 + Math.sin(time * 1.1 + k * 0.9 + f.x) * 0.06;
+      const len = t * (0.42 + ((k * 37) % 5) * 0.06);
+      ctx.save(); ctx.translate(cx, by); ctx.rotate(a);
+      ctx.fillStyle = col[k % 2];
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * 0.5, -len * 0.32, len, 0); ctx.quadraticCurveTo(len * 0.5, len * 0.32, 0, 0); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(len * 0.1, 0); ctx.lineTo(len * 0.85, 0); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  /* ================================================================ cats */
+  function ell(g, x, y, rx, ry) { g.beginPath(); g.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU); }
+  // (cx, gy): the ground point under the cat; s: tile size
+  function drawCat(g, cx, gy, s, coat, P) {
+    const C = COATS[coat];
+    const lift = (P.z || 0) * s;
+    g.save();
+    g.globalAlpha = P.alpha === undefined ? 1 : P.alpha;
+    gfx.softShadow(g, cx, gy - s * 0.02, s * 0.32 * (1 - (P.z || 0) * 1.2), s * 0.11, 0.38);
+    g.translate(cx, gy - lift);
+    const sc = P.scale === undefined ? 1 : P.scale, sq = P.sq || 0;
+    g.scale(sc * (1 + sq), sc * (1 - sq));
+    if (P.curl >= 1) drawCurl(g, s, C, P);
+    else if (P.curl > 0) {
+      const a = g.globalAlpha;
+      g.globalAlpha = a * (1 - P.curl); drawSit(g, s, C, P);
+      g.globalAlpha = a * P.curl; drawCurl(g, s, C, P);
+    } else drawSit(g, s, C, P);
+    g.restore();
+  }
+  function drawSit(g, s, C, P) {
+    const face = P.face || 'down', t = P.t;
+    const side = face === 'left' ? -1 : face === 'right' ? 1 : 0;
+    const back = face === 'up';
+    const sway = Math.sin(t * 2.4 + P.ph) * (P.joy ? 0.12 : 0.06);
+    // tail
+    g.lineCap = 'round';
+    g.strokeStyle = C.base; g.lineWidth = s * 0.085;
+    g.beginPath();
+    if (back) { g.moveTo(0, -s * 0.08); g.quadraticCurveTo(s * (0.05 + sway), -s * 0.3, s * (sway * 2), -s * 0.58); }
+    else {
+      const ts = side ? -side : 1;
+      g.moveTo(ts * s * 0.14, -s * 0.06);
+      g.quadraticCurveTo(ts * s * 0.44, -s * 0.06, ts * s * (0.4 + sway), -s * (0.36 + sway * 0.5));
+    }
+    g.stroke();
+    if (C.pat === 'tabby' || coat2(C) === 'calico') {
+      g.strokeStyle = C.pat === 'calico' ? C.p1 : C.dark; g.lineWidth = s * 0.085;
+      g.beginPath();
+      if (back) { g.moveTo(s * sway * 1.8, -s * 0.5); g.lineTo(s * sway * 2, -s * 0.58); }
+      else { const ts = side ? -side : 1; g.moveTo(ts * s * (0.41 + sway * 0.9), -s * (0.29 + sway * 0.4)); g.lineTo(ts * s * (0.4 + sway), -s * (0.36 + sway * 0.5)); }
+      g.stroke();
+    }
+    // body
+    const bodyG = g.createLinearGradient(-s * 0.2, -s * 0.42, s * 0.2, 0);
+    bodyG.addColorStop(0, C.light); bodyG.addColorStop(0.45, C.base); bodyG.addColorStop(1, C.dark);
+    g.fillStyle = bodyG;
+    ell(g, side * s * 0.03, -s * 0.2, s * 0.25, s * 0.22); g.fill();
+    g.save(); ell(g, side * s * 0.03, -s * 0.2, s * 0.25, s * 0.22); g.clip();
+    if (C.pat === 'tabby') {
+      g.strokeStyle = C.dark; g.lineWidth = s * 0.035; g.globalAlpha *= 0.85;
+      for (const yy of [-0.32, -0.23, -0.14]) for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(sd * s * 0.27, -s * (0.0 - yy) - s * 0.02); g.quadraticCurveTo(sd * s * 0.2, s * yy, sd * s * 0.13, s * yy + s * 0.03); g.stroke(); }
+      if (back) for (const yy of [-0.36, -0.28, -0.2, -0.12]) { g.beginPath(); g.moveTo(-s * 0.1, s * yy); g.quadraticCurveTo(0, s * yy - s * 0.04, s * 0.1, s * yy); g.stroke(); }
+    } else if (C.pat === 'calico') {
+      g.fillStyle = C.p1; ell(g, -s * 0.15, -s * 0.3, s * 0.15, s * 0.13); g.fill();
+      g.fillStyle = C.p2; ell(g, s * 0.17, -s * 0.15, s * 0.12, s * 0.12); g.fill();
+    }
+    g.restore();
+    if (!back) {
+      g.fillStyle = C.pat === 'tabby' ? C.light : C.belly;
+      ell(g, side * s * 0.06, -s * 0.15, s * 0.12, s * 0.13); g.fill();
+      g.fillStyle = C.pat === 'tux' || C.pat === 'calico' || C.pat === 'plain' ? C.belly : C.light;
+      ell(g, side * s * 0.06 - s * 0.085, -s * 0.03, s * 0.065, s * 0.045); g.fill();
+      ell(g, side * s * 0.06 + s * 0.085, -s * 0.03, s * 0.065, s * 0.045); g.fill();
+    }
+    // head
+    const shake = P.shake || 0;
+    const hx = side * s * 0.07 + shake * s, hy = -s * 0.45 - (P.yawn || 0) * s * 0.03, hr = s * 0.205;
+    const earC = (k) => (C.pat === 'calico' ? (k < 0 ? C.p1 : C.p2) : C.base);
+    for (const k of [-1, 1]) {
+      g.fillStyle = earC(k);
+      g.beginPath(); g.moveTo(hx + k * hr * 0.95, hy - hr * 0.2); g.lineTo(hx + k * hr * 0.78, hy - hr * 1.32); g.lineTo(hx + k * hr * 0.18, hy - hr * 0.88); g.closePath(); g.fill();
+      if (!back) {
+        g.fillStyle = '#f2a7a0';
+        g.beginPath(); g.moveTo(hx + k * hr * 0.8, hy - hr * 0.42); g.lineTo(hx + k * hr * 0.72, hy - hr * 1.08); g.lineTo(hx + k * hr * 0.36, hy - hr * 0.82); g.closePath(); g.fill();
+      }
+    }
+    const hg = g.createRadialGradient(hx - hr * 0.35, hy - hr * 0.4, hr * 0.1, hx, hy, hr * 1.2);
+    hg.addColorStop(0, C.light); hg.addColorStop(0.6, C.base); hg.addColorStop(1, C.dark);
+    g.fillStyle = hg;
+    ell(g, hx, hy, hr * 1.06, hr * 0.92); g.fill();
+    g.save(); ell(g, hx, hy, hr * 1.06, hr * 0.92); g.clip();
+    if (C.pat === 'tabby') {
+      g.strokeStyle = C.dark; g.lineWidth = s * 0.03;
+      g.beginPath(); for (const k of [-0.32, 0, 0.32]) { g.moveTo(hx + k * hr, hy - hr * 0.95); g.lineTo(hx + k * hr * 0.9, hy - hr * 0.5); } g.stroke();
+      if (!back) { g.beginPath(); for (const k of [-1, 1]) { g.moveTo(hx + k * hr * 1.05, hy + hr * 0.05); g.lineTo(hx + k * hr * 0.7, hy + hr * 0.12); g.moveTo(hx + k * hr * 1.05, hy + hr * 0.3); g.lineTo(hx + k * hr * 0.75, hy + hr * 0.32); } g.stroke(); }
+    } else if (C.pat === 'calico') {
+      g.fillStyle = C.p1; ell(g, hx - hr * 0.62, hy - hr * 0.5, hr * 0.55, hr * 0.5); g.fill();
+      g.fillStyle = C.p2; ell(g, hx + hr * 0.62, hy - hr * 0.55, hr * 0.45, hr * 0.42); g.fill();
+    } else if (C.pat === 'tux' && !back) {
+      g.fillStyle = C.belly; ell(g, hx, hy + hr * 0.62, hr * 0.42, hr * 0.38); g.fill();
+    }
+    g.restore();
+    if (back) return;
+    // face
+    const fs = side * hr * 0.22;
+    const ex = hr * 0.4, ey = hy + hr * 0.02;
+    const closed = P.blink < 0 || P.yawn > 0.3 || P.sleepy;
+    if (closed) {
+      g.strokeStyle = C.pat === 'tux' ? '#e9e2d8' : '#3a2a22'; g.lineWidth = s * 0.022;
+      for (const k of [-1, 1]) { g.beginPath(); g.arc(hx + fs + k * ex, ey - hr * 0.04, hr * 0.15, 0.15 * PI, 0.85 * PI); g.stroke(); }
+    } else {
+      for (const k of [-1, 1]) {
+        g.fillStyle = C.eye; ell(g, hx + fs + k * ex, ey, hr * 0.2, hr * 0.24); g.fill();
+        g.fillStyle = '#1a1418'; ell(g, hx + fs + k * ex + side * hr * 0.05, ey + hr * 0.02, hr * 0.08, hr * 0.2); g.fill();
+        g.fillStyle = '#fff'; ell(g, hx + fs + k * ex - hr * 0.06, ey - hr * 0.08, hr * 0.06, hr * 0.06); g.fill();
+      }
+      if (dark) for (const k of [-1, 1]) gfx.light(g, hx + fs + k * ex, ey, hr * 0.55, C.eye, 0.55);
+    }
+    g.fillStyle = 'rgba(242,140,140,0.35)';
+    for (const k of [-1, 1]) { ell(g, hx + fs + k * hr * 0.58, hy + hr * 0.38, hr * 0.17, hr * 0.09); g.fill(); }
+    g.fillStyle = '#e88a8a';
+    g.beginPath(); g.moveTo(hx + fs - hr * 0.1, hy + hr * 0.28); g.lineTo(hx + fs + hr * 0.1, hy + hr * 0.28); g.lineTo(hx + fs, hy + hr * 0.4); g.closePath(); g.fill();
+    g.strokeStyle = C.pat === 'tux' ? '#8a7f7a' : '#5a3a2e'; g.lineWidth = s * 0.016;
+    if (P.yawn > 0.15) {
+      g.fillStyle = '#8a3040'; ell(g, hx + fs, hy + hr * 0.58, hr * 0.16, hr * 0.2 * P.yawn); g.fill();
+    } else {
+      g.beginPath(); g.arc(hx + fs - hr * 0.09, hy + hr * 0.42, hr * 0.09, 0, PI * 0.9); g.arc(hx + fs + hr * 0.09, hy + hr * 0.42, hr * 0.09, PI * 0.1, PI); g.stroke();
+    }
+    g.strokeStyle = C.pat === 'tux' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.7)'; g.lineWidth = 0.9;
+    g.beginPath();
+    for (const k of [-1, 1]) for (const a of [-0.12, 0.08]) { g.moveTo(hx + fs + k * hr * 0.35, hy + hr * 0.36); g.lineTo(hx + fs + k * hr * 1.25, hy + hr * (0.32 + a * 2)); }
+    g.stroke();
+  }
+  const coat2 = C => C.pat;
+  function drawCurl(g, s, C, P) {
+    const br = 1 + Math.sin(P.t * 2.3 + P.ph) * 0.025 + (P.purr > 0 ? Math.sin(P.t * 50) * 0.012 : 0);
+    g.scale(1, br);
+    const bg = g.createRadialGradient(-s * 0.1, -s * 0.24, s * 0.05, 0, -s * 0.15, s * 0.36);
+    bg.addColorStop(0, C.light); bg.addColorStop(0.6, C.base); bg.addColorStop(1, C.dark);
+    g.fillStyle = bg;
+    ell(g, 0, -s * 0.15, s * 0.32, s * 0.22); g.fill();
+    g.save(); ell(g, 0, -s * 0.15, s * 0.32, s * 0.22); g.clip();
+    if (C.pat === 'tabby') {
+      g.strokeStyle = C.dark; g.lineWidth = s * 0.035;
+      for (let k = 0; k < 5; k++) { const a = PI * 1.15 + k * 0.32; g.beginPath(); g.moveTo(Math.cos(a) * s * 0.34, -s * 0.15 + Math.sin(a) * s * 0.24); g.lineTo(Math.cos(a) * s * 0.18, -s * 0.15 + Math.sin(a) * s * 0.12); g.stroke(); }
+    } else if (C.pat === 'calico') {
+      g.fillStyle = C.p1; ell(g, s * 0.14, -s * 0.24, s * 0.16, s * 0.12); g.fill();
+      g.fillStyle = C.p2; ell(g, s * 0.2, -s * 0.06, s * 0.1, s * 0.08); g.fill();
+    }
+    g.restore();
+    // tail wrapped round the front
+    g.lineCap = 'round';
+    g.strokeStyle = C.base; g.lineWidth = s * 0.085;
+    g.beginPath(); g.ellipse(0, -s * 0.15, s * 0.29, s * 0.19, 0, 0.1 * PI, 0.92 * PI); g.stroke();
+    g.strokeStyle = C.pat === 'tabby' ? C.dark : C.pat === 'calico' ? C.p2 : C.pat === 'tux' ? C.light : C.dark;
+    g.beginPath(); g.ellipse(0, -s * 0.15, s * 0.29, s * 0.19, 0, 0.78 * PI, 0.92 * PI); g.stroke();
+    // head tucked
+    const hx = -s * 0.13, hy = -s * 0.15, hr = s * 0.15;
+    for (const k of [-1, 1]) {
+      g.fillStyle = C.pat === 'calico' ? (k < 0 ? C.p1 : C.p2) : C.base;
+      g.beginPath(); g.moveTo(hx + k * hr * 0.9, hy - hr * 0.3); g.lineTo(hx + k * hr * 0.95 - hr * 0.2, hy - hr * 1.15); g.lineTo(hx + k * hr * 0.2, hy - hr * 0.85); g.closePath(); g.fill();
+    }
+    g.fillStyle = C.pat === 'tux' ? C.base : C.light;
+    ell(g, hx, hy, hr * 1.05, hr * 0.9); g.fill();
+    if (C.pat === 'tux') { g.fillStyle = C.belly; ell(g, hx, hy + hr * 0.5, hr * 0.4, hr * 0.3); g.fill(); }
+    if (C.pat === 'calico') { g.fillStyle = C.p1; ell(g, hx - hr * 0.5, hy - hr * 0.45, hr * 0.5, hr * 0.4); g.fill(); }
+    g.strokeStyle = C.pat === 'tux' ? '#e9e2d8' : '#3a2a22'; g.lineWidth = s * 0.02;
+    for (const k of [-1, 1]) { g.beginPath(); g.arc(hx + k * hr * 0.4, hy, hr * 0.17, 0.15 * PI, 0.85 * PI); g.stroke(); }
+    g.fillStyle = '#e88a8a'; ell(g, hx, hy + hr * 0.32, hr * 0.1, hr * 0.07); g.fill();
+    g.fillStyle = 'rgba(242,140,140,0.35)';
+    for (const k of [-1, 1]) { ell(g, hx + k * hr * 0.6, hy + hr * 0.35, hr * 0.17, hr * 0.09); g.fill(); }
+    // a paw over the tail
+    g.fillStyle = C.pat === 'tux' || C.pat === 'calico' || C.pat === 'plain' ? C.belly : C.light;
+    ell(g, s * 0.05, -s * 0.02, s * 0.07, s * 0.04); g.fill();
+  }
+  const YARN_C = [['#e9737a', '#c94f58'], ['#5aa6a0', '#3c7d7a'], ['#e6b84a', '#c08f2a']];
+  function drawYarn(y) {
+    const t = L.t, p = tileC(y.x + 0.5, y.y + 0.5), r = t * 0.22, lift = (y.hop || 0) * t;
+    const [a, b] = YARN_C[y.v % 3];
+    gfx.softShadow(ctx, p.x, p.y + r * 0.85, r * 1.1, r * 0.35, 0.4);
+    ctx.save(); ctx.translate(p.x, p.y + t * 0.08 - lift);
+    // loose strand
+    ctx.strokeStyle = a; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r * 0.6, r * 0.5); ctx.bezierCurveTo(r * 1.4, r * 0.9, r * 1.2, r * 1.5, r * 2.0, r * 1.1); ctx.stroke();
+    ctx.rotate(y.rot);
+    ctx.fillStyle = a; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.clip();
+    ctx.strokeStyle = b; ctx.lineWidth = 1.3;
+    for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.ellipse(0, 0, r * 1.1, Math.abs(k) * r * 0.28 + 1, 0.6, 0, TAU); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(0, 0, r * 1.1, Math.abs(k) * r * 0.3 + 1, -0.9, 0, TAU); ctx.stroke(); }
+    ctx.restore();
+    ctx.restore();
+    gfx.light(ctx, p.x - r * 0.35, p.y + t * 0.08 - lift - r * 0.4, r * 0.8, '#ffffff', 0.25);
+  }
+
+  /* ================================================================ draw */
+  function draw() {
+    const w = view.w, h = view.h;
+    if (!G) { view.clear(pal.bg2); return; }
+    runPrefetch();
+    if (dirtyStatic || !bgCanvas) rebuildStatic();
+    const time = G.t;
+    view.clear(pal.bg2);
+    ctx.drawImage(bgCanvas, 0, 0, w, h);
+    // bokeh: far, warm, drifting
+    for (let k = 0; k < 9; k++) {
+      const x = ((k * 211 + time * (6 + k)) % (w + 200)) - 100, y = h * (0.12 + ((k * 0.37) % 0.8)) + Math.sin(time * 0.4 + k) * 20;
+      gfx.light(ctx, x, y, 40 + (k % 3) * 26, dark ? '#ffb35c' : '#fff1d0', dark ? 0.07 : 0.16);
+    }
+    if (L.land && !Kit.keyart) fairyLights(time, w);
+    ctx.save();
+    ctx.translate(fx.shakeX || 0, fx.shakeY || 0);
+    ctx.drawImage(roomCanvas, roomBox.x, roomBox.y, roomBox.w, roomBox.h);
+    drawWorld(time);
+    fx.draw(ctx);
+    ctx.restore();
+    drawLight(time);
+    gfx.vignette(ctx, dark ? 0.55 : 0.32, dark ? '#0c0610' : '#5a2e14');
+    if (!Kit.keyart) {
+      curtains(time, w, h);
+      if (shell.phase !== 'title' && G.mode === 'play') {
+        drawHud(time);
+        drawButtons(time);
+        drawRibbon(time);
+        if (G.card) drawCard(time);
+      }
+    }
+  }
+  function fairyLights(time, w) {
+    const y0 = L.rodY + 52;
+    ctx.strokeStyle = dark ? 'rgba(40,30,30,0.6)' : 'rgba(90,60,40,0.4)'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 12) ctx.lineTo(x, y0 + Math.sin(x / w * PI * 3) * 14);
+    ctx.stroke();
+    const cols = ['#ffd27a', '#f2a7a0', '#a7d4c4', '#fff1d0'];
+    for (let k = 0, x = 20; x < w; x += 46, k++) {
+      if (x > L.ox - L.side - 10 && x < L.ox + L.gw + L.side + 10) continue;
+      const y = y0 + Math.sin(x / w * PI * 3) * 14 + 5, tw = 0.6 + 0.4 * Math.sin(time * 2 + k * 1.7);
+      ctx.fillStyle = cols[k % 4]; ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fill();
+      gfx.light(ctx, x, y, 16, cols[k % 4], 0.5 * tw);
+    }
+  }
+  function drawWorld(time) {
+    const R = G.R, t = L.t;
+    // tunnel links, gently flowing
+    for (const d of R.doors) {
+      const a = tileC(d.a % R.W + 0.5, ((d.a / R.W) | 0) + 0.5), b = tileC(d.b % R.W + 0.5, ((d.b / R.W) | 0) + 0.5);
+      ctx.save(); ctx.setLineDash([2, 7]); ctx.lineDashOffset = -time * 14; ctx.strokeStyle = TUN_C[d.c % 2]; ctx.globalAlpha = 0.45; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo((a.x + b.x) / 2, Math.min(a.y, b.y) - t * 0.8, b.x, b.y); ctx.stroke(); ctx.restore();
+    }
+    // rug sheen: slippery
+    for (const r of R.rugs) {
+      const x = L.ox + r.x * t + 4, y = L.oy + r.y * t + 4, rw = r.w * t - 8, rh = r.h * t - 8;
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, rw, rh); ctx.clip();
+      const sx = x - rw + ((time * 0.35) % 1.6) * rw * 2;
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = dark ? 0.1 : 0.16; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.moveTo(sx, y); ctx.lineTo(sx + t * 0.4, y); ctx.lineTo(sx + t * 0.4 - rh * 0.6, y + rh); ctx.lineTo(sx - rh * 0.6, y + rh); ctx.fill();
+      ctx.restore();
+    }
+    // idle pulse: the wall or piece that can hold a cat
+    if (G.pulse && !G.card) drawPulse(time);
+    // y-sorted: furniture, plants, yarn, cats
+    const items = [];
+    for (const f of R.furn) items.push({ y: f.y + f.h - 0.02, f });
+    for (const y of G.yarnV) items.push({ y: y.y + 0.6, yarn: y });
+    for (const c of G.cats) items.push({ y: c.y + 0.7 + (c.pose === 'curl' ? -0.05 : 0), c });
+    items.sort((a, b) => a.y - b.y);
+    for (const it of items) {
+      if (it.f) {
+        const f = it.f, spr = furnSprite(f), up = FURN_UP[f.type];
+        gfx.softShadow(ctx, L.ox + (f.x + f.w / 2) * t + t * 0.06, L.oy + (f.y + f.h) * t - t * 0.08, f.w * t * 0.55, t * 0.2, 0.32);
+        ctx.drawImage(spr, L.ox + f.x * t, L.oy + (f.y - up) * t, f.w * t, (f.h + up) * t);
+        if (f.type === 'plant') drawPlantLeaves(f, time);
+        if (f.type === 'lamp' && dark) gfx.light(ctx, L.ox + (f.x + 0.5) * t, L.oy + (f.y + 1) * t - t * 1.0, t * 0.9, '#ffb35c', 0.6);
+      } else if (it.yarn) drawYarn(it.yarn);
+      else drawCatV(it.c, time);
+    }
+    // Zzz
+    for (const z of zs) {
+      if (z.t < 0) continue;
+      const c = z.c, p = tileC(c.x + 0.5, c.y + 0.5), k = z.t / 2.2;
+      const x = p.x + t * 0.08 + k * t * 0.35 + Math.sin(z.t * 3 + z.ph) * t * 0.06, y = p.y - t * 0.25 - k * t * 0.8, s = t * 0.13 * z.s * (0.6 + k * 0.6);
+      ctx.globalAlpha = Math.min(1, z.t * 3) * (1 - k);
+      ctx.strokeStyle = dark ? '#ffe2a8' : '#5a6fa8'; ctx.lineWidth = Math.max(1.5, s * 0.22); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - s / 2, y - s / 2); ctx.lineTo(x + s / 2, y - s / 2); ctx.lineTo(x - s / 2, y + s / 2); ctx.lineTo(x + s / 2, y + s / 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // hearts on a solved room
+    for (const hh of hearts) {
+      if (hh.t < 0) continue;
+      const k = hh.t / hh.life;
+      ctx.globalAlpha = Math.min(1, hh.t * 4) * (1 - k);
+      heart(ctx, hh.x + Math.sin(hh.t * 3 + hh.ph) * 8, hh.y, t * 0.16 * hh.s * (0.6 + Math.min(1, hh.t * 3) * 0.4), '#f07a8a');
+      ctx.globalAlpha = 1;
+    }
+    // hint paw arrow and the first room's ghost swipe
+    if (G.mode === 'play' && !G.card) {
+      if (G.hintDir) pawArrow(G.hintDir, time, 1);
+      else if (G.ghost && G.R.sol) ghostSwipe(DIRN[G.R.sol[0]], time);
+    }
+  }
+  function heart(g, x, y, s, col) {
+    g.fillStyle = col;
+    g.beginPath(); g.moveTo(x, y + s * 0.35);
+    g.bezierCurveTo(x - s * 1.1, y - s * 0.35, x - s * 0.45, y - s * 1.05, x, y - s * 0.45);
+    g.bezierCurveTo(x + s * 0.45, y - s * 1.05, x + s * 1.1, y - s * 0.35, x, y + s * 0.35);
+    g.fill();
+  }
+  function drawCatV(c, time) {
+    const t = L.t;
+    let gx = L.ox + (c.x + 0.5) * t, gy = L.oy + (c.y + 0.5) * t + t * 0.3;
+    let shake = 0, face = c.face, rot = 0, sq = c.sq, scale = 1, alpha = 1, z = c.z;
+    if (c.bonkP) { const p = c.bonkP; gx += (c.bonkD[0]) * Math.sin(p * PI) * t * 0.12; gy += (c.bonkD[1]) * Math.sin(p * PI) * t * 0.12; sq = 0.14 * Math.sin(p * PI); }
+    if (c.bonk > 0) shake = Math.sin(c.bonk * 40) * 0.03 * Math.min(1, c.bonk * 3);
+    if (c.tangleP) { rot = Math.sin(c.tangleP * PI * 6) * 0.12; }
+    if (c.drop > 0) { z = c.drop * 2.2; alpha = 1 - c.drop * 0.6; }
+    if (c.tps !== undefined && c.tps < 1) { scale = Math.max(0.01, c.tps); }
+    if (c.spin > 0 && c.spin < 1) {
+      const a = c.spin * TAU * 3;
+      face = ['down', 'right', 'up', 'left'][Math.floor((c.spin * 12) % 4)];
+      gx += Math.cos(a) * t * 0.07; gy += Math.sin(a) * t * 0.04;
+    }
+    if (c.purr > 0) { c.purr -= 1 / 60; sq += Math.sin(time * 40) * 0.015; }
+    if (c.joy > 0 && c.pose !== 'curl' && c.curl === 0) z += Math.abs(Math.sin(time * 9 + c.i)) * 0.1;
+    const lastBlink = c.blink;
+    if (c.bonk > 0 || c.sweat > 0) face = face === 'up' ? 'down' : face;
+    if (!c.segs.length && c.pose === 'sit' && c.sleepT < 0 && c.bonk <= 0 && G.mode === 'play' && Math.sin(time * 0.37 + c.i * 2) > 0.85) face = 'down';
+    ctx.save();
+    if (rot) { ctx.translate(gx, gy); ctx.rotate(rot); ctx.translate(-gx, -gy); }
+    drawCat(ctx, gx, gy, t * 1.2, c.coat, { t: time, ph: c.ph, z, sq, face, blink: lastBlink, yawn: c.yawn, curl: c.pose === 'curl' ? 1 : c.curl, shake, scale, alpha, purr: c.purr, joy: c.joy, sleepy: c.wake > 0 });
+    ctx.restore();
+    if (c.tangle && c.pose !== 'curl') {
+      // tangled in yarn: a loop of wool round the paws
+      ctx.strokeStyle = '#e9737a'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(gx, gy - t * 0.06, t * 0.2, t * 0.07, 0.2 + Math.sin(time * 6) * 0.1, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(gx + 2, gy - t * 0.1, t * 0.16, t * 0.06, -0.3, 0, TAU); ctx.stroke();
+    }
+    if (c.sweat > 0) {
+      const k = 1 - c.sweat / 0.7, sx = gx + t * 0.24, sy = gy - t * 0.72 + k * t * 0.2;
+      ctx.globalAlpha = Math.min(1, c.sweat * 3);
+      ctx.fillStyle = '#9fd0f0';
+      ctx.beginPath(); ctx.moveTo(sx, sy - t * 0.09); ctx.quadraticCurveTo(sx + t * 0.06, sy, sx, sy + t * 0.03); ctx.quadraticCurveTo(sx - t * 0.06, sy, sx, sy - t * 0.09); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawPulse(time) {
+    const P = G.pulse, t = L.t, a = 0.35 + 0.35 * Math.sin(time * 4);
+    P.t += 1 / 60;
+    const fade = Math.min(1, P.t * 1.5);
+    ctx.save();
+    ctx.globalAlpha = a * fade;
+    ctx.strokeStyle = '#fff4b0'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    if (P.kind === 'wall') {
+      const R = G.R;
+      ctx.beginPath();
+      if (P.x < 0) { ctx.moveTo(L.ox, L.oy + P.y * t + 6); ctx.lineTo(L.ox, L.oy + (P.y + 1) * t - 6); }
+      else if (P.x >= R.W) { ctx.moveTo(L.ox + L.gw, L.oy + P.y * t + 6); ctx.lineTo(L.ox + L.gw, L.oy + (P.y + 1) * t - 6); }
+      else if (P.y < 0) { ctx.moveTo(L.ox + P.x * t + 6, L.oy); ctx.lineTo(L.ox + (P.x + 1) * t - 6, L.oy); }
+      else { ctx.moveTo(L.ox + P.x * t + 6, L.oy + L.gh); ctx.lineTo(L.ox + (P.x + 1) * t - 6, L.oy + L.gh); }
+      ctx.stroke();
+      const mx = clamp(P.x, -0.5, G.R.W - 0.5) , my = clamp(P.y, -0.5, G.R.H - 0.5);
+      const q = tileC(mx + 0.5, my + 0.5);
+      ctx.restore();
+      gfx.light(ctx, q.x, q.y, t * 0.7, '#fff4b0', a * fade * 0.6);
+      return;
+    }
+    gfx.roundRect(ctx, L.ox + P.x * t + 3, L.oy + P.y * t + 3, t - 6, t - 6, t * 0.2).stroke();
+    ctx.restore();
+    const q = tileC(P.x + 0.5, P.y + 0.5);
+    gfx.light(ctx, q.x, q.y, t * 0.8, '#fff4b0', a * fade * 0.5);
+  }
+  function pawPrint(g, x, y, s, rot, col) {
+    g.save(); g.translate(x, y); g.rotate(rot);
+    g.fillStyle = col;
+    ell(g, 0, s * 0.18, s * 0.42, s * 0.34); g.fill();
+    for (const [dx, dy] of [[-0.42, -0.25], [-0.15, -0.5], [0.15, -0.5], [0.42, -0.25]]) { ell(g, dx * s, dy * s, s * 0.15, s * 0.19); g.fill(); }
+    g.restore();
+  }
+  function pawArrow(dir, time, a) {
+    const t = L.t, d = DXY[dir], cx = L.ox + L.gw / 2, cy = L.oy + L.gh / 2;
+    const bob = Math.sin(time * 5) * t * 0.15, rot = Math.atan2(d[1], d[0]);
+    const x = cx + d[0] * bob, y = cy + d[1] * bob;
+    ctx.save();
+    ctx.globalAlpha = 0.92 * a;
+    gfx.light(ctx, x, y, t * 1.6, '#fff4e3', 0.5);
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.fillStyle = 'rgba(74,47,37,0.25)';
+    ctx.beginPath(); ctx.moveTo(-t * 0.9 + 3, -t * 0.22 + 4); ctx.lineTo(t * 0.3 + 3, -t * 0.22 + 4); ctx.lineTo(t * 0.3 + 3, -t * 0.5 + 4); ctx.lineTo(t * 0.95 + 3, 4); ctx.lineTo(t * 0.3 + 3, t * 0.5 + 4); ctx.lineTo(t * 0.3 + 3, t * 0.22 + 4); ctx.lineTo(-t * 0.9 + 3, t * 0.22 + 4); ctx.fill();
+    ctx.fillStyle = '#d7a443';
+    ctx.beginPath(); ctx.moveTo(-t * 0.9, -t * 0.22); ctx.lineTo(t * 0.3, -t * 0.22); ctx.lineTo(t * 0.3, -t * 0.5); ctx.lineTo(t * 0.95, 0); ctx.lineTo(t * 0.3, t * 0.5); ctx.lineTo(t * 0.3, t * 0.22); ctx.lineTo(-t * 0.9, t * 0.22); ctx.closePath(); ctx.fill();
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = '#fff4e3'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+    pawPrint(ctx, -t * 0.32, 0, t * 0.2, PI / 2, '#fff4e3');
+    ctx.restore();
+  }
+  function ghostSwipe(dir, time) {
+    const t = L.t, d = DXY[dir];
+    const k = (time % 1.6) / 1.6, cx = L.ox + L.gw / 2, cy = L.oy + L.gh / 2;
+    const p = Kit.ease.cubicInOut(clamp(k / 0.7, 0, 1)), len = t * 2;
+    const x = cx - d[0] * len / 2 + d[0] * len * p, y = cy - d[1] * len / 2 + d[1] * len * p;
+    const a = k < 0.1 ? k / 0.1 : k > 0.75 ? Math.max(0, 1 - (k - 0.75) / 0.2) : 1;
+    ctx.save();
+    ctx.globalAlpha = a * 0.75;
+    ctx.strokeStyle = '#fff4e3'; ctx.lineWidth = t * 0.16; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - d[0] * len / 2, cy - d[1] * len / 2); ctx.lineTo(x, y); ctx.stroke();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#fff4e3';
+    ctx.beginPath(); ctx.arc(x, y, t * 0.24, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(74,47,37,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+    pawPrint(ctx, x, y + t * 0.02, t * 0.13, Math.atan2(d[1], d[0]) + PI / 2, '#c8643b');
+    ctx.restore();
+  }
+  function drawLight(time) {
+    const R = G.R, t = L.t, w = L.win;
+    if (!w) return;
+    if (!dark) {
+      // the late-afternoon sunbeam from the window, with dust motes
+      const boost = 1 + G.beam * 0.5;
+      const x0 = w.x + w.w * 0.1, x1 = w.x + w.w * 0.9, y0 = w.y + w.h, dx = t * 1.2, far = L.oy + L.gh * 0.78;
+      const pts = [[x0, y0], [x1, y0], [x1 + dx * 2.4, far], [x0 + dx * 1.3, far + t * 0.6]];
+      ctx.save();
+      ctx.beginPath(); ctx.rect(L.ox, L.oy - L.wallH, L.gw, L.wallH + L.gh); ctx.clip();
+      ctx.globalCompositeOperation = 'lighter';
+      const gr = ctx.createLinearGradient(0, y0, 0, far);
+      gr.addColorStop(0, gfx.alpha(pal.beam, 0.3 * boost)); gr.addColorStop(1, gfx.alpha(pal.beam, 0.04));
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]); ctx.fill();
+      for (const m of motes) {
+        const u = m.u, v = m.v;
+        const lx = lerp(lerp(pts[0][0], pts[1][0], u), lerp(pts[3][0], pts[2][0], u), v), ly = lerp(y0, far, v);
+        ctx.globalAlpha = (0.4 + 0.6 * Math.sin(time * 2 + m.ph) ** 2) * (1 - v * 0.7);
+        ctx.fillStyle = '#fff6dc';
+        ctx.beginPath(); ctx.arc(lx, ly, m.s, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+      gfx.light(ctx, w.x + w.w / 2, w.y + w.h / 2, w.w * 0.9, '#fff1d0', 0.35 * boost);
+    } else {
+      // evening: a warm pool from a lamp, glowing moonlight at the window
+      const lamp = R.furn.find(f => f.type === 'lamp');
+      const lx = lamp ? L.ox + (lamp.x + 0.5) * t : L.ox + L.gw * 0.82, ly = lamp ? L.oy + (lamp.y + 0.3) * t : L.oy + L.gh * 0.25;
+      gfx.light(ctx, lx, ly, t * 3.4, '#ffb35c', (lamp ? 0.26 : 0.18) + G.beam * 0.15);
+      gfx.light(ctx, lx, ly, t * 1.4, '#ffd9a0', lamp ? 0.16 : 0.08);
+      gfx.light(ctx, w.x + w.w / 2, w.y + w.h / 2, w.w * 0.8, '#8fa3ff', 0.18);
+      for (const m of motes.slice(0, 14)) {
+        const x = lx + Math.cos(m.ph + time * 0.2) * t * 1.6 * m.u, y = ly + Math.sin(m.ph * 2 + time * 0.15) * t * 1.2 * m.v;
+        ctx.globalAlpha = 0.25 + 0.35 * Math.sin(time * 2 + m.ph) ** 2; ctx.fillStyle = '#ffe2a8';
+        ctx.beginPath(); ctx.arc(x, y, m.s * 0.8, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  function curtains(time, w, h) {
+    // the rod across the top (it carries the felt tags) and drapes at the edges
+    const land = L.land, cw = land ? clamp((L.ox - L.side) * 0.28, 24, 110) : 12;
+    for (const side of [-1, 1]) {
+      const x0 = side < 0 ? 0 : w;
+      const sw = Math.sin(time * 0.6 + side) * 3;
+      const gr = ctx.createLinearGradient(x0, 0, x0 - side * cw, 0);
+      gr.addColorStop(0, dark ? '#5e2c39' : '#b8556a'); gr.addColorStop(1, dark ? '#7a3f4c' : '#d98a8a');
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.moveTo(x0, L.rodY); ctx.lineTo(x0 - side * cw, L.rodY);
+      if (land) { ctx.quadraticCurveTo(x0 - side * (cw * 0.55 + sw), h * 0.45, x0 - side * cw * 0.35, h * 0.62); ctx.quadraticCurveTo(x0 - side * (cw * 0.7 + sw), h * 0.8, x0 - side * cw * 0.9, h); }
+      else ctx.lineTo(x0 - side * (cw + sw * 0.3), h);
+      ctx.lineTo(x0, h); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 2;
+      for (let k = 1; k < 4; k++) { const fx2 = x0 - side * cw * k / 4; ctx.beginPath(); ctx.moveTo(fx2, L.rodY); ctx.lineTo(fx2 - side * sw, land ? h * 0.6 : h); ctx.stroke(); }
+      if (land) { ctx.fillStyle = '#d7a443'; gfx.roundRect(ctx, x0 - side * cw * 0.55 - 8, h * 0.6, 16, 10, 4).fill(); }
+    }
+    // rod
+    const y = L.rodY;
+    const gr = ctx.createLinearGradient(0, y - 4, 0, y + 4);
+    gr.addColorStop(0, '#c08350'); gr.addColorStop(0.5, '#8a5a3b'); gr.addColorStop(1, '#5e3a24');
+    ctx.fillStyle = gr; gfx.roundRect(ctx, 4, y - 3.5, w - 8, 7, 3.5).fill();
+    ctx.fillStyle = '#d7a443';
+    for (const x of [8, w - 8]) { ctx.beginPath(); ctx.arc(x, y, 6.5, 0, TAU); ctx.fill(); }
+  }
+  // ---- HUD: felt tags hanging by threads from the rod
+  let feltPat = null;
+  function felt() {
+    if (feltPat) return feltPat;
+    const c = gfx.noiseTexture(64, 64, { seed: 9, alpha: 0.22, color: '#000', scale: 1 });
+    feltPat = ctx.createPattern(c, 'repeat');
+    return feltPat;
+  }
+  function tag(i, col, label, value, time, extra) {
+    const T = L.tags[i];
+    if (!T) return;
+    const cx = T.x + T.w / 2, kick = G.kicks[i];
+    const ang = Math.sin(time * 1.3 + i * 1.7) * 0.025 + Math.sin(time * 9) * kick * 0.12;
+    ctx.save();
+    ctx.translate(cx, T.py);
+    ctx.rotate(ang);
+    ctx.strokeStyle = dark ? '#cdb5a6' : '#6a4a3a'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, T.y - T.py + 6); ctx.stroke();
+    ctx.fillStyle = '#d7a443'; ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, TAU); ctx.fill();
+    const x = -T.w / 2, y = T.y - T.py, w = T.w, h = T.h;
+    const sc = 1 + kick * 0.12;
+    ctx.translate(0, y); ctx.scale(sc, sc); ctx.translate(0, -y);
+    ctx.fillStyle = 'rgba(40,20,10,0.28)'; gfx.roundRect(ctx, x + 2, y + 4, w, h, 10).fill();
+    ctx.fillStyle = col; gfx.roundRect(ctx, x, y, w, h, 10).fill();
+    ctx.globalAlpha = 0.6; ctx.fillStyle = felt(); gfx.roundRect(ctx, x, y, w, h, 10).fill(); ctx.globalAlpha = 1;
+    ctx.setLineDash([3.5, 3]); ctx.strokeStyle = 'rgba(255,244,227,0.8)'; ctx.lineWidth = 1.4;
+    gfx.roundRect(ctx, x + 4.5, y + 4.5, w - 9, h - 9, 7).stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(40,20,10,0.35)'; ctx.beginPath(); ctx.arc(0, y + 8, 2.6, 0, TAU); ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,244,227,0.9)';
+    ctx.font = `700 ${Math.round(clamp(h * 0.17, 9, 11))}px ${FB}`;
+    ctx.fillText(label, 0, y + h * 0.3);
+    if (extra) extra(y, w, h);
+    else {
+      ctx.font = `800 ${Math.round(h * 0.36)}px ${FD}`;
+      ctx.fillStyle = 'rgba(40,20,10,0.3)'; ctx.fillText(value, 1, y + h * 0.66 + 1.5);
+      ctx.fillStyle = '#fff4e3'; ctx.fillText(value, 0, y + h * 0.66);
+    }
+    ctx.restore();
+  }
+  function drawHud(time) {
+    const moves = G.hist.length, par = G.R.par;
+    if (G.moveKick > 0.98) G.kicks[1] = 1;
+    tag(0, dark ? '#a8502e' : '#c8643b', 'ROOM', String(G.n), time);
+    tag(1, dark ? '#5f8263' : '#7a9e7e', 'MOVES', String(moves), time);
+    const st = starsFor(Math.max(moves, 0), par, G.hinted);
+    tag(2, dark ? '#b0832c' : '#d7a443', 'PAR ' + par, '', time, (y, w, h) => {
+      const ps = Math.min(w / 8, h * 0.16);
+      for (let k = 0; k < 3; k++) pawPrint(ctx, (k - 1) * ps * 2.4, y + h * 0.66, ps, 0, k < st ? '#fff4e3' : 'rgba(60,30,15,0.28)');
+    });
+  }
+  const BTN_C = { undo: ['#7a9e7e', '#5c7f60'], restart: ['#c8643b', '#a84f2c'], hint: ['#d7a443', '#b0832c'] };
+  const BTN_L = { undo: 'Undo', restart: 'Restart', hint: 'Hint' };
+  let pressBtn = null;
+  function drawButtons(time) {
+    for (const b of L.btns) {
+      const [c1, c2] = BTN_C[b.id];
+      const dis = (b.id === 'undo' || b.id === 'restart') && !G.hist.length;
+      const pulse = (b.id === 'undo' && G.stuck) ? 1 + Math.sin(time * 6) * 0.08 : 1;
+      const pr = pressBtn === b.id ? 0.9 : 1;
+      ctx.save();
+      ctx.translate(b.x, b.y); ctx.scale(pr * pulse, pr * pulse);
+      ctx.globalAlpha = dis ? 0.55 : 1;
+      if (b.id === 'undo' && G.stuck) gfx.light(ctx, 0, 0, b.r * 2.2, '#fff4b0', 0.5);
+      ctx.fillStyle = 'rgba(40,20,10,0.3)'; ctx.beginPath(); ctx.arc(1.5, 4, b.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = c2; ctx.beginPath(); ctx.arc(0, 2, b.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = c1; ctx.beginPath(); ctx.arc(0, 0, b.r, 0, TAU); ctx.fill();
+      ctx.globalAlpha *= 0.55; ctx.fillStyle = felt(); ctx.beginPath(); ctx.arc(0, 0, b.r, 0, TAU); ctx.fill(); ctx.globalAlpha = dis ? 0.55 : 1;
+      ctx.setLineDash([3.5, 3]); ctx.strokeStyle = 'rgba(255,244,227,0.8)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0, 0, b.r - 5, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      icon(b.id, b.r);
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = dis ? 0.55 : 1;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `700 12px ${FB}`;
+      ctx.fillStyle = dark ? '#f6e7d6' : '#4a2f25';
+      ctx.fillText(BTN_L[b.id], b.x, b.y + b.r + 13);
+      ctx.restore();
+    }
+  }
+  function icon(id, r) {
+    ctx.strokeStyle = '#fff4e3'; ctx.fillStyle = '#fff4e3'; ctx.lineWidth = r * 0.13; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const s = r * 0.42;
+    if (id === 'undo') {
+      ctx.beginPath(); ctx.arc(s * 0.15, s * 0.15, s * 0.75, PI * 1.1, PI * 2.45); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-s * 0.95, -s * 0.55); ctx.lineTo(-s * 0.65, s * 0.05); ctx.lineTo(-s * 0.05, -s * 0.3); ctx.stroke();
+    } else if (id === 'restart') {
+      ctx.beginPath(); ctx.arc(0, 0, s * 0.8, -PI * 0.35, PI * 1.45); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(s * 0.2, -s * 1.05); ctx.lineTo(s * 0.62, -s * 0.62); ctx.lineTo(s * 0.12, -s * 0.3); ctx.stroke();
+    } else {
+      pawPrint(ctx, 0, s * 0.18, s * 1.35, 0, '#fff4e3');
+    }
+  }
+  function wrapText(text, maxW) {
+    const words = text.split(' '), lines = [];
+    let cur = '';
+    for (const wd of words) { const tst = cur ? cur + ' ' + wd : wd; if (ctx.measureText(tst).width > maxW && cur) { lines.push(cur); cur = wd; } else cur = tst; }
+    if (cur) lines.push(cur);
+    return lines.slice(0, 3);
+  }
+  function drawRibbon(time) {
+    if (G.tipA <= 0.01) return;
+    const text = G.stuck ? 'Someone can’t reach a cushion now. Undo a step?' : G.note ? G.note.text : (G.tip || '');
+    if (!text) return;
+    ctx.save();
+    ctx.globalAlpha = G.tipA;
+    ctx.font = `700 ${L.land ? 14 : 14}px ${FB}`;
+    const maxW = L.ribbonW - 36;
+    const lines = wrapText(text, maxW);
+    const lw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 36, lh = 19 * lines.length + 16;
+    const x = L.ribbonX, y = L.ribbonY + (1 - G.tipA) * 8;
+    ctx.fillStyle = 'rgba(40,20,10,0.25)'; gfx.roundRect(ctx, x - lw / 2 + 2, y - lh / 2 + 3, lw, lh, 10).fill();
+    ctx.fillStyle = G.stuck ? (dark ? '#8a3f22' : '#c8643b') : (dark ? '#4f3a52' : '#fff4e3');
+    gfx.roundRect(ctx, x - lw / 2, y - lh / 2, lw, lh, 10).fill();
+    ctx.setLineDash([3.5, 3]); ctx.strokeStyle = G.stuck ? 'rgba(255,244,227,0.8)' : (dark ? 'rgba(246,231,214,0.5)' : 'rgba(199,154,107,0.9)'); ctx.lineWidth = 1.3;
+    gfx.roundRect(ctx, x - lw / 2 + 4, y - lh / 2 + 4, lw - 8, lh - 8, 7).stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = G.stuck ? '#fff4e3' : (dark ? '#f6e7d6' : '#4a2f25');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach((l, k) => ctx.fillText(l, x, y - (lines.length - 1) * 9.5 + k * 19));
+    ctx.restore();
+  }
+  const CARD_TITLE = ['', 'Asleep!', 'Cosy!', 'Purrfect!'];
+  function drawCard(time) {
+    const C = G.card, w = view.w;
+    const k = Kit.ease.backOut(clamp(C.t / 0.4, 0, 1));
+    const cw = Math.min(330, w - 40), ch = 236;
+    const cx = L.ox + L.gw / 2, cy = clamp(L.oy + L.gh / 2, ch / 2 + 20, view.h - ch / 2 - 20);
+    ctx.save();
+    ctx.globalAlpha = clamp(C.t / 0.25, 0, 1);
+    ctx.fillStyle = dark ? 'rgba(14,8,18,0.45)' : 'rgba(74,40,22,0.25)';
+    ctx.fillRect(0, 0, view.w, view.h);
+    ctx.translate(cx, cy + (1 - k) * 60);
+    ctx.scale(0.85 + 0.15 * k, 0.85 + 0.15 * k);
+    ctx.fillStyle = 'rgba(40,20,10,0.35)'; gfx.roundRect(ctx, -cw / 2 + 3, -ch / 2 + 6, cw, ch, 22).fill();
+    ctx.fillStyle = dark ? '#3a2b3d' : '#f6ead6'; gfx.roundRect(ctx, -cw / 2, -ch / 2, cw, ch, 22).fill();
+    ctx.globalAlpha *= 0.4; ctx.fillStyle = felt(); gfx.roundRect(ctx, -cw / 2, -ch / 2, cw, ch, 22).fill(); ctx.globalAlpha = clamp(C.t / 0.25, 0, 1);
+    ctx.setLineDash([4, 3.5]); ctx.strokeStyle = dark ? '#7a5f72' : '#c79a6b'; ctx.lineWidth = 2;
+    gfx.roundRect(ctx, -cw / 2 + 9, -ch / 2 + 9, cw - 18, ch - 18, 15).stroke(); ctx.setLineDash([]);
+    const ink = dark ? '#f6e7d6' : '#4a2f25', soft = dark ? '#cdb5a6' : '#7d5a48';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 12px ${FB}`; ctx.fillStyle = soft; ctx.fillText('ROOM ' + G.n + ' ALL ASLEEP', 0, -ch / 2 + 32);
+    ctx.font = `800 26px ${FD}`; ctx.fillStyle = '#c8643b'; ctx.fillText(CARD_TITLE[C.stars], 0, -ch / 2 + 62);
+    // paw stars stamping in
+    for (let s = 0; s < 3; s++) {
+      const x = (s - 1) * 58, y = -ch / 2 + 112;
+      ctx.fillStyle = dark ? 'rgba(255,255,255,0.08)' : 'rgba(74,47,37,0.1)';
+      ctx.beginPath(); ctx.arc(x, y, 24, 0, TAU); ctx.fill();
+      pawPrint(ctx, x, y + 2, 15, 0, dark ? 'rgba(255,255,255,0.14)' : 'rgba(74,47,37,0.16)');
+      if (s < C.stamped && s < C.stars) {
+        const age = s === C.stamped - 1 && stampFx ? stampFx.t : 1;
+        const sc = age < 0.18 ? 2 - Kit.ease.cubicOut(age / 0.18) : 1;
+        ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+        ctx.fillStyle = '#d7a443'; ctx.beginPath(); ctx.arc(0, 0, 24, 0, TAU); ctx.fill();
+        ctx.setLineDash([3, 3]); ctx.strokeStyle = '#fff4e3'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(0, 0, 19, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        pawPrint(ctx, 0, 2, 15, 0, '#fff4e3');
+        ctx.restore();
+      }
+    }
+    ctx.font = `600 14px ${FB}`; ctx.fillStyle = ink;
+    const note = C.moves + ' moves · par ' + C.par + (G.hinted ? ' · hinted' : '');
+    ctx.fillText(note, 0, -ch / 2 + 152);
+    // buttons
+    const bw2 = (cw - 60) / 2, bh = 46, by = ch / 2 - 30 - bh / 2 + 4;
+    C.btns = [
+      { id: 'replay', x: cx - cw / 2 + 24, y: cy + by - bh / 2, w: bw2 - 4, h: bh },
+      { id: 'next', x: cx + 4 + 2, y: cy + by - bh / 2, w: bw2 + 10, h: bh },
+    ];
+    const bx0 = -cw / 2 + 24;
+    ctx.fillStyle = dark ? '#4f3a52' : '#efdcc0'; gfx.roundRect(ctx, bx0, by - bh / 2, bw2 - 4, bh, 23).fill();
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = soft; ctx.lineWidth = 1.2; gfx.roundRect(ctx, bx0 + 4, by - bh / 2 + 4, bw2 - 12, bh - 8, 19).stroke(); ctx.setLineDash([]);
+    ctx.font = `700 15px ${FB}`; ctx.fillStyle = ink; ctx.fillText('Replay', bx0 + (bw2 - 4) / 2, by + 1);
+    const nb = 6, glow = 0.5 + 0.5 * Math.sin(time * 4);
+    ctx.fillStyle = '#a84f2c'; gfx.roundRect(ctx, nb, by - bh / 2 + 3, bw2 + 10, bh, 23).fill();
+    ctx.fillStyle = '#c8643b'; gfx.roundRect(ctx, nb, by - bh / 2, bw2 + 10, bh, 23).fill();
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = `rgba(255,244,227,${0.6 + glow * 0.3})`; ctx.lineWidth = 1.3; gfx.roundRect(ctx, nb + 4, by - bh / 2 + 4, bw2 + 2, bh - 8, 19).stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#fff4e3'; ctx.fillText('Next room ▸', nb + (bw2 + 10) / 2, by + 1);
+    ctx.restore();
+  }
+
+  /* ================================================================ loop, input, shell */
+  const loop = Kit.loop({ view, update, draw });
+  const input = Kit.input(view.canvas, { swipeDist: 24, swipeMs: 700 });
+  function hitButton(x, y) {
+    if (!G || G.mode !== 'play' || G.card) return null;
+    for (const b of L.btns) if (Kit.dist(x, y, b.x, b.y) <= b.r + 12) return b.id;
+    return null;
+  }
+  input.on('down', p => { if (shell.phase !== 'play' || !G) return; pressBtn = hitButton(p.x, p.y); });
+  input.on('swipe', p => { if (shell.phase !== 'play' || !G) return; pressBtn = null; onSwipe(p.dir); });
+  input.on('up', p => {
+    if (shell.phase !== 'play' || !G) return;
+    const dx = p.x - p.sx, dy = p.y - p.sy, d = Math.hypot(dx, dy);
+    const was = pressBtn; pressBtn = null;
+    if (p.swiped) return;
+    if (d >= 24) { onSwipe(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')); return; }
+    if (d < 16) onTap(p.x, p.y, was);
+  });
+  function onTap(x, y, was) {
+    if (G.card) {
+      if (G.card.t < 0.55) return;
+      for (const b of G.card.btns) if (x >= b.x - 6 && x <= b.x + b.w + 6 && y >= b.y - 6 && y <= b.y + b.h + 6) { if (b.id === 'next') nextRoom(); else replayRoom(); return; }
+      return;
+    }
+    const b = hitButton(x, y);
+    if (b) { sfx('nw_tap'); haptic(6); if (b === 'undo') undo(); else if (b === 'restart') restartRoom(); else hint(); return; }
+    // tap a cat: it looks up and mrrps
+    const gx = (x - L.ox) / L.t, gy = (y - L.oy) / L.t;
+    for (const c of G.cats) if (Math.abs(c.x + 0.5 - gx) < 0.55 && Math.abs(c.y + 0.35 - gy) < 0.6) {
+      if (c.pose === 'curl') { sfx('nw_purr', { vol: 0.6 }); c.purr = 1; }
+      else { sfx('nw_meow', { pitch: Kit.rng().range(-3, 3) }); c.face = 'down'; c.sq = 0.18; c.joy = 0.6; }
+      const q = tileC(c.x + 0.5, c.y); hearts.push({ x: q.x, y: q.y, vy: -40, t: 0, s: 0.8, ph: 0, life: 1.1 });
+      haptic(6);
+      return;
+    }
+  }
+  input.on('key', e => {
+    if (shell.phase !== 'play' || !G || e.repeat) return;
+    const k = e.key;
+    if (G.card && (k === 'Enter' || k === ' ' || k === 'n' || k === 'N')) { e.preventDefault(); if (G.card.t > 0.55) nextRoom(); return; }
+    const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', W: 'up', s: 'down', S: 'down', a: 'left', A: 'left', d: 'right', D: 'right' };
+    if (map[k]) { e.preventDefault(); onSwipe(map[k]); return; }
+    if (k === 'z' || k === 'Z' || k === 'Backspace' || k === 'u' || k === 'U') { undo(); return; }
+    if (k === 'r' || k === 'R') { restartRoom(); return; }
+    if (k === 'h' || k === 'H') hint();
+  });
+
+  const shell = Kit.shell({
+    title: 'Napwalk',
+    kicker: 'A cat nap puzzle',
+    tagline: 'Swipe and every cat steps the same way. Get each one curled up on its cushion.',
+    playLabel: 'Play',
+    how: [
+      'Swipe (or use the arrow keys / WASD) and every awake cat takes one step that way, all at once.',
+      'A cat that reaches its cushion curls up and sleeps, and becomes a wall. From room 11 each cat wants the cushion with its own face on it.',
+      'Walls, furniture and sleeping cats stop a cat. Use them to line cats up.',
+      'Rugs are slippery, yarn makes a cat skip a swipe, and tunnels move a cat to their twin.',
+      'Solve in par moves for three paws. Undo (Z) and Restart (R) are free; a Hint (H) caps the room at two paws.',
+    ],
+    loop,
+    focus: view.canvas,
+    score: () => (G && G.mode === 'play' ? RUN.solved : 0),
+    runProps: () => ({ room: RUN.room }),
+    lose: () => endSession(),
+    theme: {
+      panel: 'paper', layout: 'bottom', button: 'pill', titleStyle: 'solid', radius: 26,
+      font: { display: FD, body: FB },
+      colors: { ink: 'var(--ink)', inkSoft: 'var(--ink-soft)', panel: 'var(--panel)', accent: '#c8643b', accentInk: '#fff4e3', scrim: 'var(--scrim)', line: 'var(--line)' },
+    },
+    onStart() {
+      const o = nextStart || {};
+      nextStart = null;
+      RUN = runSave();
+      const n = o.room || RUN.room;
+      loadRoom(n, 'play');
+      Kit.music.play(SONG);
+      Kit.music.duck(1);
+      sfx('nw_enter');
+    },
+    onOver() { Kit.music.duck(0.4); syncTitle(); },
+    onResume() { if (G) G.idle = 0; },
+  });
+  function endSession() {
+    if (shell.phase !== 'play' && shell.phase !== 'paused') return;
+    shell.over({
+      title: 'Sweet dreams', reason: 'rest', delay: 300,
+      stats: [
+        { label: 'Rooms solved', value: Kit.fmt(RUN.solved) },
+        { label: 'Paws earned', value: Kit.fmt(RUN.total) },
+        { label: 'Purrfect rooms', value: Kit.fmt(RUN.perfect) },
+        { label: 'This sitting', value: SESSION.rooms + (SESSION.rooms === 1 ? ' room' : ' rooms') },
+      ],
+    });
+    SESSION.rooms = 0; SESSION.stars = 0;
+  }
+  function addAlt(container, label, fn, after) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'k-btn nw-alt'; b.textContent = label;
+    b.addEventListener('click', () => { Kit.sfx('click'); fn(); });
+    if (after) after.after(b); else container.appendChild(b);
+    return b;
+  }
+  function freshStart() { RUN = { room: 1, stars: {}, total: 0, perfect: 0, solved: 0 }; Kit.save.set('run', RUN); Arcade.progress(null); syncTitle(); }
+  const pauseRestart = shell.el.querySelector('.k-pause [data-k=restart]');
+  if (pauseRestart) pauseRestart.textContent = 'Restart room';
+  const nightBtn = addAlt(null, 'Call it a night', () => endSession(), pauseRestart);
+  const titleNew = addAlt(shell.el.querySelector('.k-title-actions'), 'New game from Room 1', () => { freshStart(); shell.start(); });
+  const overNew = addAlt(shell.el.querySelector('.k-over .k-stack'), 'New game from Room 1', () => { freshStart(); shell.start(); });
+  function syncTitle() {
+    const r = runSave();
+    const label = shell.el.querySelector('[data-k=play] span');
+    if (label) label.textContent = r.room > 1 ? 'Continue · Room ' + r.room : 'Play';
+    const again = shell.el.querySelector('[data-k=again]');
+    if (again) again.textContent = 'Keep napping · Room ' + r.room;
+    titleNew.hidden = r.room <= 1; overNew.hidden = r.room <= 1;
+    const best = shell.el.querySelector('.k-best');
+    if (best && best.firstChild && best.firstChild.nodeType === 3) best.firstChild.textContent = 'Rooms solved ';
+  }
+  syncTitle();
+  void nightBtn;
+  if (RUN.room > 1) Arcade.progress({ label: 'Room ' + RUN.room });
+
+  /* ================================================================ audio */
+  const D = Kit.sfx.define;
+  const click = (at, f) => ({ wave: 'noise', freq: f, filter: 'bandpass', q: 4, attack: 0.001, hold: 0.004, release: 0.025, vol: 0.16, at });
+  D('nw_step', [click(0, 3400), click(0.035, 2900), click(0.07, 3200)]);
+  D('nw_mrrp', [{ wave: 'sine', freq: 400, to: 620, slide: 0.1, attack: 0.01, hold: 0.06, release: 0.08, vol: 0.2, vib: 0.6, vibRate: 22 }, { wave: 'triangle', freq: 880, to: 1240, slide: 0.1, attack: 0.01, hold: 0.05, release: 0.06, vol: 0.06 }]);
+  D('nw_yawn', [{ wave: 'sine', freq: 640, to: 300, slide: 0.5, attack: 0.06, hold: 0.35, release: 0.25, vol: 0.13, vib: 0.4, vibRate: 5 }, { wave: 'triangle', freq: 1280, to: 600, slide: 0.5, attack: 0.06, hold: 0.3, release: 0.2, vol: 0.035 }]);
+  D('nw_purr', [{ wave: 'sawtooth', freq: 25, filter: 'lowpass', cut: 420, q: 1, attack: 0.12, hold: 0.9, release: 0.5, vol: 0.34 }, { wave: 'noise', freq: 240, filter: 'lowpass', attack: 0.15, hold: 0.8, release: 0.5, vol: 0.06 }]);
+  D('nw_slide', { wave: 'noise', freq: 900, filter: 'bandpass', cut: 600, cutTo: 2600, q: 1.2, attack: 0.02, hold: 0.12, release: 0.14, vol: 0.2 });
+  D('nw_boing', { wave: 'sine', freq: 260, to: 540, slide: 0.12, vib: 2, vibRate: 16, attack: 0.003, hold: 0.1, release: 0.18, vol: 0.24 });
+  D('nw_door', [{ wave: 'noise', freq: 700, attack: 0.001, hold: 0.02, release: 0.06, vol: 0.18 }, { wave: 'square', freq: 200, to: 90, slide: 0.06, hold: 0.02, release: 0.05, vol: 0.05, at: 0.08 }, { wave: 'sine', freq: 520, to: 880, slide: 0.12, hold: 0.04, release: 0.12, vol: 0.1, at: 0.1 }]);
+  D('nw_undo', { wave: 'noise', freq: 2000, filter: 'bandpass', cut: 2600, cutTo: 500, q: 0.9, attack: 0.04, hold: 0.1, release: 0.12, vol: 0.18 });
+  D('nw_restart', [{ wave: 'triangle', freq: 880, arp: [0, -3, -7, -12], arpStep: 0.05, hold: 0.2, release: 0.12, vol: 0.12 }, { wave: 'noise', freq: 1500, filter: 'bandpass', cut: 3000, cutTo: 400, attack: 0.03, hold: 0.18, release: 0.1, vol: 0.12 }]);
+  D('nw_hint', [{ wave: 'sine', freq: 1318.5, hold: 0.03, release: 0.3, vol: 0.12, verb: 0.4 }, { wave: 'sine', freq: 1760, hold: 0.03, release: 0.4, vol: 0.12, verb: 0.4, at: 0.09 }]);
+  D('nw_stamp', [{ wave: 'sine', freq: 150, to: 60, slide: 0.08, hold: 0.03, release: 0.1, vol: 0.4 }, { wave: 'noise', freq: 900, hold: 0.01, release: 0.04, vol: 0.12 }, { wave: 'triangle', freq: 1046.5, hold: 0.04, release: 0.4, vol: 0.12, verb: 0.35 }]);
+  const MB = [1046.5, 1318.5, 1568, 2093, 1568, 1318.5, 1760, 2093, 2637];
+  D('nw_solve', MB.map((f, i) => ({ wave: 'triangle', freq: f, at: i * 0.11, attack: 0.002, hold: 0.02, release: 0.4, vol: 0.1, verb: 0.45 })).concat(MB.map((f, i) => ({ wave: 'sine', freq: f * 2, at: i * 0.11, hold: 0.01, release: 0.2, vol: 0.025 }))));
+  D('nw_tap', [{ wave: 'sine', freq: 320, to: 190, slide: 0.05, hold: 0.01, release: 0.06, vol: 0.2 }, { wave: 'noise', freq: 2400, hold: 0.004, release: 0.02, vol: 0.06 }]);
+  D('nw_skip', { wave: 'sine', freq: 1100, to: 760, slide: 0.14, vib: 1, vibRate: 12, hold: 0.08, release: 0.08, vol: 0.11 });
+  D('nw_chime', [{ wave: 'sine', freq: 1568, hold: 0.02, release: 0.55, vol: 0.07, verb: 0.5 }, { wave: 'sine', freq: 2093, hold: 0.02, release: 0.55, vol: 0.06, verb: 0.5, at: 0.07 }]);
+  D('nw_stuck', [{ wave: 'triangle', freq: 330, hold: 0.1, release: 0.15, vol: 0.1 }, { wave: 'triangle', freq: 277, at: 0.15, hold: 0.12, release: 0.2, vol: 0.1 }]);
+  D('nw_plop', { wave: 'sine', freq: 170, to: 80, slide: 0.07, hold: 0.02, release: 0.08, vol: 0.22 });
+  D('nw_enter', [{ wave: 'noise', freq: 800, filter: 'bandpass', cut: 400, cutTo: 1800, attack: 0.05, hold: 0.12, release: 0.15, vol: 0.1 }, { wave: 'sine', freq: 784, at: 0.12, hold: 0.02, release: 0.45, vol: 0.06, verb: 0.4 }, { wave: 'sine', freq: 1175, at: 0.2, hold: 0.02, release: 0.45, vol: 0.05, verb: 0.4 }]);
+  D('nw_meow', [{ wave: 'sine', freq: 700, to: 1050, slide: 0.08, hold: 0.06, release: 0.04, vol: 0.14, vib: 0.6, vibRate: 9 }, { wave: 'sine', freq: 1050, to: 620, slide: 0.2, at: 0.1, hold: 0.08, release: 0.14, vol: 0.14 }, { wave: 'triangle', freq: 2100, to: 1250, slide: 0.2, at: 0.1, hold: 0.06, release: 0.1, vol: 0.03 }]);
+
+  // lo-fi jazz at 80 bpm: Rhodes-ish comping, brushed hats, a walking bass, a few bell notes
+  const SONG = {
+    bpm: 80, swing: 0.3, key: 'F', scale: 'major', steps: 16, chords: [1, 4, 0, 5],
+    tracks: [
+      { name: 'keys', inst: 'pluck', chord: true, seventh: true, every: 8, vol: 0.3, cutoff: 1600, verb: 0.35, gate: 0.9 },
+      { name: 'pad', inst: 'pad', chord: true, seventh: true, vol: 0.14, cutoff: 900, attack: 0.4, release: 1.2 },
+      { name: 'bass', inst: 'bass', notes: '0 . . 2 4 . . 5 7 . . 5 4 . 2 .', follow: true, vol: 0.4, gate: 0.7, cutoff: 700 },
+      { name: 'hat', inst: 'hat', hits: 'x..gx.g.x..gx.go', vol: 0.16 },
+      { name: 'kick', inst: 'kick', hits: 'x.......x.x.....', vol: 0.32 },
+      { name: 'snare', inst: 'snare', hits: '....g.......g..g', vol: 0.16 },
+      { name: 'bell', inst: 'bell', notes: '. . 4 . . . 2 . . . . . 6 . 4 .', vol: 0.1, oct: 1, verb: 0.5 },
+    ],
+  };
+
+  /* ================================================================ test hook */
+  function stepSeconds(sec) { loop.step(Math.max(1, Math.round(sec * 60))); }
+  function snap() {
+    if (!G) return;
+    for (let k = 0; k < 400 && (busy() || G.timers.length); k++) loop.step(1);
+  }
+  const api = {
+    seed(n) { fx.seed(n); },
+    room(n) { nextStart = { room: n }; if (shell.phase === 'play') { nextStart = null; loadRoom(n, 'play'); } },
+    startAt(n) { nextStart = { room: n }; if (shell.phase === 'play' || shell.phase === 'paused') shell.restart(); else shell.start(); },
+    swipe(dir) { if (!G) return null; snap(); if (G.card) return null; doMove(dir); return api.info(); },
+    press(dir) { onSwipe(dir); },
+    undo() { snap(); undo(); return api.info(); },
+    restartRoom() { snap(); restartRoom(); return api.info(); },
+    hint() { snap(); hint(); return G ? G.hintDir : null; },
+    solution() { if (!G) return null; const r = solve(G.R, G.s, 200000); return r && r.path ? r.path.map(d => DIRN[d]) : null; },
+    win() { if (!G || G.clear) return false; const sol = api.solution(); if (!sol) return false; for (const d of sol) { snap(); doMove(d); } snap(); stepSeconds(1.6); return !!G.card; },
+    next() { if (G && G.card) { G.card.t = 1; nextRoom(); } return api.info(); },
+    replay() { if (G && G.card) { G.card.t = 1; replayRoom(); } return api.info(); },
+    forfeit() { shell.restart(); },
+    end() { endSession(); },
+    step: stepSeconds,
+    frames(n) { loop.step(n); },
+    settle: snap,
+    gen(n) { roomCache.delete(n); const t0 = performance.now(); const R = getRoom(n); const j = judge(R); return { n, par: R.par, ms: Math.round(performance.now() - t0), cats: R.cats.length, W: R.W, H: R.H, rugs: R.rugs.length, yarn: R.yarn.length, doors: R.doors.length, every2: j && j.every2, dirsOk: j && j.dirsOk, band: n > 2 ? roomSpec(n).band : null }; },
+    load(def) {
+      // a hand-made room for rules tests: { W, H, furn: [[x,y,w,h]], rugs: [[x,y,w,h]], doors: [[ax,ay,bx,by]], cushions: [[x,y,coat]], cats: [[x,y,coat]], yarn: [[x,y]], matched }
+      const R = blank(def.W || 6, def.H || 8);
+      R.n = 999; R.matched = !!def.matched;
+      (def.furn || []).forEach(f => addFurn(R, 'table', f[0], f[1], f[2] || 1, f[3] || 1, 0));
+      (def.rugs || []).forEach(r => addRug(R, r[0], r[1], r[2], r[3], 0));
+      (def.doors || []).forEach(d => addDoor(R, d[1] * R.W + d[0], d[3] * R.W + d[2]));
+      (def.cushions || []).forEach(c => addCush(R, c[0], c[1], c[2] || null, 0));
+      (def.cats || []).forEach(c => R.cats.push({ x: c[0], y: c[1], coat: c[2] || 'ginger' }));
+      (def.yarn || []).forEach(y => R.yarn.push({ x: y[0], y: y[1], v: 0 }));
+      const j = solve(R, initState(R), 200000);
+      R.par = j && j.path ? j.path.length : 0; R.sol = j && j.path ? j.path : [];
+      roomCache.set(999, R);
+      loadRoom(999, 'play');
+      snap();
+      return api.info();
+    },
+    clearSave() { freshStart(); Kit.save.set('taught', false); },
+    toClient(gx, gy) { const r = view.canvas.getBoundingClientRect(); return { x: r.left + L.ox + gx * L.t, y: r.top + L.oy + gy * L.t }; },
+    buttons() { const r = view.canvas.getBoundingClientRect(); return L.btns.map(b => ({ id: b.id, x: r.left + b.x, y: r.top + b.y, r: b.r })); },
+    cardButtons() { const r = view.canvas.getBoundingClientRect(); return G && G.card ? G.card.btns.map(b => ({ id: b.id, x: r.left + b.x + b.w / 2, y: r.top + b.y + b.h / 2 })) : []; },
+    info: () => (G ? {
+      mode: G.mode, room: G.n, moves: G.hist.length, par: G.R.par, W: G.R.W, H: G.R.H, matched: G.R.matched, cleared: !!G.card, clearing: !!G.clear,
+      stars: G.card ? G.card.stars : null, hinted: G.hinted, hintDir: G.hintDir, stuck: G.stuck, busy: busy(),
+      cats: G.s.c.map((c, i) => ({ x: c.x, y: c.y, sl: c.sl, sk: c.sk, coat: G.R.cats[i].coat })), yarn: G.s.y.map(p => ({ x: p.x, y: p.y })),
+      rugs: G.R.rugs.length, doors: G.R.doors.length, run: runSave(), sol: G.R.sol ? G.R.sol.map(d => DIRN[d]) : null,
+    } : null),
+  };
+  Arcade.test(api);
+  if (Kit.debug) window.__game = api;
+
+  /* ================================================================ capture scenes */
+  function artRoom(wide) {
+    const R = wide ? blank(9, 5) : blank(6, 6);
+    R.n = 1000; R.matched = true;
+    if (wide) {
+      addFurn(R, 'bookcase', 0, 0, 2, 1, 1); addFurn(R, 'sofa', 6, 0, 3, 1, 0); addFurn(R, 'plant', 8, 4, 1, 1, 0); addFurn(R, 'lamp', 0, 4, 1, 1, 0);
+      addRug(R, 3, 2, 3, 2, 0);
+      addCush(R, 2, 1, 'ginger', 0); addCush(R, 6, 3, 'calico', 0); addCush(R, 1, 3, 'black', 0); addCush(R, 7, 1, 'grey', 0);
+      R.cats.push({ x: 2, y: 1, coat: 'ginger' }, { x: 6, y: 3, coat: 'calico' }, { x: 3, y: 3, coat: 'black' }, { x: 5, y: 1, coat: 'grey' });
+      R.yarn.push({ x: 4, y: 4, v: 0 });
+      R.win = 3; R.pic = 6;
+    } else {
+      addFurn(R, 'bookcase', 4, 0, 2, 1, 1); addFurn(R, 'plant', 0, 0, 1, 1, 0); addFurn(R, 'sofa', 0, 5, 2, 1, 0);
+      addRug(R, 2, 2, 2, 2, 0);
+      addCush(R, 1, 1, 'ginger', 0); addCush(R, 4, 4, 'calico', 0); addCush(R, 0, 3, 'black', 0); addCush(R, 5, 2, 'grey', 0);
+      R.cats.push({ x: 1, y: 1, coat: 'ginger' }, { x: 4, y: 4, coat: 'calico' }, { x: 2, y: 4, coat: 'black' }, { x: 4, y: 1, coat: 'grey' });
+      R.yarn.push({ x: 3, y: 5, v: 1 });
+      R.win = 1; R.pic = 4;
+    }
+    R.par = 3; R.sol = [];
+    return R;
+  }
+  function scene(roomN, setup) {
+    fx.seed(roomN + 3);
+    nextStart = { room: roomN };
+    shell.start();
+    G.silent = true;
+    stepSeconds(1.2);
+    if (setup) setup();
+    loop.stop();
+  }
+  Arcade.scenes({
+    art: () => {
+      const wide = view.w > view.h;
+      const R = artRoom(wide);
+      roomCache.set(1000, R);
+      scene(1000, () => {
+        // two cats already asleep, one mid-hop
+        G.s.c[0].sl = 1; G.s.c[1].sl = 1;
+        for (const k of [0, 1]) { const c = G.cats[k]; c.pose = 'curl'; c.curl = 1; c.sleepT = 9; }
+        G.cats[2].face = 'right'; G.cats[3].face = 'down';
+        spawnZ(G.cats[0], 0); spawnZ(G.cats[1], 0);
+        stepSeconds(1.1);
+        const c = G.cats[2];
+        c.segs.push({ type: 'hop', dur: HOP, fx: c.x, fy: c.y, tx: c.x + 1, ty: c.y });
+        loop.step(5);
+      });
+    },
+    shot1: () => scene(1, () => { G.silent = true; stepSeconds(0.65); }),
+    shot2: () => scene(34, () => {
+      const sol = G.R.sol.slice();
+      for (let k = 0; k < Math.min(3, sol.length - 2); k++) { snap(); doMove(DIRN[sol[k]]); }
+      snap();
+      hint();
+      stepSeconds(0.9);
+    }),
+  });
+
+  /* ================================================================ boot */
+  readPalette();
+  Kit.onTheme(() => { readPalette(); feltPat = null; loop.render(); });
+  layout();
+  if (!Kit.keyart) loadRoom(24, 'attract');
+  else loadRoom(1, 'attract');
+  loop.step(60);
+  Kit.music.play(SONG);
+  loop.start();
+})();
+</script>
+</body>
+</html>
