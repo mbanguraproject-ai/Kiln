@@ -93,7 +93,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const NIGHT_SKY = [[0, '#060c22'], [0.55, '#11244c'], [1, '#2a3f72']];
 
   const view = Kit.view(document.getElementById('game'), { alpha: false });
-  const ctx = view.ctx;
+  const mainCtx = view.ctx;
+  let ctx = mainCtx;   // the draw target: the full-resolution view, or the 1x buffer for the dim, soft layers
   let zoom = 1;
   function fit() { zoom = clamp(Math.sqrt(view.w * view.h) / 600, 0.82, 1.45); cam.zoom = zoom; }
   view.onResize(fit);
@@ -156,8 +157,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
   function tryCave(seed, sp, force) {
     const r = Kit.rng(seed);
-    const W = sp.screens * 420, H = sp.H;
-    const cols = Math.ceil(W / CELL), rows = Math.ceil(H / CELL), N = cols * rows;
+    // W is where the moonlit arch opens; the rock runs on past it, so the arch is a window cut into stone
+    const W = sp.screens * 420, WT = W + 320, H = sp.H;
+    const cols = Math.ceil(WT / CELL), rows = Math.ceil(H / CELL), N = cols * rows;
+    const exitCol = Math.floor((W - 30) / CELL);
     let solid = new Uint8Array(N).fill(1);
     const carve = (x, y, rad, into) => {
       const g = into || solid;
@@ -172,7 +175,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     // main path: control points across the cave, drifting up towards the exit on the right
     const exitY = H * r.range(0.22, 0.34);
     let x = 150, y = H * r.range(0.46, 0.6);
-    const ctrl = [[40, y], [x, y]];
+    const ctrl = [[120, y], [x + 20, y]];
     const m = sp.rad + 70;
     while (x < W - 420) {
       x += r.range(190, 270);
@@ -181,7 +184,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctrl.push([x, y]);
     }
     ctrl.push([W - 220, exitY]);
-    ctrl.push([W + 60, exitY]);
+    ctrl.push([W + 10, exitY]);
     const path = [];
     for (let i = 0; i < ctrl.length - 1; i++) {
       const p0 = ctrl[Math.max(0, i - 1)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(ctrl.length - 1, i + 2)];
@@ -198,12 +201,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       p.y = clamp(p.y, sp.rad * 0.7 + 30, H - sp.rad * 0.7 - 30);
       p.r = sp.rad * (0.86 + 0.26 * Math.sin(i * 0.021 + ph) * Math.sin(i * 0.0071 + ph * 2) + 0.14 * Math.sin(i * 0.057 + ph * 3));
       p.r = Math.max(p.r, 44);                                  // never narrower than a bat can turn in
-      if (p.x < 260) p.r = Math.max(p.r, sp.rad * 1.05);       // a roomy entrance
+      if (p.x < 260) p.r = Math.max(p.r, Math.min(110, sp.rad * 0.95));   // a roomy entrance
       if (p.x > W - 300) p.r = Math.max(p.r * 0.95, 70);
+      if (p.x > W) p.r = Math.min(p.r, 60);
     }
     for (const p of path) carve(p.x, p.y, p.r);
-    carve(150, path[0].y, sp.rad * 1.15);
+    carve(175, path[0].y, Math.min(125, sp.rad * 1.05));
     carve(W - 230, exitY, Math.max(80, sp.rad * 1.05));
+    carve(W - 70, exitY, Math.max(76, sp.rad * 0.9));
 
     // side branches: some end in chambers (moths, pups, owls), some loop back to the main path
     const branches = [], chambers = [];
@@ -283,7 +288,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     for (const g of gusts) for (let yy = g.y1; yy > g.y0 + 20; yy -= 10) carve(g.x + Math.sin(yy * 0.02) * 10, yy, 30);
     // frame: solid border, except the moonlit mouth on the right
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-      if (i < 2 || j < 2 || j >= rows - 2 || (i >= cols - 2 && Math.abs((j + 0.5) * CELL - exitY) > Math.max(50, sp.rad * 0.6))) solid[j * cols + i] = 1;
+      if (i < 2 || j < 2 || j >= rows - 2 || i >= cols - 2 || (i + 0.5) * CELL > W + 40) solid[j * cols + i] = 1;
     }
     // flood fill from the start: sealed pockets become rock
     const seen = new Uint8Array(N), q = new Int32Array(N);
@@ -297,11 +302,16 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       for (const k of nb4) if (k >= 0 && !seen[k] && !solid[k]) { seen[k] = 1; q[qt++] = k; }
     }
     const ej = Math.floor(exitY / CELL);
-    if (!seen[ej * cols + cols - 3] && !force) return null;
+    if (!seen[ej * cols + exitCol] && !force) return null;
     for (let i = 0; i < N; i++) if (!solid[i] && !seen[i]) solid[i] = 1;
 
     const type = new Uint8Array(N);
     for (let i = 0; i < N; i++) type[i] = solid[i] ? 1 : 0;
+    const ah = Math.max(54, sp.rad * 0.62);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const x = (i + 0.5) * CELL, y = (j + 0.5) * CELL;
+      if (x > W - 6 && x < W + 78 && y > exitY - ah * 0.95 && y < exitY + ah) { solid[j * cols + i] = 0; type[j * cols + i] = 5; }
+    }
 
     // distance (in cells) from rock, for placing things in open air
     const dst = new Uint8Array(N).fill(255);
@@ -316,7 +326,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     }
 
     const lv = {
-      n: sp.n, sp, W, H, cols, rows, type, dist: dst, field: null, path, chambers, exitY, startY: path[0].y,
+      n: sp.n, sp, W, WT, H, cols, archH: ah, rows, type, dist: dst, field: null, path, chambers, exitY, startY: path[0].y,
       moths: [], pups: [], webs: [], stals: [], rivers: [], crystals: [], gusts, owls: [], drips: [], branches,
     };
     const cellOf = (x, y) => { const i = Math.floor(x / CELL), j = Math.floor(y / CELL); return (i < 0 || j < 0 || i >= cols || j >= rows) ? -1 : j * cols + i; };
@@ -335,10 +345,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       const s0 = Math.floor(path[0].y / CELL) * cols + Math.floor(150 / CELL);
       if (!ok(s0)) return false;
       q[tl++] = s0; sn[s0] = 1;
-      const goal = Math.floor(exitY / CELL) * cols + cols - 4;
+      const goal = Math.floor(exitY / CELL) * cols + exitCol;
       while (h < tl) {
         const id = q[h++];
-        if (id === goal || (id % cols >= cols - 4 && Math.abs(Math.floor(id / cols) * CELL - exitY) < 60)) return true;
+        if (id === goal || (id % cols >= exitCol && Math.abs(Math.floor(id / cols) * CELL - exitY) < 60)) return true;
         for (const k of [id - 1, id + 1, id - cols, id + cols]) if (k > cols && k < N - cols && !sn[k] && ok(k)) { sn[k] = 1; q[tl++] = k; }
       }
       return false;
@@ -408,12 +418,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         for (const k of [id - 1, id + 1, id - cols, id + cols]) if (type[k] === 0) edge = true;
         if (!edge) continue;
         type[id] = 3;
-        if (r.chance(0.5)) {
-          // a shard pointing out of the wall into the air
+        if (r.chance(0.42)) {
+          // a little cluster of crystals growing out of the wall into the air
           let ax = 0, ay = 0;
           for (const [k, dx, dy] of [[id - 1, -1, 0], [id + 1, 1, 0], [id - cols, 0, -1], [id + cols, 0, 1]]) if (type[k] === 0) { ax += dx; ay += dy; }
-          const a = Math.atan2(ay, ax) + r.range(-0.5, 0.5);
-          cl.shards.push({ x: (i + 0.5) * CELL, y: (j + 0.5) * CELL, a, len: r.range(10, 26), w: r.range(3, 6) });
+          const a0 = Math.atan2(ay, ax);
+          for (let n = r.int(1, 3); n > 0; n--) cl.shards.push({ x: (i + 0.5) * CELL + r.range(-3, 3), y: (j + 0.5) * CELL + r.range(-3, 3), a: a0 + r.range(-0.6, 0.6), len: r.range(9, 24), w: r.range(4, 7.5) });
         }
       }
       lv.crystals.push(cl);
@@ -500,7 +510,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       // a first pass through every open cell, then a second that prefers the middle of passages
       const f2 = minD === 1 ? flow : new Int32Array(N).fill(-1);
       let h = 0, tl = 0;
-      for (let j = 2; j < rows - 2; j++) { const id = j * cols + cols - 3; if (type[id] === 0 && Math.abs(j * CELL - exitY) < 80) { f2[id] = 0; q[tl++] = id; } }
+      for (let j = 2; j < rows - 2; j++) { const id = j * cols + exitCol; if (type[id] === 0 && Math.abs(j * CELL - exitY) < 80) { f2[id] = 0; q[tl++] = id; } }
       while (h < tl) {
         const id = q[h++];
         for (const k of [id - 1, id + 1, id - cols, id + cols]) {
@@ -546,6 +556,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       d += 4;
       const x = ox + dx * d, y = oy + dy * d;
       const tp = typeAt(x, y);
+      if (tp === 5) return Infinity;
       if (tp === 2) {
         let a = d - 4, b = d;
         for (let k = 0; k < 3; k++) { const m = (a + b) / 2; if (typeAt(ox + dx * m, oy + dy * m) === 2) b = m; else a = m; }
@@ -565,7 +576,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
   /* ---------- cave art: marching-squares rock, painted once per cave ---------- */
   function buildCaveArt(lv) {
-    const { cols, rows, field: F, W, H } = lv;
+    const { cols, rows, field: F, H } = lv, W = lv.WT;
     const segs = [], segStart = new Int32Array(cols * rows + 1);
     const cv = gfx.offscreen(Math.ceil(W * RS), Math.ceil(H * RS));
     const g = cv.getContext('2d');
@@ -611,28 +622,35 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     g.rect(0, 0, W, hc); g.rect(0, H - hc - 1, W, hc + 2); g.rect(0, 0, hc, H);
     for (let j = 0; j < rows; j++) if (lv.type[j * cols + cols - 1] === 1) g.rect(W - hc, j * CELL, hc + 1, CELL);
     const grad = g.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, '#080c18'); grad.addColorStop(0.5, P.rock); grad.addColorStop(1, '#06080f');
+    grad.addColorStop(0, '#111a30'); grad.addColorStop(0.5, '#0d1426'); grad.addColorStop(1, '#0a0f1d');
     g.fillStyle = grad;
     g.fill();
     for (let k = 0; k < runs.length; k += 3) g.fillRect(runs[k] - 0.6, runs[k + 1] - 0.6, runs[k + 2] + 1.2, CELL + 1.2);
     // stone texture and strata, kept inside the rock
     g.globalCompositeOperation = 'source-atop';
-    const tex = gfx.noiseTexture(256, 256, { seed: lv.n * 13 + 1, alpha: 0.16, color: '#1d2850', scale: 3 });
+    const tex = gfx.noiseTexture(256, 256, { seed: lv.n * 13 + 1, alpha: 0.3, color: '#33467a', scale: 3 });
     g.fillStyle = g.createPattern(tex, 'repeat');
     g.fillRect(0, 0, W, H);
     const r = Kit.rng(lv.n * 31 + 7);
-    g.lineWidth = 3;
-    for (let k = 0; k < H / 26; k++) {
-      const y0 = r.range(0, H), amp = r.range(6, 22), fq = r.range(0.002, 0.006);
-      g.strokeStyle = r.chance(0.5) ? 'rgba(20,30,58,0.32)' : 'rgba(2,3,8,0.5)';
-      g.beginPath();
-      for (let x = 0; x <= W; x += 40) g.lineTo(x, y0 + Math.sin(x * fq + k) * amp + Math.sin(x * fq * 3.1) * amp * 0.3);
+    for (let k = 0; k < W * H / 26000; k++) {
+      const x = r.range(0, W), y = r.range(0, H), rad = r.range(40, 160), lite = r.chance(0.45);
+      const bg = g.createRadialGradient(x, y, 0, x, y, rad);
+      bg.addColorStop(0, lite ? 'rgba(52,72,124,0.22)' : 'rgba(0,0,4,0.35)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = bg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    g.lineCap = 'round';
+    for (let k = 0; k < W * H / 9000; k++) {
+      const x = r.range(0, W), y = r.range(0, H), len = r.range(30, 140), a = r.range(-0.35, 0.35) + (r.chance(0.2) ? r.range(-1.2, 1.2) : 0);
+      g.lineWidth = r.range(1.5, 4);
+      g.strokeStyle = r.chance(0.45) ? 'rgba(54,76,128,0.24)' : 'rgba(1,2,6,0.45)';
+      g.beginPath(); g.moveTo(x, y);
+      g.quadraticCurveTo(x + Math.cos(a) * len * 0.5, y + Math.sin(a) * len * 0.5 + r.range(-8, 8), x + Math.cos(a) * len, y + Math.sin(a) * len);
       g.stroke();
     }
     g.globalCompositeOperation = 'source-over';
     // a faint rim where stone meets air
-    g.strokeStyle = P.rim;
-    g.lineWidth = 2.4;
+    g.strokeStyle = '#2a3c66';
+    g.lineWidth = 3;
     g.beginPath();
     for (let s = 0; s < segs.length; s += 4) { g.moveTo(segs[s], segs[s + 1]); g.lineTo(segs[s + 2], segs[s + 3]); }
     g.stroke();
@@ -654,17 +672,20 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     lv.segStart = segStart;
     lv.rock = cv;
     lv.mem = gfx.offscreen(Math.ceil(W * RS), Math.ceil(H * RS));
+    lv.archPainted = true;
     lv.memG = lv.mem.getContext('2d');
     lv.memG.scale(RS, RS);
   }
-  function paintShards(g, cl, a) {
+  function paintShards(g, cl, a, lit) {
+    const dark = lit ? '#7a5cf0' : '#2c2457', hi = lit ? '#e6dcff' : '#5b4aa6';
     for (const s of cl.shards) {
-      const cx = Math.cos(s.a), cy = Math.sin(s.a), nx = -cy, ny = cx;
-      const bx = s.x - cx * 6, by = s.y - cy * 6, tx = s.x + cx * s.len, ty = s.y + cy * s.len;
-      g.fillStyle = gfx.alpha('#2c2457', a);
-      g.beginPath(); g.moveTo(bx + nx * s.w, by + ny * s.w); g.lineTo(tx, ty); g.lineTo(bx - nx * s.w, by - ny * s.w); g.closePath(); g.fill();
-      g.fillStyle = gfx.alpha('#5b4aa6', a * 0.8);
-      g.beginPath(); g.moveTo(bx + nx * s.w * 0.2, by + ny * s.w * 0.2); g.lineTo(tx, ty); g.lineTo(bx + nx * s.w, by + ny * s.w); g.closePath(); g.fill();
+      // a hexagonal prism seen from the side: a body, a pointed cap, and one bright facet
+      const cx = Math.cos(s.a), cy = Math.sin(s.a), nx = -cy, ny = cx, w = s.w * 0.55;
+      const bx = s.x - cx * 6, by = s.y - cy * 6, mx = s.x + cx * s.len * 0.72, my = s.y + cy * s.len * 0.72, tx = s.x + cx * s.len, ty = s.y + cy * s.len;
+      g.fillStyle = gfx.alpha(dark, a * (lit ? 0.8 : 1));
+      g.beginPath(); g.moveTo(bx + nx * w, by + ny * w); g.lineTo(mx + nx * w, my + ny * w); g.lineTo(tx, ty); g.lineTo(mx - nx * w, my - ny * w); g.lineTo(bx - nx * w, by - ny * w); g.closePath(); g.fill();
+      g.fillStyle = gfx.alpha(hi, a * (lit ? 0.85 : 0.7));
+      g.beginPath(); g.moveTo(bx + nx * w * 0.15, by + ny * w * 0.15); g.lineTo(mx + nx * w * 0.15, my + ny * w * 0.15); g.lineTo(tx, ty); g.lineTo(mx + nx * w, my + ny * w); g.lineTo(bx + nx * w, by + ny * w); g.closePath(); g.fill();
     }
   }
 
@@ -685,7 +706,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ridge(true); ridge(false);
     const n = Math.round(tw / (depth > 0.4 ? 34 : 24));
     for (let k = 0; k < n; k++) {
-      const x = r.range(0, tw), len = r.range(0.25, 1) * band * (r.chance(0.2) ? 1.25 : 0.8), w = r.range(6, 16) * (len / band + 0.4);
+      const x = r.range(0, tw), len = r.range(0.25, 1) * band * (r.chance(0.2) ? 1.12 : 0.8), w = r.range(6, 16) * (len / band + 0.4);
       wrapX(x, w, xx => {
         g.beginPath(); g.moveTo(xx - w, th * 0.04); g.quadraticCurveTo(xx - w * 0.3, len * 0.55, xx, len); g.quadraticCurveTo(xx + w * 0.3, len * 0.55, xx + w, th * 0.04); g.closePath(); g.fill();
       });
@@ -749,7 +770,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     for (const l of BG) {
       const ox = -Kit.wrap(sx * l.depth, 0, l.tw), oy = -Kit.wrap(sy * l.depth, 0, l.th);
       ctx.globalAlpha = 0.85;
-      tileDraw(l.dark, l.tw, l.th, ox, oy, w, h, 0.5);
+      tileDraw(l.dark, l.tw, l.th, ox, oy, w, h, 0.42);
       ctx.globalAlpha = 1;
       // glowworms: tiny threads of blue-green light hanging from the far ceilings
       ctx.globalCompositeOperation = 'lighter';
@@ -780,7 +801,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       for (const l of BG) {
         const ox = -Kit.wrap(sx * l.depth, 0, l.tw), oy = -Kit.wrap(sy * l.depth, 0, l.th);
         ctx.globalAlpha = Math.min(1, k * 1.1) * (l.depth < 0.3 ? 0.45 : 0.7) * (rg.kind === 'shriek' ? 0.7 : 1);
-        tileDraw(l.litC, l.tw, l.th, ox, oy, w, h, 0.5);
+        tileDraw(l.litC, l.tw, l.th, ox, oy, w, h, 0.42);
       }
       ctx.restore();
     }
@@ -823,9 +844,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     for (const c of COL) {
       const S = 32, cv = gfx.offscreen(S, S), g = cv.getContext('2d');
       const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
-      gr.addColorStop(0, gfx.mix(c, '#ffffff', 0.75));
-      gr.addColorStop(0.16, gfx.alpha(gfx.mix(c, '#ffffff', 0.3), 0.95));
-      gr.addColorStop(0.38, gfx.alpha(c, 0.35));
+      gr.addColorStop(0, gfx.mix(c, '#ffffff', 0.8));
+      gr.addColorStop(0.1, gfx.mix(c, '#ffffff', 0.45));
+      gr.addColorStop(0.2, gfx.alpha(c, 0.75));
+      gr.addColorStop(0.42, gfx.alpha(c, 0.18));
       gr.addColorStop(1, gfx.alpha(c, 0));
       g.fillStyle = gr; g.fillRect(0, 0, S, S);
       dotSprites.push(cv);
@@ -861,7 +883,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     clearEchoes();
     fx.clear();
     G.sub = 'cave';
-    G.rings.length = 0; G.reechoes.length = 0; G.minis.length = 0;
+    G.rings.length = 0; G.reechoes.length = 0; G.minis.length = 0; G.hint = null;
     G.carried = 0;
     G.trail.length = 0;
     const b = G.bat;
@@ -919,6 +941,15 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const hitD = new Float32Array(SHRIEK_RAYS), hitX = new Float32Array(SHRIEK_RAYS), hitY = new Float32Array(SHRIEK_RAYS), hitT = new Uint8Array(SHRIEK_RAYS);
   // Send a sonar ring from (ox, oy). kind: 'chirp' | 'shriek' | 'crystal' | 'crash'
   function sonar(ox, oy, R, rays, kind) {
+    // a ring that would start inside stone starts from the nearest open air instead
+    if (fieldAt(ox, oy) >= 0.45) {
+      let found = false;
+      for (let d = 6; d <= 48 && !found; d += 6) for (let k = 0; k < 12; k++) {
+        const a = k / 12 * TAU, x = ox + Math.cos(a) * d, y = oy + Math.sin(a) * d;
+        if (fieldAt(x, y) < 0.4) { ox = x; oy = y; found = true; break; }
+      }
+      if (!found) return;
+    }
     const t0 = G.t;
     const ringCol = kind === 'crystal' ? CRYS : kind === 'crash' ? HAZ : ROCK;
     G.rings.push({ x: ox, y: oy, t0, R, kind, c: ringCol });
@@ -928,13 +959,15 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     for (let k = 0; k < rays; k++) {
       const a = off + k / rays * TAU, dx = Math.cos(a), dy = Math.sin(a);
       const d = cast(ox, oy, dx, dy, R);
-      hitD[k] = d;
-      if (d === Infinity) continue;
+      hitD[k] = d < 5 ? Infinity : d;
+      if (d === Infinity || d < 5) continue;
       const c = tint >= 0 && HIT.t === ROCK ? (k % 2 ? CRYS : ROCK) : (kind === 'crash' && HIT.t === ROCK && k % 3 === 0 ? HAZ : HIT.t);
       hitX[k] = HIT.x; hitY[k] = HIT.y; hitT[k] = c;
       const ta = t0 + d / RING_SPEED;
       addDot(HIT.x, HIT.y, ta, c, 1);
-      addDot(HIT.x + dx * G.rng.range(3, 9), HIT.y + dy * G.rng.range(3, 9), ta + 0.02, c, 0.55);
+      const dp = G.rng.range(4, 16), sd = G.rng.range(-5, 5);
+      addDot(HIT.x + dx * dp - dy * sd, HIT.y + dy * dp + dx * sd, ta + 0.025, c, 0.45);
+      if (k & 1) { const s2 = G.rng.sign() * G.rng.range(3, 6); addDot(HIT.x - dy * s2, HIT.y + dx * s2, ta + 0.012, c, 0.7); }
       if (k > 0 && hitD[k - 1] !== Infinity && Math.abs(hitD[k - 1] - d) < 28 && hitT[k - 1] === c) {
         addLine(hitX[k - 1], hitY[k - 1], HIT.x, HIT.y, ta, c);
         memPush(hitX[k - 1], hitY[k - 1], HIT.x, HIT.y, ta, c);
@@ -1096,7 +1129,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function bump(impact, nx, ny) {
     const b = G.bat;
     b.bumpCd = 0.25;
+    G.bumps = (G.bumps || 0) + 1;
     const cost = 1.5 + impact / 110;
+    G.lastBumpCost = cost;
     if (G.mode === 'play' && !safeFlag) G.energy -= cost;
     if (impact > 150) b.stun = 0.3;
     b.sx = 1 + Math.abs(ny) * 0.25 - Math.abs(nx) * 0.18; b.sy = 1 + Math.abs(nx) * 0.25 - Math.abs(ny) * 0.18;
@@ -1148,6 +1183,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (G.sub !== 'cave') return;
     G.sub = 'exit';
     G.exitT = 0;
+    G.banner = null; G.hint = null;
     const mult = 1 + G.trail.length;
     G.bankFrom = G.score; G.bankTo = G.score + G.carried * mult; G.lastMult = mult;
     cam.toScreen(L.W, L.exitY, TMP);
@@ -1158,7 +1194,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       Kit.music.duck(0.4, 900);
       Kit.haptic([20, 40, 20, 40, 60]);
       Arcade.track('level_complete', { cave: G.cave, moths: G.carried, pups: G.trail.length });
-      if (G.carried > 0) fx.float('+' + G.carried + (mult > 1 ? ' × ' + mult : ''), G.bat.x, G.bat.y - 36, { color: P.gold, size: 26, ms: 1500, rise: 46 });
+      if (G.carried > 0) fx.float('+' + G.carried + (mult > 1 ? ' × ' + mult : ''), G.bat.x, G.bat.y - 36, { color: '#ffb22e', size: 30, ms: 1700, rise: 46, stroke: 'rgba(40,20,0,0.85)' });
     }
   }
 
@@ -1219,13 +1255,17 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         if (k >= 0 && k < F.length && F[k] >= 0 && (best < 0 || F[k] < best)) { best = F[k]; c = k; }
       }
     }
-    for (let s = 0; s < 7 && best > 0; s++) {
+    const chain = [c];
+    for (let s = 0; s < 8 && best > 0; s++) {
       let nc = c;
-      for (const k of [c - 1, c + 1, c - cols, c + cols, c - cols - 1, c - cols + 1, c + cols - 1, c + cols + 1]) if (F[k] >= 0 && F[k] < F[nc]) nc = k;
+      for (const k of [c - 1, c + 1, c - cols, c + cols]) if (F[k] >= 0 && F[k] < F[nc]) nc = k;
       if (nc === c) break;
-      c = nc; best = F[c];
+      c = nc; best = F[c]; chain.push(c);
     }
-    let tx = (c % cols + 0.5) * CELL, ty = (Math.floor(c / cols) + 0.5) * CELL;
+    // aim at the farthest step of the chain that is in plain sight
+    let pick = chain[0];
+    for (let s = chain.length - 1; s >= 0; s--) { const k = chain[s]; if (visibleFrom(b.x, b.y, (k % cols + 0.5) * CELL, (Math.floor(k / cols) + 0.5) * CELL)) { pick = k; break; } }
+    let tx = (pick % cols + 0.5) * CELL, ty = (Math.floor(pick / cols) + 0.5) * CELL;
     for (const m of L.moths) if (!m.dead && dist(b.x, b.y, m.x, m.y) < 90 && m.x > b.x - 20 && visibleFrom(b.x, b.y, m.x, m.y)) { tx = m.x; ty = m.y; break; }
     for (const p of L.pups) if (p.state === 'hang' && dist(b.x, b.y, p.x, p.y) < 150 && visibleFrom(b.x, b.y, p.x, p.y + 6)) { tx = p.x; ty = p.y + 6; break; }
     const dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1;
@@ -1237,6 +1277,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (!G) return;
     G.t += dt;
     if (G.banner) { G.banner.t += dt; if (G.banner.t > 3.4) G.banner = null; }
+    if (G.hint) { G.hint.t += dt; if (G.hint.t > 3.2) G.hint = null; }
     if (G.fadeDir) {
       G.fade = clamp(G.fade + G.fadeDir * dt / 0.7, 0, 1);
       if (G.fadeDir < 0 && G.fade <= 0) G.fadeDir = 0;
@@ -1361,7 +1402,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
     updateWorld(dt);
     // the exit: fly out through the moonlit arch
-    if (b.x > L.W - 70 && Math.abs(b.y - L.exitY) < 140) {
+    if (b.x > L.W - 40 && Math.abs(b.y - L.exitY) < L.archH + 20) {
       if (G.mode === 'play') exitCave();
       else attract(G.runSeed + 1);
       return;
@@ -1566,7 +1607,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     camTarget.x = b.x + b.vx * 0.32 + (G.mode === 'attract' ? 60 : 0);
     camTarget.y = b.y + b.vy * 0.22;
     const hw = view.w / 2 / zoom, hh = view.h / 2 / zoom;
-    cam.bounds = { minX: -60, minY: -40, maxX: L.W + 160, maxY: L.H + 40 };
+    cam.bounds = { minX: -60, minY: -40, maxX: L.W + 200, maxY: L.H + 40 };
     if (hw * 2 > L.W + 220) cam.bounds = null;
     if (hh * 2 > L.H + 80) { cam.bounds = cam.bounds && { minX: cam.bounds.minX, maxX: cam.bounds.maxX, minY: L.H / 2 - hh, maxY: L.H / 2 + hh }; }
   }
@@ -1595,7 +1636,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (inp.x > 0.2) b.face = 1; else if (inp.x < -0.2) b.face = -1;
     b.x += b.vx * dt; b.y += b.vy * dt;
     const hw = view.w / zoom / 2;
-    if (b.x < cam.x - hw + 40) { b.x = cam.x - hw + 40; b.vx = Math.max(b.vx, 70); }
+    if (b.x < cam.x - hw + 56) { b.x = cam.x - hw + 56; b.vx = Math.max(b.vx, 70); }
     if (b.x > cam.x + hw - 44) { b.x = cam.x + hw - 44; b.vx = Math.min(b.vx, 70); }
     if (b.y < 110 / zoom) { b.y = 110 / zoom; b.vy = Math.abs(b.vy) * 0.4; }
     if (b.y > N.h * 0.74) { b.y = N.h * 0.74; b.vy = -Math.abs(b.vy) * 0.5; }
@@ -1630,35 +1671,49 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   /* =====================================================================================
      DRAW
      ===================================================================================== */
+  // The backdrop, rock, darkness, memory and moonlight are dim and soft: they are composed in a buffer at
+  // 1 CSS px per pixel and blitted once, which keeps a DPR 2 phone well inside its fill budget.
+  let lowC = null, lowG = null;
   function draw() {
     const w = view.w, h = view.h, t = G ? G.t : 0;
-    view.clear(P.void0);
-    if (!G || !L) return;
-    if (G.sub === 'night' || (G.sub === 'dive' && G.night)) { drawNight(w, h, t); drawOverlays(w, h); drawHud(w, h); return; }
-    drawBg(w, h, t);
-    cam.apply(ctx);
+    if (!G || !L) { view.clear(P.void0); return; }
+    if (G.sub === 'night' || (G.sub === 'dive' && G.night)) { view.clear(P.void0); drawNight(w, h, t); drawOverlays(w, h); drawHud(w, h); return; }
+    const lw = Math.ceil(w), lh = Math.ceil(h);
+    if (!lowC || lowC.width !== lw || lowC.height !== lh) { lowC = gfx.offscreen(lw, lh); lowG = lowC.getContext('2d', { alpha: false }); }
     const hw = w / 2 / zoom, hh = h / 2 / zoom;
     const x0 = cam.x - hw - 30, y0 = cam.y - hh - 30, x1 = cam.x + hw + 30, y1 = cam.y + hh + 30;
-    drawOutside(x0, y0, x1, y1, t);
+    ctx = lowG;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    drawBg(w, h, t);
+    cam.apply(ctx);
     blitCave(L.rock, x0, y0, x1, y1, 1, 'source-over');
+    drawOutside(x0, y0, x1, y1, t);
     cam.restore(ctx);
     drawDark(w, h, t);
     cam.apply(ctx);
-    drawWater(x0, x1, t);
-    blitCave(L.mem, x0, y0, x1, y1, 0.28, 'lighter');
+    blitCave(L.mem, x0, y0, x1, y1, 0.36, 'lighter');
     drawMoonlight(x0, x1, t);
+    cam.restore(ctx);
+    // near foreground: hanging tips at the top edge, darker than everything; then the vignette
+    const fgo = -Kit.wrap(cam.x * zoom * 1.3, 0, 900);
+    for (let x = fgo; x < w; x += 900) ctx.drawImage(BG.fg, x, -10 - Kit.wrap(cam.y * zoom * 0.05, 0, 30), 900, 140);
+    gfx.vignette(ctx, 0.62, '#000000');
+    ctx = mainCtx;
+    ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(lowC, 0, 0, lw, lh, 0, 0, lw, lh);
+    cam.apply(ctx);
+    drawWater(x0, x1, t);
     drawProximity(t);
     drawEntities(t, x0, y0, x1, y1);
     drawRings(t);
     drawEcho(t, x0, y0, x1, y1);
+    if (G.sub === 'exit' && G.wipe > 0) { cam.restore(ctx); drawWipe(w, h); cam.apply(ctx); }
     drawTrailPups(t);
     if (G.sub !== 'night') drawBatAt(G.bat, t, 1.3);
     fx.draw(ctx);
     cam.restore(ctx);
-    // near foreground: hanging tips at the top edge, darker than everything
-    const fgo = -Kit.wrap(cam.x * zoom * 1.3, 0, 900);
-    for (let x = fgo; x < w; x += 900) ctx.drawImage(BG.fg, x, -10 - Kit.wrap(cam.y * zoom * 0.05, 0, 30), 900, 140);
-    gfx.vignette(ctx, 0.62, '#000000');
     drawOverlays(w, h);
     drawHud(w, h);
   }
@@ -1677,7 +1732,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     g.globalCompositeOperation = 'source-over';
     g.clearRect(0, 0, dw, dh);
     g.fillStyle = '#020309';
-    g.globalAlpha = xray ? 0.15 : Kit.keyart ? 0.72 : G.mode === 'attract' ? 0.9 : 0.95;
+    g.globalAlpha = xray ? 0.15 : Kit.keyart ? 0.8 : G.mode === 'attract' ? 0.92 : 0.965;
     g.fillRect(0, 0, dw, dh);
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'destination-out';
@@ -1713,7 +1768,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
 
   function blitCave(cv, x0, y0, x1, y1, alpha, op) {
-    const sx0 = Math.max(0, x0), sy0 = Math.max(0, y0), sx1 = Math.min(L.W, x1), sy1 = Math.min(L.H, y1);
+    const sx0 = Math.max(0, x0), sy0 = Math.max(0, y0), sx1 = Math.min(L.WT, x1), sy1 = Math.min(L.H, y1);
     if (sx1 <= sx0 || sy1 <= sy0) return;
     ctx.globalAlpha = alpha;
     ctx.globalCompositeOperation = op;
@@ -1740,11 +1795,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
   function drawOutside(x0, y0, x1, y1, t) {
     if (x1 < L.W - 20) return;
-    const W = L.W, ey = L.exitY, ah = Math.max(54, L.sp.rad * 0.62), aw = 54;
-    ctx.fillStyle = P.rock;
-    ctx.fillRect(W - 1, y0 - 10, x1 - W + 20, y1 - y0 + 20);
+    const W = L.W, ey = L.exitY, ah = L.archH, aw = 46;
     // the night through the arch
-    const cx = W + 30;
+    const cx = W + 34;
     ctx.save();
     archPath(cx, ey, aw, ah);
     ctx.clip();
@@ -1760,13 +1813,30 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     for (let k = -1; k < 6; k++) { ctx.beginPath(); ctx.arc(cx - aw + k * 22 + 6, ey + ah * 0.78 + Math.sin(k * 2.1) * 6, 16, 0, TAU); ctx.fill(); }
     ctx.fillRect(cx - aw - 4, ey + ah * 0.8, aw * 2 + 8, ah);
     ctx.restore();
-    // the arch frame catches the moonlight on its inner edge
+    // vines hang across the opening, black against the sky
+    const vr = Kit.rng(L.n * 7 + 3);
+    ctx.save();
+    archPath(cx, ey, aw, ah); ctx.clip();
+    ctx.strokeStyle = '#050a18'; ctx.fillStyle = '#050a18'; ctx.lineWidth = 1.6;
+    for (let k = 0; k < 6; k++) {
+      const vx = cx - aw + 6 + vr.next() * (aw * 2 - 12), len = vr.range(ah * 0.3, ah * 1.1), sw = Math.sin(t * 0.8 + k) * 3;
+      ctx.beginPath(); ctx.moveTo(vx, ey - ah * 1.2); ctx.quadraticCurveTo(vx + sw, ey - ah + len * 0.5, vx + sw * 1.5, ey - ah + len); ctx.stroke();
+      for (let y = ey - ah + 8; y < ey - ah + len; y += 9) { ctx.beginPath(); ctx.ellipse(vx + sw * ((y - ey + ah) / len) * 1.5 + (y % 18 < 9 ? 3 : -3), y, 3.4, 1.8, 0.5, 0, TAU); ctx.fill(); }
+    }
+    ctx.restore();
+    // a thick stone lip, moonlit on its inner edge
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = '#0a1122';
+    archPath(cx, ey, aw + 7, ah + 7); ctx.stroke();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = gfx.alpha(P.moon, 0.75);
-    archPath(cx, ey, aw, ah); ctx.stroke();
-    ctx.lineWidth = 9;
-    ctx.strokeStyle = gfx.alpha(P.moon, 0.12);
-    archPath(cx, ey, aw + 4, ah + 4); ctx.stroke();
+    ctx.strokeStyle = gfx.alpha('#dbe9ff', 0.85);
+    archPath(cx, ey, aw + 1, ah + 1); ctx.stroke();
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = gfx.alpha(P.moon, 0.14);
+    archPath(cx, ey, aw + 2, ah + 2); ctx.stroke();
+    // rubble at the sill
+    ctx.fillStyle = '#0a1122';
+    for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.ellipse(cx - aw + 8 + k * (aw * 2 - 16) / 4, ey + ah + 2, vr.range(5, 11), vr.range(3, 6), 0, 0, TAU); ctx.fill(); }
   }
   function drawMoonlight(x0, x1, t) {
     if (x1 < L.W - 700) return;
@@ -1854,7 +1924,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         gfx.light(ctx, s.x + Math.cos(s.a) * s.len * 0.6, s.y + Math.sin(s.a) * s.len * 0.6, 12 + s.len * 0.5, P.crystal, 0.35 * a * tw);
       }
       ctx.globalAlpha = a;
-      paintShards(ctx, cl, 1);
+      paintShards(ctx, cl, 1, true);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
     }
@@ -2048,9 +2118,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (rad > rg.R || rad < 1) continue;
       const k = 1 - rad / rg.R, col = COL[rg.c];
       ctx.strokeStyle = col;
-      ctx.globalAlpha = 0.07 * k;
-      ctx.lineWidth = 26;
-      ctx.beginPath(); ctx.arc(rg.x, rg.y, Math.max(1, rad - 12), 0, TAU); ctx.stroke();
       ctx.globalAlpha = (rg.kind === 'shriek' ? 0.6 : 0.45) * k;
       ctx.lineWidth = rg.kind === 'shriek' ? 3 : 1.8;
       ctx.beginPath(); ctx.arc(rg.x, rg.y, rad, 0, TAU); ctx.stroke();
@@ -2082,12 +2149,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (!n) continue;
       const list = lBuckets[c][bk];
       ctx.strokeStyle = COL[c];
-      ctx.globalAlpha = ((bk + 0.5) / LB) * 0.55;
-      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = ((bk + 0.5) / LB) * 0.42;
+      ctx.lineWidth = 1.3;
       ctx.beginPath();
       for (let k = 0; k < n; k++) { const i = list[k]; ctx.moveTo(lx1[i], ly1[i]); ctx.lineTo(lx2[i], ly2[i]); }
       ctx.stroke();
-      if (bk >= LB - 2) { ctx.globalAlpha = 0.1; ctx.lineWidth = 6; ctx.stroke(); }
+      if (bk === LB - 1) { ctx.globalAlpha = 0.1; ctx.lineWidth = 6; ctx.stroke(); }
     }
     // dots
     for (let i = 0; i < EN; i++) {
@@ -2097,7 +2164,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
       const fresh = a < 0.12 ? 1 - a / 0.12 : 0;
       const v = a < 0.06 ? 1 : Math.pow(1 - (a - 0.06) / (ECHO_LIFE - 0.06), 1.4);
-      const r = es[i] * (4.6 + fresh * 5);
+      const r = es[i] * (6 + fresh * 6);
       ctx.globalAlpha = Math.min(1, v * (0.75 + fresh * 0.5));
       ctx.drawImage(dotSprites[ec[i]], x - r, y - r, r * 2, r * 2);
     }
@@ -2285,6 +2352,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     gfx.lightRays(ctx, mx, my, { count: 6, length: h * 0.9, spread: 1.1, angle: Math.PI * 0.62, width: 60, color: P.moon, alpha: 0.05, t });
     gfx.blit(ctx, moonSprite(), mx, my, Math.min(0.95, w / 460));
     trees.draw(ctx, w, h, N.scroll * zoom, 0);
+    const fog = fogSprite();
+    for (let k = 0; k < 3; k++) {
+      const fx0 = -Kit.wrap(N.scroll * zoom * (0.3 + k * 0.2) + k * 300, 0, w * 1.4);
+      ctx.globalAlpha = 0.28 - k * 0.06;
+      ctx.drawImage(fog, fx0, h * (0.7 + k * 0.06), w * 1.4, h * 0.16);
+      ctx.drawImage(fog, fx0 + w * 1.4, h * (0.7 + k * 0.06), w * 1.4, h * 0.16);
+    }
+    ctx.globalAlpha = 1;
     cam.apply(ctx);
     for (const m of N.moths) {
       if (m.dead) continue;
@@ -2299,19 +2374,32 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     gfx.vignette(ctx, 0.45, '#020414');
   }
 
+  const fogSprite = () => gfx.sprite('pp-fog', 256, 64, (g, w, h) => {
+    g.save(); g.scale(1, h / w);
+    const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    gr.addColorStop(0, 'rgba(159,198,255,0.55)'); gr.addColorStop(1, 'rgba(159,198,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, w); g.restore();
+  });
+
   /* ---------- overlays: moonlight wipe, fades, banners, tutorial ---------- */
   const wipeSprite = () => gfx.sprite('pp-wipe', 128, 128, g => {
     const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
     gr.addColorStop(0, 'rgba(225,238,255,1)'); gr.addColorStop(0.55, 'rgba(159,198,255,0.92)'); gr.addColorStop(1, 'rgba(159,198,255,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   });
+  // Reaching the exit floods the screen with moonlight from the arch; the bat and pups fly out over it.
+  function drawWipe(w, h) {
+    const big = Math.hypot(w, h) * 1.25;
+    const r = Kit.ease.quadIn(G.wipe) * big * 1.3 + 60;
+    ctx.globalAlpha = Math.min(1, 0.25 + G.wipe * 0.75);
+    ctx.drawImage(wipeSprite(), G.wipeX - r, G.wipeY - r, r * 2, r * 2);
+    ctx.globalAlpha = 1;
+    gfx.lightRays(ctx, G.wipeX, G.wipeY, { count: 9, length: big, spread: TAU, angle: 0, width: 70, color: '#ffffff', alpha: 0.12 * (1 - G.wipe * 0.6), t: G.t });
+  }
   function drawOverlays(w, h) {
     if (G.wipe > 0) {
-      const big = Math.hypot(w, h) * 1.25;
       if (G.sub === 'exit') {
-        const r = Kit.ease.quadIn(G.wipe) * big * 1.3 + 60;
-        ctx.globalAlpha = Math.min(1, 0.25 + G.wipe * 0.75);
-        ctx.drawImage(wipeSprite(), G.wipeX - r, G.wipeY - r, r * 2, r * 2);
+        /* drawn under the bat in draw() */
       } else {
         ctx.globalAlpha = G.wipe * 0.9;
         ctx.fillStyle = '#c9dcff';
@@ -2347,7 +2435,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.beginPath(); ctx.arc(cx, cy, 3, 0, TAU); ctx.fill();
     // score: moths banked; below it what you carry and the pup multiplier
     const sx = cx + 38;
-    gfx.text(ctx, Kit.fmt(G.score), sx, cy - 6, { size: 24, weight: 800, font: DISPLAY, align: 'left', color: '#eafffb' });
+    gfx.text(ctx, Kit.fmt(G.score), sx, cy - 6, { size: 24, weight: 800, font: DISPLAY, align: 'left', color: '#eafffb', stroke: 'rgba(2,6,14,0.45)', strokeWidth: 4 });
     let lx = sx;
     const sub = 'CAVE ' + G.cave;
     gfx.text(ctx, sub, lx, cy + 15, { size: 10, weight: 700, font: 'body', align: 'left', color: gfx.alpha(P.teal, 0.85) });
@@ -2434,7 +2522,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     }
     // one-line hints and the ghost hand
     if (G.hint) {
-      G.hint.t += 1 / 60;
       const a = clamp(Math.min(G.hint.t * 3, (3 - G.hint.t) * 2), 0, 1);
       if (a <= 0 && G.hint.t > 1) G.hint = null;
       else gfx.text(ctx, G.hint.text, w / 2, h - 70, { size: 15, weight: 700, font: 'body', color: '#eafffb', alpha: a, stroke: 'rgba(0,0,0,0.6)', strokeWidth: 4 });
@@ -2683,11 +2770,15 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       pupList: L.pups.filter(p => p.state === 'hang').map(p => [Math.round(p.x), Math.round(p.y)]),
       webs: L.webs.length, stals: L.stals.length, rivers: L.rivers.length, crystals: L.crystals.length, gusts: L.gusts.length, owls: L.owls.length, drips: L.drips.length,
       echoes: (() => { let n = 0; for (let i = 0; i < EN; i++) if (G.t - et[i] >= 0 && G.t - et[i] < ECHO_LIFE) n++; return n; })(),
-      webbed: !!G.bat.web, stun: G.bat.stun, nightT: G.nightT, runSeed: G.runSeed, solidAtBat: solidAt(G.bat.x, G.bat.y),
+      bumps: G.bumps || 0, lastBumpCost: G.lastBumpCost || 0, webbed: !!G.bat.web, stun: G.bat.stun, nightT: G.nightT, runSeed: G.runSeed, solidAtBat: solidAt(G.bat.x, G.bat.y),
     } : null),
     path: () => (L ? L.path.filter((p, i) => i % 4 === 0).map(p => [Math.round(p.x), Math.round(p.y)]) : null),
     stalList: () => (L ? L.stals.map(s => ({ x: s.x, y: s.y, state: s.state })) : null),
     webList: () => (L ? L.webs.map(w => ({ x: w.x, y: w.y, r: w.r, torn: w.torn })) : null),
+    debugNear(x, y, r) { const out = { dots: [], crystals: L.crystals.map(c => [Math.round(c.x), Math.round(c.y), Math.round(c.r)]), minis: G.minis.length, rings: G.rings.map(g => [Math.round(g.x), Math.round(g.y), g.kind]) }; for (let i = 0; i < EN; i++) if (Math.hypot(ex[i] - x, ey[i] - y) < r && G.t - et[i] < ECHO_LIFE && G.t >= et[i]) out.dots.push([ec[i], +es[i].toFixed(1)]); return out; },
+    owlList: () => (L ? L.owls.map(o => ({ x: o.x, y: o.y, state: o.state })) : null),
+    wallDist(dx, dy) { if (!G || !L) return null; const d = Math.hypot(dx, dy) || 1; return cast(G.bat.x, G.bat.y, dx / d, dy / d, 900); },
+    fingerprint: () => { if (!L) return null; let h = 0; for (let i = 0; i < L.field.length; i += 7) h = (h * 31 + Math.round(L.field[i] * 9)) >>> 0; return h + ':' + L.W + ':' + L.moths.length + ':' + L.pups.length; },
   });
 
   /* ---------- capture scenes: deterministic, hand-placed moments ---------- */
@@ -2730,10 +2821,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       loop.step(2);
       G.cd = 0; sonar(G.bat.x - 140, G.bat.y + 40, CHIRP_R, CHIRP_RAYS, 'chirp');
       loop.step(70);
+      fx.clear();
       G.cd = 0; chirp();
       loop.step(25);
-      camTarget.x = G.bat.x + 150; camTarget.y = G.bat.y - 30;
+      camTarget.x = G.bat.x + 135; camTarget.y = G.bat.y - 10;
       cam.x = camTarget.x; cam.y = camTarget.y;
+      cam.zoom = zoom * 1.3;
       G.bat.glide = 1; G.bat.flap = 1.4;
       loop.stop();
       loop.render();
