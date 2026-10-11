@@ -106,7 +106,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const OFFS = [22.5, 7.5, -7.5, -22.5];          // lane offsets toward the inside of the circuit
   const HALF = 32, TW = 64;                        // track half width and width
   const DS = 4;                                    // sample spacing
-  const GRIP = 400, VTOP = 360, ACC = 470, BRAKE = 560, ROLL = 10;
+  let GRIP = 400, VTOP = 360, ACC = 470, BRAKE = 560, ROLL = 10;
   const SLIP_T = 0.12;
   const LOOP_RV = 30, LOOP_VMIN = 205, LOOP_G = LOOP_VMIN * LOOP_VMIN / (5 * LOOP_RV), LOOP_RING = 40;
   const J_RAMP = 28, J_GAP = 34, J_LAND = 28, J_LO = 170, J_HI = 300;
@@ -513,7 +513,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const m = c.model;
     if (c.state === 'slot') {
       // power ramps in over 0.3 s; letting go cuts it and the motor brakes at once (dynamic braking)
-      const up = thIn > c.th ? dt / 0.3 : dt / 0.06;
+      const up = thIn > c.th ? dt / RAMP : dt / 0.06;
       c.th = Kit.approach(c.th, thIn, up);
       c.br = Kit.approach(c.br || 0, thIn > 0.02 ? 0 : 1, dt / (thIn > 0.02 ? 0.03 : 0.06));
       const vt = VTOP * m.top;
@@ -2255,7 +2255,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const glowBuckets = Array.from({ length: 12 }, () => ({ n: 0, pts: new Float32Array(300) }));
   // What lies ahead in your lane, sample by sample: 0 green (fine), 1 amber (let go now: a moment's
   // delay and you will be too fast for what is coming), 2 red (too fast even braking now).
-  const REACT = 0.2;
+  let REACT = 0.2, RAMP = 0.3;
   const glowOut = { n: 0, j: new Int32Array(80), lvl: new Uint8Array(80), fi: new Uint8Array(80) };
   function laneOutlook(c, out) {
     const Ln = TR.lanes[c.lane], N = TR.N, m = c.model;
@@ -2814,6 +2814,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     throttle(x) { forceTh = x === null || x === undefined ? null : clamp(+x, 0, 1); },
     changeLane(dir) { const c = humanCar(1); if (c) requestLane(c, dir); return c ? c.want : 0; },
     bot(skill) { botSkill = skill ? +skill : 0; },
+    tune(o) { if (o.BRAKE) BRAKE = o.BRAKE; if (o.ACC) ACC = o.ACC; if (o.REACT !== undefined) REACT = o.REACT; if (o.RAMP) RAMP = o.RAMP; if (o.GRIP) GRIP = o.GRIP; },
     humanBot(level, react) { humanBot = level ? { level: +level, react: react === undefined ? 0.15 : +react, q: [] } : null; },
     forceDeslot() { const c = humanCar(1); if (c && c.state === 'slot') deslot(c, 'bend'); return c ? c.state : null; },
     skipGrid() { if (G && G.phase === 'grid') { G.gridT = 2.79; loop.step(2); } },
