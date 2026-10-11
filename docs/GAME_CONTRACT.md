@@ -36,7 +36,7 @@ The SDK calls, in your script or through the kit:
 | `const kiln = Arcade.init({ id, title, version })` | Once, at boot. `id` is the folder name. `kiln.embedded` and `kiln.settings` come back. |
 | `Arcade.ready()` | Once the first frame is drawn and the game is playable. The hub shows "Loading" until then. It also sets `data-kiln-ready="1"` on `<html>` for the tools. |
 | `Arcade.runStart(props?)` | When an attempt begins (first move, or Play pressed). |
-| `Arcade.runEnd({ score, reason, ...props })` | When the attempt ends. `reason`: `'lose'`, `'win'`, `'restart'`, `'quit'`, or a game-specific word. Include the numbers that describe the run (level, lines, accuracy...). |
+| `Arcade.runEnd({ score, reason, ...props })` | When the attempt ends. `reason`: `'lose'`, `'win'`, `'restart'`, `'quit'`, or a game-specific word. Include the numbers that describe the run (level, lines, accuracy...). A finished run's score updates the best (`kiln:<id>:best`) and the hub's card; a run given up (`'restart'`, `'quit'`, `'abandoned'`) is logged with its score but never sets a best. |
 | `Arcade.track(name, props?)` | Key moments only: `tutorial_complete`, `level_complete`, `daily_complete`, `share`. Never per frame or per tap. |
 | `Arcade.store.get(key, fallback)` / `.set(key, value)` | All saved data (best score, progress, tutorial seen). Never touch `localStorage` directly. |
 | `Arcade.progress({ label, pct? } \| null)` | Only for games that save a run between visits. Call it whenever the save changes: `{ label: 'Pond 6' }` (short, true, shown on Home's Continue card) while a run is saved and worth resuming, `null` once it is over or restarted. Add `pct` (0 to 100, rounded and clamped by the SDK) only when it is a true completion measure, such as level 7 of 30 (`pct: 7 / 30 * 100`); Home then shows a progress bar with that percentage. Never invent one. Games that never call it show "Played today". |
@@ -45,7 +45,7 @@ The SDK calls, in your script or through the kit:
 | `Arcade.on('settings', fn)` | Settings changed in the hub. Update sound and vibration at once. |
 | `Arcade.on('pause', fn)` | The app was hidden or the hub opened a sheet. Real-time games must freeze immediately and show their pause menu. |
 | `Arcade.on('resume', fn)` | Informational. Real-time games stay on their pause menu until the player resumes. |
-| `Arcade.exit()` | "Back to games" button in your pause menu, shown only when `Arcade.embedded`. |
+| `Arcade.exit()` | "Back to games" button in your pause menu, shown only when `Arcade.embedded`. Call `Arcade.runEnd({ score, reason: 'quit' })` first so the run keeps its score (otherwise `exit()` ends it with no score). |
 | `Arcade.setSetting(key, value)` | Only for standalone mode: when not embedded, show your own Sound and Vibration toggles that call this. When embedded, hide them (the hub owns settings). |
 | `Arcade.scenes({ art, shot1, shot2 })` | Capture scenes for the card art and screenshots. See "Capture scenes". |
 | `Arcade.test({ start, lose, state })` | The test hook `tools/game-check.cjs` drives. See "Test hook". |
@@ -64,9 +64,10 @@ Arcade.scenes({
 });
 ```
 
-- With `?scene=<name>` in the URL, the SDK runs that scene once after `Arcade.ready()`, then sets `data-scene-done="1"` on `<html>` (or `"error"`, with the message in `data-scene-error`). A scene may return a promise; it must finish within 8 seconds.
+- With `?debug&scene=<name>` in the URL (both: a scene never runs from a player's link), the SDK runs that scene once after `Arcade.ready()`, then sets `data-scene-done="1"` on `<html>` (or `"error"`, with the message in `data-scene-error`). A scene may return a promise; it must finish within 8 seconds.
 - Seed everything, so the same scene gives the same picture on every run, and drive the game with its own engine (simulate frames, place the pieces, fire the shots); do not draw a fake picture.
 - When the scene returns, the frame must be ready to capture: the tools take the screenshot two frames later. Freeze or slow what moves if it matters.
+- A scene plays the game for real: it starts runs, logs events and may write saves (in the capture tools' throwaway browser). Keep its run alive: drive it with an autopilot or make the player safe while it runs. A run that ends inside a scene opens the game-over panel a moment later, over the capture, and `game-check` fails it.
 - `art` is captured from `?debug&keyart&scene=art` at 800×450 and 400×500 (device scale 2): no HUD, no text (see key-art mode below). `shot1` and `shot2` are captured from `?debug&scene=shot1|shot2` at 360×760 (scale 1.5) with the HUD visible: they show what the player will see.
 - Render them with `node tools/make-art.cjs --game <id> --port <port>` and `node tools/make-shots.cjs --game <id> --port <port>`, then look at the images.
 
@@ -80,7 +81,7 @@ Arcade.test({
 });
 ```
 
-- `state()` returns `{ phase, score, paused }`: `phase` is `'title'`, `'play'`, `'paused'`, `'over'` or a game-specific word, `score` a number, `paused` a boolean.
+- `state()` returns `{ phase, score, paused, frame? }`: `phase` is `'title'`, `'play'`, `'paused'`, `'over'` or a game-specific word, `score` a number, `paused` a boolean. `paused: true` must mean the game really stands still: `game-check` checks that `frame` (a count of simulation steps; the kit's shell reports the loop's) does not move while paused, or, without `frame`, that the play canvas does not change.
 - It is exposed as `window.__kilnTest` only with `?debug` in the URL. Later calls add to or override earlier ones: the kit's shell registers `start`, `lose` and `state` for you, and a game can extend them.
 - A turn-based game that does not freeze on pause may add `turnBased: true`; `game-check` then reports its pause as a warning instead of checking it.
 
@@ -99,8 +100,8 @@ Kiln will hold 64 games. Each must feel finished and have its **own look**; the 
 
 - Pick a palette, a font pairing (the house fonts Unbounded and Figtree, or system stacks) and a shell style (`glass`, `solid`, `outline`, `paper`, `neon`, `pixel`) that suit this game's world, not the hub's. [docs/KIT.md](KIT.md) has the art-direction guide: layered backgrounds, lighting, ambient motion, palettes, juice.
 - Colours as tokens on `:root`. Menus and panels must stay readable in light and dark: switch tokens with `@media (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])`, and again under `:root[data-theme="dark"]` (the SDK sets `data-theme` from the hub's theme setting). A game world may keep one palette in both themes (a night sky stays night). `body` has an explicit background.
-- The first frame must look good: show a live board, a demo state or an attract animation, never an empty screen.
-- Key-art mode: with `?keyart` the SDK adds the class `kiln-keyart` to `<html>` and sets `Arcade.keyart`. Hide every control and text overlay in that mode (the kit's shell hides itself; hide your own HUD with `.kiln-keyart .hud { display: none }` and so on), skip floating text, and let the play surface fill the page.
+- The first frame must look good: show a live board, a demo state or an attract animation, never an empty screen. `game-check` warns when the play canvas stands still for a second on the title.
+- Key-art mode: with `?keyart` the SDK adds the class `kiln-keyart` to `<html>` and sets `Arcade.keyart`. Hide every control and text overlay in that mode (the kit's shell hides itself; hide your own HUD with `.kiln-keyart .hud { display: none }` and so on), skip floating text, and let the play surface fill the page. A HUD drawn on the canvas counts too: skip it when `Arcade.keyart`. `game-check` fails key art with any text drawn on a visible canvas, except text that belongs to the world drawn with `Kit.gfx.text(..., { world: true })` (a sign, letters on tiles).
 
 ### Quality bar
 
@@ -128,7 +129,7 @@ Every game must clear this before it joins Kiln:
 
 Use the global Playwright install (`require('playwright')` works with `NODE_PATH` set); Chromium is preinstalled. Never run `playwright install`. Pass `--port` to every tool so several runs can share a machine.
 
-1. `node tools/game-check.cjs --game <id> --port <port>` passes: no FAIL lines. It loads the page standalone, checks `Arcade.ready()` within 4 s and the right `Arcade.init` id, drives the test hook (`start` logs `run_start`, `lose` logs `run_end` with a numeric score and changes the phase), mashes taps, swipes, drags and keys for about 4 s, sends the hub's pause message (a real-time game must report `paused: true`), measures frame time (warning above 25 ms p95, failure above 60 ms), checks the layout at 320×560, 390×844, 768×1024 and 1280×800 (no horizontal overflow, canvas fills the viewport), checks `?keyart` shows no text or controls, runs the `art`, `shot1` and `shot2` scenes, and launches the game inside the hub. Any console error fails the step it happened in. Screenshots of every step go to `/tmp/kiln-check/<id>/` (or `--out`): look at them. `--json` prints a JSON summary.
+1. `node tools/game-check.cjs --game <id> --port <port>` passes: no FAIL lines. It loads the page standalone, checks `Arcade.ready()` within 4 s and the right `Arcade.init` id, drives the test hook (`start` logs `run_start`, `lose` logs `run_end` with a numeric score and changes the phase), mashes taps, swipes, drags and keys for about 4 s, sends the hub's pause message (a real-time game must report `paused: true` and then stand still), measures frame time over 3 s of play (frames on the title, pause or game-over screen are left out and an ended run is restarted; an over-budget sample is retaken once; warning above 25 ms p95, failure above 60 ms), checks the layout at 320×560, 390×844, 768×1024 and 1280×800 (no horizontal overflow, canvas fills the viewport), checks `?keyart` shows no text or controls, DOM or canvas, runs the `art`, `shot1` and `shot2` scenes (each must finish with its run still alive), and launches the game inside the hub. Any console error fails the step it happened in. Screenshots of every step go to `/tmp/kiln-check/<id>/` (or `--out`): look at them. `--json` prints a JSON summary.
 2. `node tools/smoke.cjs --game <id> --port <port>` passes: it launches the game from the hub and opens its page standalone.
 3. Your own `games/<id>/test.cjs` plays real runs headlessly (simulated input, or the test hook and a `?debug` step/bot function) and asserts the rules work: scoring, failure, restart, persistence of the best score, no exceptions over many runs.
 4. Screenshots at 360×740 and 1280×800, in light and dark, look right.
@@ -148,7 +149,7 @@ Games are listed in `games/registry.js` (id, title, pitch, genre, accent, status
 2. Create `games/<id>/index.html` with the SDK and kit tags, `Arcade.init({ id: '<id>', ... })` and `Arcade.ready()` once the first frame is drawn.
 3. Build the loop on the kit; make the menus, juice, sound and music meet the quality bar.
 4. Register `Arcade.test` (the kit's shell gives you the defaults) and `Arcade.scenes({ art, shot1, shot2 })` with seeded scenes.
-5. Hide every HUD element and text overlay under `.kiln-keyart`.
+5. Hide every HUD element and text overlay under `.kiln-keyart`, and skip canvas HUD drawing when `Arcade.keyart`.
 6. Render the images: `node tools/make-art.cjs --game <id> --port <port>` and `node tools/make-shots.cjs --game <id> --port <port>`. Look at all four.
 7. Write `games/<id>/test.cjs` and run it.
 8. Ask the hub maintainer for the registry entry (category, about, controls, saves, mechanics, moods, art, shots).

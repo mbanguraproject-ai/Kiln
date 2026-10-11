@@ -14,8 +14,9 @@ const ARTIFACT = args.includes('--artifact');
 
 const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const sdk = read('hub/sdk.js');
-// The kit is optional for older games; it is read only when a game loads it.
-const kitTag = '<script src="../../hub/kit.js"></script>';
+// The kit is optional for older games; it is read only when a game loads it. Any spelling of its tag
+// (quotes, defer, spacing) is inlined; a reference left over would be a dead relative URL inside srcdoc.
+const kitTag = /<script\b[^>]*\bsrc=["']\.\.\/\.\.\/hub\/kit\.js["'][^>]*>\s*<\/script>/g;
 let kit = null;
 const config = read('hub/config.js');
 
@@ -34,10 +35,8 @@ for (const g of games) {
   const tag = '<script src="../../hub/sdk.js"></script>';
   if (!html.includes(tag)) throw new Error(`${g.id}: SDK script tag not found (${tag})`);
   html = html.replace(tag, () => inlineScript(sdk));
-  if (html.includes(kitTag)) {
-    if (kit === null) kit = read('hub/kit.js');
-    html = html.replace(kitTag, () => inlineScript(kit));
-  }
+  html = html.replace(kitTag, () => inlineScript(kit === null ? (kit = read('hub/kit.js')) : kit));
+  if (html.includes('hub/kit.js')) throw new Error(`${g.id}: hub/kit.js is referenced but not as <script src="../../hub/kit.js"></script>`);
   g.srcdoc = html;
   const dataUri = rel => {
     const c = path.join(ROOT, rel);

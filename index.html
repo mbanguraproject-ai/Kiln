@@ -113,11 +113,11 @@ h1, h2, h3 { text-wrap: balance; }
   inset: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px) + var(--s5));
+  padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px) + var(--s6) + var(--s4)); /* clear of the raised Play button */
   animation: viewIn 0.18s var(--ease);
 }
-/* Bottom bar: Home and Library, the raised Play button in the middle, then Discover. Settings opens from the
-   profile button in each header. */
+/* Bottom bar: Home and Library, the raised Play button in the middle, then Discover and Settings. The profile
+   button in each header is a shortcut to Settings. */
 .tabbar {
   position: absolute;
   left: 0;
@@ -150,7 +150,6 @@ h1, h2, h3 { text-wrap: balance; }
   font: 600 12px/1 var(--font-body);
   letter-spacing: 0.01em;
 }
-.tab[data-tab="discover"] { grid-column: span 2; }
 .tab .pill { width: 56px; height: 30px; border-radius: 999px; display: grid; place-items: center; transition: background 0.18s var(--ease); }
 .tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* Selected: violet icon filled in, a lit pill behind it and a bold white label, so it never rests on colour alone. */
@@ -249,7 +248,7 @@ h1, h2, h3 { text-wrap: balance; }
   background: var(--c);
 }
 .lib-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.lib-play { flex: none; position: relative; border: 0; cursor: pointer; min-height: 36px; padding: 0 var(--s3) 0 10px; font-size: 13px; }
+.lib-play { flex: none; position: relative; border: 0; cursor: pointer; min-height: 36px; min-width: 96px; justify-content: center; padding: 0 var(--s3) 0 10px; font-size: 13px; }
 .lib-play::after { content: ""; position: absolute; inset: -6px; } /* 48dp touch target */
 .lib-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
 .lib-title { font: 700 var(--t-card)/1.2 var(--font-body); }
@@ -357,6 +356,8 @@ h1, h2, h3 { text-wrap: balance; }
 }
 .feature-open:focus-visible { outline-offset: -4px; border-radius: var(--r-hero); }
 .feature-art, .feature-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The art sits to the right and fades in from the left, so the subject is beside the text, not under it. */
+.feature-art { left: auto; width: 74%; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 38%); mask-image: linear-gradient(90deg, transparent 0, #000 38%); }
 .feature-art img { transition: transform 0.4s var(--ease); }
 .feature-open:active .feature-art img { transform: scale(1.02); }
 .feature-shade {
@@ -406,8 +407,9 @@ h1, h2, h3 { text-wrap: balance; }
 @media (min-width: 700px) {
   /* Wide screens: the art keeps to the right at close to its own shape, and the text gets a quiet ground. */
   .feature { background: var(--card); max-height: 360px; }
-  .feature-art { left: auto; width: 76%; }
-  .feature-body { padding: var(--s6) var(--s6) calc(var(--s6) + 56px); gap: 10px; }
+  .feature-art { width: 76%; }
+  /* Text sits just above Play Now instead of floating mid-card with a gap under it. */
+  .feature-body { padding: var(--s6) var(--s6) calc(var(--s6) + 62px); gap: 10px; justify-content: flex-end; }
   .feature-title { font-size: 44px; }
   .feature-hook { font-size: 16px; }
   .feature > .feature-cta { left: var(--s6); bottom: var(--s6); }
@@ -509,8 +511,8 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 .cont .card-genre { font-size: 12px; }
 .cont-meta { font-size: 11.5px; line-height: 1.3; font-weight: 600; color: var(--text-2); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cont-progress { display: flex; align-items: center; gap: var(--s2); margin-top: 4px; font: 700 11px/1 var(--font-body); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.cont-progress .bar { flex: 1 1 auto; height: 4px; border-radius: 2px; background: rgba(170, 184, 204, 0.16); overflow: hidden; }
-.cont-progress .bar i { display: block; height: 100%; border-radius: 2px; background: var(--violet); }
+.cont-progress .cont-bar { flex: 1 1 auto; height: 4px; border-radius: 2px; background: rgba(170, 184, 204, 0.16); overflow: hidden; }
+.cont-progress .cont-bar i { display: block; height: 100%; border-radius: 2px; background: var(--violet); }
 
 /* Top picks: a two-column grid of art cards; the title sits on the art beside a small square of the game's tall art. */
 .picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
@@ -597,11 +599,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
 }
 .cats::-webkit-scrollbar { display: none; }
 .cat {
-  flex: 1 0 auto; /* a few tiles share the row; many scroll */
-  min-width: 70px;
-  max-width: 150px;
-  height: 66px;
-  padding: 0 var(--s3);
+  flex: none; /* compact like the mockup however many categories exist; the row scrolls when they overflow */
+  min-width: 66px;
+  height: 62px;
+  padding: 0 14px;
   border: 1px solid var(--edge);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(25, 40, 65, 0.7), rgba(13, 24, 48, 0.7));
@@ -709,8 +710,10 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   align-items: center;
   gap: var(--s2);
   padding-inline: max(var(--s2), env(safe-area-inset-left, 0px)) max(var(--s2), env(safe-area-inset-right, 0px));
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  /* Same lit glass as the hub's cards, so the player reads as part of Kiln rather than a plain strip. */
+  background: linear-gradient(180deg, rgba(25, 40, 65, 0.96), rgba(13, 24, 48, 0.96));
+  border-bottom: 1px solid var(--edge);
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.8);
 }
 .back {
   justify-self: start;
@@ -1217,6 +1220,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
       <span class="fab"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M7.6 6.5h8.8a4.6 4.6 0 0 1 4.5 3.7l.95 4.9a2.7 2.7 0 0 1-4.7 2.3l-1.75-1.95H8.6l-1.75 1.95a2.7 2.7 0 0 1-4.7-2.3l.95-4.9a4.6 4.6 0 0 1 4.5-3.7z"/><path class="k" d="M8 9.6v3.6M6.2 11.4h3.6"/><circle class="kf" cx="15.6" cy="10.2" r="1.15"/><circle class="kf" cx="17.7" cy="12.4" r="1.15"/></svg></span><span class="label">Play</span>
     </button>
     <button class="tab" type="button" data-tab="discover"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></span><span class="label">Discover</span></button>
+    <button class="tab" type="button" data-tab="settings"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span class="label">Settings</span></button>
   </nav>
 </div>
 
@@ -1622,7 +1626,7 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
   // Only for a percentage the game itself reported.
   function progressBar(pct) {
     const row = el('span', 'cont-progress');
-    const bar = el('span', 'bar');
+    const bar = el('span', 'cont-bar');
     const fill = el('i');
     fill.style.width = pct + '%';
     bar.append(fill);
@@ -2211,7 +2215,9 @@ button.card:active { transform: scale(0.98); border-color: var(--line-strong); }
     }
     const found = results();
     const n = found.length;
-    const count = `${n} ${n === 1 ? 'game' : 'games'}`;
+    // Coming-soon games are listed (last) but not counted as games you can play.
+    const soon = found.filter(r => r.g.status === 'soon').length;
+    const count = `${n - soon} ${n - soon === 1 ? 'game' : 'games'}` + (soon ? ` · ${soon} coming soon` : '');
     $('searchStatus').textContent = n ? count + (text ? ` for ${text}` : '') : text ? `No games match ${text}` : 'No games match these filters';
     body.replaceChildren(n ? resultsSection('results', count, found, 'search', fresh, filtering() ? textButton('Clear filters', clearFilters) : null) : emptyResults(text));
   }

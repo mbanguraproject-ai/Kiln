@@ -14,6 +14,9 @@
 
   const DEBUG = /[?&]debug\b/.test(location.search);
   const TAU = Math.PI * 2;
+  // True while the kit draws text that belongs to the world (signs, tile letters, particle glyphs), so
+  // tools/game-check.cjs can tell it from HUD text, which must never appear in key art.
+  let worldText = false;
 
   // Arcade is normally loaded first; a stand-in keeps the kit usable on a bare page (and in unit tests).
   const A = window.Arcade || (function () {
@@ -468,6 +471,7 @@
       const pa = ctx.globalAlpha;
       if (o.alpha !== undefined) ctx.globalAlpha = pa * o.alpha;
       if (o.shadow) { ctx.shadowColor = o.shadow; ctx.shadowBlur = o.shadowBlur === undefined ? 12 : o.shadowBlur; }
+      worldText = !!o.world;
       if (o.stroke) {
         ctx.lineJoin = 'round';
         ctx.lineWidth = o.strokeWidth || Math.max(2, (o.size || 16) / 7);
@@ -477,6 +481,7 @@
       }
       ctx.fillStyle = o.color || '#fff';
       ctx.fillText(str, x, y);
+      worldText = false;
       if (o.shadow) ctx.shadowBlur = 0;
       ctx.globalAlpha = pa;
     },
@@ -606,9 +611,24 @@
     },
 
     // Paint a seamless silhouette (hills, dunes, a city's roofline) into a layer tile.
-    // o: { color, base (0..1 of h), amp (0..1 of h), rough (0..1), seed, points }
+    // o: { color, side, base (0..1), amp (0..1), rough (0..1), seed, points }. side is the edge the mass
+    // grows from: 'bottom' (default, hills) or 'top' for an x layer, 'left' or 'right' (cave or canyon walls)
+    // for a y layer. base is where the silhouette sits and amp its height, as fractions across the tile
+    // measured from the open side: base 0.8 fills the 20% nearest that side, plus the peaks.
     ridge(g, w, h, o) {
       o = o || {};
+      const side = o.side || 'bottom';
+      if (side !== 'bottom') {
+        g.save();
+        // Paint a bottom ridge in a turned frame: along = the edge's length, across = the tile's depth.
+        if (side === 'top') g.transform(1, 0, 0, -1, 0, h);
+        else if (side === 'left') g.transform(0, 1, -1, 0, w, 0);
+        else g.transform(0, 1, 1, 0, 0, 0);
+        const turned = side === 'top' ? [w, h] : [h, w];
+        gfx.ridge(g, turned[0], turned[1], Object.assign({}, o, { side: 'bottom' }));
+        g.restore();
+        return;
+      }
       const r = rng(o.seed || 1), n = o.points || 64, rough = o.rough === undefined ? 0.55 : o.rough;
       const pts = new Float32Array(n + 1);
       // Midpoint displacement on a loop: first and last points match, so the tile wraps cleanly.
@@ -992,7 +1012,9 @@
               ctx.font = font(Math.round(s * 3), 800, 'display');
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
+              worldText = true;
               ctx.fillText(p.text, p.x, p.y);
+              worldText = false;
               break;
             default:
               if (s < 1.6) ctx.fillRect(p.x - s, p.y - s, s * 2, s * 2);
@@ -1033,8 +1055,11 @@
 
   // Fixed 1/60 s updates, one draw per display frame. When paused or hidden no frame is requested,
   // so a paused game costs no CPU. Calls Arcade.ready() once its first frame is drawn (opt out: ready:false).
+  // Each tick clears the pressed/released edges of o.input (one input or a list), or of every input when
+  // it is not given: a page with two loops must give each its own inputs, or one would eat the other's edges.
   function loop(o) {
     o = o || {};
+    const own = o.input ? [].concat(o.input) : inputs;
     let raf = 0, last = 0, acc = 0, stopMs = 0, readySent = o.ready === false;
     const L = {
       running: false, paused: false, timeScale: 1, time: 0, frame: 0, alpha: 0,
@@ -1055,7 +1080,7 @@
         if (!L.paused) return L;
         L.paused = false;
         last = 0;
-        for (const i of inputs) i.flush();
+        for (const i of own) i.flush();
         schedule();
         return L;
       },
@@ -1081,7 +1106,7 @@
       if (o.update) o.update(dt);
       if (o.auto !== false) { fx.update(dt); tween.update(dt); cam.update(dt); }
       fx.updateShake(realDt);
-      for (const i of inputs) i.flush();
+      for (const i of own) i.flush();
     }
     function frame(now) {
       raf = 0;
@@ -1886,9 +1911,11 @@
     get playing() { return seq.src; },
     get step() { return seq.step; },
     // song: { bpm, swing, key, scale, steps, chords: [degree per bar], tracks: [...] } (see docs/KIT.md)
-    play(song) {
+    // Playing the song that is already playing carries on; { restart: true } starts it over from bar one
+    // with its tracks back as the song defines them (undoing layer()), e.g. at the start of each run.
+    play(song, opts) {
       if (!song) return;
-      if (seq.src === song) return;
+      if (seq.src === song && !(opts && opts.restart)) return;
       music.stop(0);
       seq.src = song;
       seq.song = compileSong(song);
@@ -1904,10 +1931,16 @@
       }
     },
     // Turn a named track on or off live (adaptive music: add drums when the action starts).
+    // Returns false (and warns under ?debug) when the playing song has no track of that name.
     layer(name, on) {
-      if (!seq.song) return;
-      for (const t of seq.song.tracks) if (t.name === name) t.on = !!on;
+      if (!seq.song) return false;
+      let hit = false;
+      for (const t of seq.song.tracks) if (t.name === name) { t.on = !!on; hit = true; }
+      if (!hit && DEBUG) console.warn(`Kit.music.layer: no track '${name}' (tracks: ${music.tracks().map(t => t.name).join(', ')})`);
+      return hit;
     },
+    // The playing song's tracks as [{ name, inst, on }].
+    tracks() { return seq.song ? seq.song.tracks.map(t => ({ name: t.name, inst: t.inst, on: t.on })) : []; },
     // Lower (and muffle) the music: duck(0.3) until duck(1), or duck(0.3, 400) for a short dip.
     duck(level, ms) {
       au.duckLevel = level === undefined ? 0.35 : clamp(level, 0, 1);
@@ -1916,6 +1949,7 @@
       if (ms) music._duckTimer = setTimeout(() => { au.duckLevel = 1; setLevels(); }, ms);
     },
     // Ready-made songs by mood, varied by seed: 'calm', 'night', 'drive', 'chip', 'bounce', 'mystery', 'tense'.
+    // o: { seed, key, bpm, lead: false, off: [track names that start silent, for layer() to bring in] }
     song: (style, o) => makeSong(style, o || {}),
     styles: ['calm', 'night', 'drive', 'chip', 'bounce', 'mystery', 'tense'],
   };
@@ -2014,6 +2048,7 @@
         tracks.push({ name: 'pad', inst: 'pad', chord: true });
         tracks.push({ name: 'kick', inst: 'kick', hits: 'x...x...x...x...' });
     }
+    for (const t of tracks) if (o.off && o.off.includes(t.name)) t.on = false;
     return { bpm: o.bpm || D.bpm, swing: D.swing, key, scale: D.scale, chords, tracks };
   }
 
@@ -2421,7 +2456,12 @@
       if (k === 'play' || k === 'again') start();
       else if (k === 'resume') resume();
       else if (k === 'restart') restart();
-      else if (k === 'exit') { block(true); A.exit(); }
+      else if (k === 'exit') {
+        block(true);
+        // A run left from the pause menu still reports its score (it does not count toward best).
+        if (A.inRun()) A.runEnd({ score: scoreOf(), reason: 'quit' });
+        A.exit();
+      }
       else if (k === 'how') {
         const h = $('.k-how');
         h.hidden = !h.hidden;
@@ -2472,7 +2512,8 @@
       get best() { return save.best(); },
       start, pause, resume, restart, over, toast,
       theme: applyTheme,
-      state: () => ({ phase, score: scoreOf(), paused: phase === 'paused' || !!(L && L.paused) }),
+      // frame (loop updates so far) lets tools/game-check.cjs see that a paused game really stands still.
+      state: () => ({ phase, score: scoreOf(), paused: phase === 'paused' || !!(L && L.paused), frame: L ? L.frame : undefined }),
       // Extend the Arcade.test hook: shell.test({ jump() {...} }). Defaults: start, lose, state, pause, resume.
       test(extra) { Object.assign(testApi, extra); registerTest(); return testApi; },
     };
@@ -2504,6 +2545,7 @@
     get keyart() { return !!A.keyart; },
     get embedded() { return !!A.embedded; },
     get reducedMotion() { return fx.reduced; },
+    get _worldText() { return worldText; },
     view, loop, input, cam, camera, fx, tween, ease, gfx, rng, save, shell,
     audio, sfx, music,
     clamp, lerp, dist, angle, approach, wrap, smooth, smoothstep, angleDiff,

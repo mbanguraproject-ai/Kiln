@@ -215,18 +215,62 @@ async function fuzz(page, ms, restart) {
 }
 
 // Frame cadence over ms of play, from requestAnimationFrame timestamps, plus main-thread long tasks.
-const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
-  const deltas = [];
-  let long = 0, last = 0, t0 = 0;
+// With a test hook, frames on the title, the pause menu or the game-over screen do not count: a run that
+// ends (an idle player dies) is restarted at once and the frame after the restart is left out, so the
+// sample measures gameplay. Other phases a game defines (a countdown, a level banner) count as play.
+const frameTimes = (page, ms, hook) => page.evaluate(([ms, hook]) => new Promise(resolve => {
+  const deltas = [], away = ['title', 'paused', 'over'];
+  let long = 0, last = 0, t0 = 0, frames = 0, restarts = 0, skip = false, lastStart = -1e9;
   const obs = typeof PerformanceObserver === 'function' ? new PerformanceObserver(l => { long += l.getEntries().length; }) : null;
   try { obs && obs.observe({ type: 'longtask' }); } catch (e) { /* not supported */ }
   requestAnimationFrame(function frame(t) {
-    if (t0) deltas.push(t - last); else t0 = t;
+    if (t0) {
+      frames++;
+      const s = hook ? window.__kilnTest.state() : null;
+      const play = !s || !(s.paused || away.includes(s.phase));
+      if (play && !skip) deltas.push(t - last);
+      skip = !play;
+      if (!play && t - lastStart > 300) { lastStart = t; restarts++; Promise.resolve(window.__kilnTest.start()).catch(() => {}); }
+    } else t0 = t;
     last = t;
     if (t - t0 < ms) requestAnimationFrame(frame);
-    else { if (obs) obs.disconnect(); resolve({ deltas, long }); }
+    else { if (obs) obs.disconnect(); resolve({ deltas, long, frames, restarts }); }
   });
-}), ms);
+}), [ms, hook]);
+
+// A downscaled copy of the biggest canvas (the play surface without any DOM on top), for telling a
+// moving scene from a still one. null when it cannot be read.
+const canvasSig = page => page.evaluate(() => {
+  let best = null;
+  for (const c of document.querySelectorAll('canvas')) if (!best || c.width * c.height > best.width * best.height) best = c;
+  if (!best || !best.width) return null;
+  try {
+    const s = document.createElement('canvas');
+    s.width = s.height = 96;
+    s.getContext('2d').drawImage(best, 0, 0, 96, 96);
+    return s.toDataURL();
+  } catch (e) { return null; }
+});
+
+// Text drawn on a visible canvas in key art is a HUD left on (score, level, hints). Kit.gfx.text with
+// { world: true } and the kit's particle glyphs are part of the world and do not count; offscreen sprite
+// canvases do not count either.
+function probeCanvasText(page) {
+  return page.addInitScript(() => {
+    window.__kilnCanvasText = [];
+    for (const m of ['fillText', 'strokeText']) {
+      const orig = CanvasRenderingContext2D.prototype[m];
+      CanvasRenderingContext2D.prototype[m] = function (str, ...rest) {
+        try {
+          const t = String(str).trim(), seen = window.__kilnCanvasText;
+          if (t && this.canvas.isConnected && !(window.Kit && window.Kit._worldText) && seen.length < 50 && !seen.includes(t)) seen.push(t.slice(0, 24));
+        } catch (e) { /* never break the game */ }
+        return orig.call(this, str, ...rest);
+      };
+    }
+  });
+}
+const canvasText = page => page.evaluate(() => window.__kilnCanvasText || []);
 
 (async () => {
   if (!fs.existsSync(path.join(ROOT, 'games', ID, 'index.html'))) { console.error(`games/${ID}/index.html not found`); process.exit(2); }
@@ -262,7 +306,13 @@ const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
     await sleep(page, 500);
     const s = await shoot(page, 'first-frame');
     const n = await colours(s.buf);
-    return n < BLANK ? { status: 'FAIL', detail: `screen is blank (${n} colours)`, shot: s.file } : { status: 'PASS', detail: `${n} colours on screen`, shot: s.file };
+    if (n < BLANK) return { status: 'FAIL', detail: `screen is blank (${n} colours)`, shot: s.file };
+    // The title must sit over a live board, a demo state or an attract animation, not a still backdrop.
+    const a = await canvasSig(page);
+    await sleep(page, 1000);
+    const b = await canvasSig(page);
+    if (a && a === b) return { status: 'WARN', detail: `${n} colours, but the play surface stood still for 1 s on the title (run an attract mode behind it)`, shot: s.file };
+    return { status: 'PASS', detail: `${n} colours on screen${a ? ', play surface moving' : ''}`, shot: s.file };
   });
 
   await check('test hook', async () => {
@@ -315,17 +365,29 @@ const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
 
   await check('frame time', async () => {
     if (!ready) return skip('game never became ready');
-    if (hook) { await callHook(page, 'start'); await sleep(page, 300); }
-    const { deltas, long } = await frameTimes(page, 3000);
-    const phase = hook ? (await getState(page)).phase : null;
+    const sample = async () => {
+      if (hook) { await callHook(page, 'start'); await sleep(page, 300); }
+      const r = await frameTimes(page, 3000, hook);
+      const sorted = r.deltas.slice().sort((a, b) => a - b);
+      r.avg = r.deltas.reduce((a, b) => a + b, 0) / (r.deltas.length || 1);
+      r.p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : Infinity;
+      return r;
+    };
+    // Timing is noisy on a shared machine: an over-budget sample is taken again and the better one kept.
+    let r = await sample(), samples = 1;
+    if (r.p95 > 25 && r.deltas.length >= 10) {
+      const again = await sample();
+      samples = 2;
+      if (again.p95 < r.p95) r = again;
+    }
     const shot = (await shoot(page, 'frame-time')).file;
-    if (deltas.length < 10) return { status: 'FAIL', detail: `only ${deltas.length} frames in 3 s`, shot };
-    const sorted = deltas.slice().sort((a, b) => a - b);
-    const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
-    const p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
-    Object.assign(frame, { avg: +avg.toFixed(1), p95: +p95.toFixed(1), frames: deltas.length, longTasks: long });
-    const detail = `avg ${frame.avg} ms, p95 ${frame.p95} ms over ${deltas.length} frames, ${long} long tasks${phase ? `, phase '${phase}'` : ''}`;
-    const status = p95 > 60 ? 'FAIL' : p95 > 25 ? 'WARN' : 'PASS';
+    if (r.deltas.length < 10) return { status: 'FAIL', detail: `only ${r.deltas.length} frames of play in 3 s${r.restarts ? ` (${r.restarts} frames outside play)` : ''}`, shot };
+    const playShare = Math.round(r.deltas.length / r.frames * 100);
+    Object.assign(frame, { avg: +r.avg.toFixed(1), p95: +r.p95.toFixed(1), frames: r.deltas.length, longTasks: r.long, playShare, samples });
+    const detail = `avg ${frame.avg} ms, p95 ${frame.p95} ms over ${r.deltas.length} frames of play, ${r.long} long tasks` +
+      (hook ? `, ${playShare}% of frames in play` : '') + (samples > 1 ? ', better of 2 samples' : '');
+    let status = r.p95 > 60 ? 'FAIL' : r.p95 > 25 ? 'WARN' : 'PASS';
+    if (status === 'PASS' && playShare < 80) return { status: 'WARN', detail: `runs kept ending without input, so the sample is thin: ${detail}`, shot, data: frame };
     return { status, detail, shot, data: frame };
   });
 
@@ -356,7 +418,20 @@ const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
     await sleep(page, 500);
     const s = await getState(page);
     const a = await shoot(page, 'pause');
-    if (s.paused) return { status: 'PASS', detail: `paused, phase '${s.phase}'`, shot: a.file };
+    if (s.paused) {
+      // The flag alone is not enough: the game behind the pause menu must really stand still. The loop's
+      // update count (state().frame, from the kit's shell) says so directly; otherwise the play surface must not change.
+      const sig0 = await canvasSig(page);
+      await sleep(page, 600);
+      const s2 = await getState(page);
+      if (typeof s.frame === 'number' && typeof s2.frame === 'number') {
+        if (s2.frame !== s.frame) return { status: 'FAIL', detail: `state().paused is true but the game kept updating (frame ${s.frame} -> ${s2.frame} in 600 ms)`, shot: a.file };
+        return { status: 'PASS', detail: `paused, phase '${s.phase}', no updates for 600 ms`, shot: a.file };
+      }
+      const sig1 = await canvasSig(page);
+      if (sig0 && sig1 && sig0 !== sig1) return { status: 'FAIL', detail: 'state().paused is true but the play surface keeps changing behind the pause menu', shot: a.file };
+      return { status: 'PASS', detail: `paused, phase '${s.phase}'${sig0 ? ', play surface still' : ''}`, shot: a.file };
+    }
     if (await page.evaluate(() => window.__kilnTest.turnBased === true)) return { status: 'WARN', detail: `paused:false after pause; game declares turnBased`, shot: a.file };
     // Undeclared: a turn-based game with a still screen is reported, a game that keeps moving fails.
     await sleep(page, 700);
@@ -394,12 +469,15 @@ const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
   await check('keyart', async () => {
     const p = await newPage(browser, [800, 450], 1, 'keyart');
     try {
+      await probeCanvasText(p);
       await p.goto(GAME_URL + '?keyart');
       if (!await waitReady(p)) return { status: 'FAIL', detail: 'not ready in ?keyart' };
       await sleep(p, 700);
       const s = await shoot(p, 'keyart');
       const found = await overlays(p);
       if (found.length) return { status: 'FAIL', detail: `visible overlays in ?keyart: ${found.slice(0, 6).join(', ')}`, shot: s.file };
+      const drawn = await canvasText(p);
+      if (drawn.length) return { status: 'FAIL', detail: `HUD text drawn on the canvas in ?keyart: ${drawn.slice(0, 6).map(t => JSON.stringify(t)).join(', ')} (skip the HUD when Kit.keyart; in-world text: Kit.gfx.text(..., { world: true }))`, shot: s.file };
       const n = await colours(s.buf);
       if (n < BLANK) return { status: 'FAIL', detail: `key-art screen is blank (${n} colours)`, shot: s.file };
       return { status: 'PASS', detail: 'no text or controls over the play surface', shot: s.file };
@@ -412,6 +490,7 @@ const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
     await check(`scene ${name}`, async () => {
       const p = await newPage(browser, vp, 1, `scene ${name}`);
       try {
+        if (name === 'art') await probeCanvasText(p);
         await p.goto(GAME_URL + query);
         if (!await waitReady(p)) return { status: 'FAIL', detail: 'not ready' };
         // Scenes are registered before Arcade.ready(), as the capture tools expect.
@@ -422,13 +501,22 @@ const frameTimes = (page, ms) => page.evaluate(ms => new Promise(resolve => {
         const s = await shoot(p, `scene-${name}`);
         if (!done) return { status: 'FAIL', detail: `scene '${name}' did not finish within ${SCENE_MS} ms`, shot: s.file };
         if (done !== '1') return { status: 'FAIL', detail: `scene '${name}' failed: ${await p.evaluate(() => document.documentElement.dataset.sceneError)}`, shot: s.file };
+        const ms = Date.now() - t0;
         if (name === 'art') {
           const found = await overlays(p);
           if (found.length) return { status: 'FAIL', detail: `visible overlays in the art scene: ${found.slice(0, 6).join(', ')}`, shot: s.file };
+          const drawn = await canvasText(p);
+          if (drawn.length) return { status: 'FAIL', detail: `HUD text drawn on the canvas in the art scene: ${drawn.slice(0, 6).map(t => JSON.stringify(t)).join(', ')} (skip the HUD when Kit.keyart; in-world text: Kit.gfx.text(..., { world: true }))`, shot: s.file };
         }
         const n = await colours(s.buf);
         if (n < BLANK) return { status: 'FAIL', detail: `scene is blank (${n} colours)`, shot: s.file };
-        return { status: 'PASS', detail: `done in ~${Date.now() - t0} ms`, shot: s.file };
+        // A run that ends inside the scene opens the game-over panel a moment later, over the capture.
+        if (await hasHook(p)) {
+          await sleep(p, 900);
+          const st = await getState(p);
+          if (st.phase === 'over') return { status: 'FAIL', detail: `the run ended during the scene (phase 'over' after it finished): keep the run alive while a scene runs`, shot: s.file };
+        }
+        return { status: 'PASS', detail: `done in ~${ms} ms`, shot: s.file };
       } finally { await p.context().close(); }
     });
   }

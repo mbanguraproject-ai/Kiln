@@ -16,7 +16,8 @@
   if (keyart) document.documentElement.classList.add('kiln-keyart');
   // Capture and test hooks (tools/make-art.cjs, make-shots.cjs, game-check.cjs) only act with these in the URL.
   var debug = /[?&]debug\b/.test(location.search);
-  var sceneWanted = (location.search.match(/[?&]scene=([\w-]+)/) || [])[1] || null;
+  // Scenes write saves like real play, so a stray ?scene= on a player's link must not run one.
+  var sceneWanted = debug && (location.search.match(/[?&]scene=([\w-]+)/) || [])[1] || null;
   var embedded = false;
   try { embedded = window.parent !== window; } catch (e) { embedded = true; }
 
@@ -67,6 +68,8 @@
   function rid() {
     return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   }
+
+  var UNFINISHED = { restart: 1, quit: 1, abandoned: 1 };
 
   var DEFAULT_SETTINGS = { sound: true, vibration: true, theme: 'system', shareStats: false };
 
@@ -223,7 +226,9 @@
       p.duration_s = Math.round((Date.now() - state.run.t0) / 100) / 10;
       state.run = null;
       record('run_end', p);
-      if (typeof p.score === 'number' && isFinite(p.score)) {
+      // Only a finished run can set a best: a run given up mid-way (restart, quit) is logged with its
+      // score but must not steal the next game over's NEW BEST moment.
+      if (typeof p.score === 'number' && isFinite(p.score) && !UNFINISHED[p.reason]) {
         var best = ls.get(state.id + ':best', 0);
         if (p.score > best) ls.set(state.id + ':best', p.score);
         post({ type: 'score', id: state.id, score: p.score });
@@ -250,7 +255,8 @@
     },
 
     // Capture scenes for the card art and screenshots: { art, shot1, shot2 }, each a function (may return a
-    // promise) that puts the game into a representative, seeded state. Run by the SDK only with ?scene=<name>.
+    // promise) that puts the game into a representative, seeded state. Run by the SDK only with
+    // ?debug&scene=<name>. A scene must keep its run alive: no game over while it runs or before the capture.
     scenes: function (map) {
       for (var k in map) if (typeof map[k] === 'function') sceneFns[k] = map[k];
       runScene();

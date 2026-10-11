@@ -226,6 +226,18 @@ async function units(browser) {
   check(g.cachedNoise && g.cachedSprite && g.spriteSize.join() === '40,40', 'gfx: noise textures and sprites are cached at the view DPR', g);
   check(JSON.stringify(g.colors) === JSON.stringify(['rgb(127,127,127)', 'rgba(255,0,0,0.5)', 'rgb(255,255,255)', 'hsl(200,50%,40%)', 'rgba(0,128,255,0.25)']), 'gfx: colour helpers', g.colors);
   check(g.painted, 'gfx: sky, vignette, grain, sprites, lights, rays, text, starfield and layers draw');
+  const rd = await page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 100;
+    const g = c.getContext('2d'), at = (x, y) => +(g.getImageData(x, y, 1, 1).data[3] > 0), out = {};
+    for (const side of ['bottom', 'top', 'left', 'right']) {
+      g.clearRect(0, 0, 100, 100);
+      Kit.gfx.ridge(g, 100, 100, { side, base: 0.8, amp: 0.1, color: '#fff' });
+      out[side] = '' + at(50, 98) + at(50, 2) + at(2, 50) + at(98, 50);
+    }
+    return out;
+  });
+  check(rd.bottom === '1000' && rd.top === '0100' && rd.left === '0010' && rd.right === '0001', 'gfx: ridge grows from any side (walls for y layers)', rd);
 
   // Checked before the input section below, whose clicks are the page's first gestures.
   check(await page.evaluate(() => Kit.audio.ctx === null), 'audio: no AudioContext before a gesture');
@@ -264,6 +276,19 @@ async function units(browser) {
   const k4 = await page.evaluate(() => ({ down: I.isDown('ArrowLeft'), released: I.released('ArrowLeft') }));
   check(k1.down && k1.pressed && k1.ax === -1 && k2.down && !k2.pressed && !k4.down, 'input: isDown, pressed edge per update, axisX', { k1, k2, k4 });
   check(k3.a && k3.A && k3.code && k3.left === -1, 'input: keys by name or code, WASD on the axes', k3);
+  // A second loop given its own input leaves the other inputs' edges alone.
+  await page.evaluate(() => { window.I2 = Kit.input(document.body); window.L2 = Kit.loop({ input: I2, ready: false }); });
+  await page.keyboard.down('ArrowRight');
+  const lp = await page.evaluate(() => {
+    L2.step(1);
+    const r = { mine: I.pressed('ArrowRight'), theirs: I2.pressed('ArrowRight') };
+    L.step(1);
+    r.after = I.pressed('ArrowRight');
+    I2.destroy();
+    return r;
+  });
+  await page.keyboard.up('ArrowRight');
+  check(lp.mine && !lp.theirs && !lp.after, 'loop: { input } flushes only its own inputs', lp);
   const multi = await page.evaluate(() => {
     const c = V.canvas, r = c.getBoundingClientRect();
     const fire = (type, id, x, y) => c.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: r.left + x, clientY: r.top + y, bubbles: true, button: 0, isPrimary: id === 11 }));
@@ -323,6 +348,19 @@ async function units(browser) {
   check(au.count >= 20 && au.missing.length === 0 && au.allPlayed, 'audio: >= 20 presets, every one plays', { count: au.count, missing: au.missing });
   check(au.peak > 0.01 && au.peak <= 1.05, 'audio: master limiter keeps a pile-up of explosions from clipping', +au.peak.toFixed(3));
   check(Object.values(au.steps).every(n => n > 0), 'audio: every built-in song style runs the sequencer', au.steps);
+  const mu = await page.evaluate(() => {
+    const song = Kit.music.song('mystery', { seed: 2, off: ['beat'] });
+    const beat = () => Kit.music.tracks().find(t => t.name === 'beat').on;
+    Kit.music.play(song);
+    const r = { tracks: Kit.music.tracks().map(t => t.name + (t.on ? '+' : '-')).join(), unknown: Kit.music.layer('kick', true), known: Kit.music.layer('beat', true) };
+    Kit.music.play(song);
+    r.kept = beat();
+    Kit.music.play(song, { restart: true });
+    r.reset = beat();
+    Kit.music.stop();
+    return r;
+  });
+  check(mu.tracks === 'pad+,drone+,beat-,bell+' && !mu.unknown && mu.known && mu.kept && !mu.reset, 'music: named tracks, off option, layer() reports unknown names, restart resets layers', mu);
   const mute = await page.evaluate(() => {
     Arcade.setSetting('sound', false);
     const r = { muted: Kit.audio.muted, played: Kit.sfx('coin', { force: true }) };
@@ -417,15 +455,18 @@ async function demoFlows(browser) {
   await sleep(100);
   const hubPause = await T(() => __kilnTest.state());
   check(hubPause.phase === 'paused' && hubPause.paused, 'shell: SDK pause event opens the pause menu', hubPause);
+  const f0 = hubPause.frame;
+  await sleep(400);
+  const f1 = (await T(() => __kilnTest.state())).frame;
+  check(typeof f0 === 'number' && f0 === f1, 'shell: state().frame stands still while paused', { f0, f1 });
+  const bestBefore = await T(() => Kit.save.best());
   await page.click('[data-k=restart]');
   await sleep(100);
   const ev = (await log()).slice(-2);
-  check(ev[0] && ev[0].ev === 'run_end' && ev[0].reason === 'restart' && ev[1].ev === 'run_start', 'shell: Restart ends the run and starts a new one', ev);
-
-  // The restarted run's score already counts as a best (the SDK keeps every scored run_end); clear it so the
-  // next run is a new best whatever the two scores were.
+  check(ev[0] && ev[0].ev === 'run_end' && ev[0].reason === 'restart' && Number.isInteger(ev[0].score) && ev[1].ev === 'run_start', 'shell: Restart ends the run with its score and starts a new one', ev);
+  // A run given up mid-way is logged but never becomes the best (it would steal the next NEW BEST).
   const restartBest = await T(() => Kit.save.best());
-  check(restartBest === ev[0].score, 'shell: a restarted run still records its best', { restartBest, score: ev[0].score });
+  check(restartBest === bestBefore, 'shell: a restarted run does not count toward best', { bestBefore, restartBest, score: ev[0].score });
   await T(() => Kit.save.set('best', 0));
   await T(() => __kilnTest.autopilot(true));
   await sleep(1200);
@@ -433,10 +474,22 @@ async function demoFlows(browser) {
   const over = await T(() => __kilnTest.state());
   const end = (await log()).pop();
   check(over.phase === 'over' && end.ev === 'run_end' && Number.isInteger(end.score) && end.score > 0, 'shell: lose() ends the run with a whole-number score', { over, end });
-  await page.waitForSelector('.k-over:not([hidden])', { timeout: 3000 });
-  await page.keyboard.press('Enter'); // inside the lock window: must not restart
-  check((await T(() => __kilnTest.state())).phase === 'over', 'shell: a stray key right after game over is ignored');
-  await sleep(800);
+  // A key pressed inside the panel's lock window must not restart. Sent from the page the moment the panel
+  // shows, so a busy machine cannot let the window pass before the key lands.
+  const stray = await T(() => new Promise(res => {
+    const t0 = performance.now();
+    (function look() {
+      const o = document.querySelector('.k-over');
+      if (o && !o.hidden && o.hasAttribute('data-locked')) {
+        (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+        setTimeout(() => res(__kilnTest.state().phase), 50);
+      } else if (performance.now() - t0 > 3000) res('panel never showed');
+      else requestAnimationFrame(look);
+    })();
+  }));
+  check(stray === 'over', 'shell: a stray key right after game over is ignored', stray);
+  // The count-up lasts about a second; wait for it to land rather than for a fixed time.
+  await page.waitForFunction(() => !document.querySelector('.k-over').hasAttribute('data-locked') && +document.querySelector('.k-score').textContent.replace(/,/g, '') === Kit.save.best(), null, { timeout: 4000 }).catch(() => {});
   const ov = await T(() => ({
     score: document.querySelector('.k-score').textContent, stats: document.querySelectorAll('.k-stat').length,
     best: !document.querySelector('.k-newbest').hidden, focus: document.activeElement.dataset.k, stored: Kit.save.best(),
@@ -454,21 +507,41 @@ async function demoFlows(browser) {
 
 async function keyart(browser) {
   const { ctx, page } = await newPage(browser, {}, 'keyart');
-  await page.goto(`${BASE}/tools/kit-demo/index.html?keyart&scene=art`);
+  // Same probe as tools/game-check.cjs: text drawn on a visible canvas in key art is a HUD left on.
+  await page.addInitScript(() => {
+    window.__canvasText = [];
+    for (const m of ['fillText', 'strokeText']) {
+      const orig = CanvasRenderingContext2D.prototype[m];
+      CanvasRenderingContext2D.prototype[m] = function (str, ...rest) {
+        if (this.canvas.isConnected && !(window.Kit && Kit._worldText) && String(str).trim()) window.__canvasText.push(String(str));
+        return orig.call(this, str, ...rest);
+      };
+    }
+  });
+  await page.goto(`${BASE}/tools/kit-demo/index.html?debug&keyart&scene=art`);
   await page.waitForFunction(() => document.documentElement.dataset.sceneDone, null, { timeout: 8000 }).catch(() => {});
   const k = await page.evaluate(() => ({
     scene: document.documentElement.dataset.sceneDone,
     shell: getComputedStyle(document.querySelector('.k-shell')).display,
     text: document.body.innerText.trim(),
+    canvasText: window.__canvasText.slice(0, 5),
   }));
   check(k.scene === '1', 'keyart: art scene completes', k.scene);
   check(k.shell === 'none' && k.text === '', 'keyart: shell hidden, no visible text', k);
+  check(!k.canvasText.length, 'keyart: no HUD text drawn on the canvas', k.canvasText);
   await shot(page, 'demo-keyart.png');
   for (const s of ['shot1', 'shot2']) {
-    await page.goto(`${BASE}/tools/kit-demo/index.html?scene=${s}`);
+    await page.goto(`${BASE}/tools/kit-demo/index.html?debug&scene=${s}`);
     await page.waitForFunction(() => document.documentElement.dataset.sceneDone, null, { timeout: 8000 }).catch(() => {});
     check(await page.evaluate(() => document.documentElement.dataset.sceneDone === '1'), `scenes: ${s} completes`);
+    await sleep(900); // past the shell's game-over delay: a run that died inside the scene would show it now
+    check((await page.evaluate(() => __kilnTest.state())).phase === 'play', `scenes: ${s} keeps its run alive`);
   }
+  // Scenes write saves like real play, so they never run from a player's link without ?debug.
+  await page.goto(`${BASE}/tools/kit-demo/index.html?scene=shot1`);
+  await page.waitForFunction(() => document.documentElement.dataset.kilnReady === '1', null, { timeout: 4000 });
+  await sleep(300);
+  check(await page.evaluate(() => !document.documentElement.dataset.sceneDone), 'scenes: ignored without ?debug');
   await ctx.close();
 }
 
@@ -493,6 +566,8 @@ async function embedded(browser) {
   await sleep(100);
   const msgs = await page.evaluate(() => window.msgs.map(m => m.type + (m.event ? ':' + m.event.ev : '')));
   check(msgs.includes('ready') && msgs.includes('event:run_start') && msgs.includes('exit'), 'embedded: ready, run_start and exit reach the hub', msgs.filter(m => !m.startsWith('event:game')));
+  const quit = await page.evaluate(() => (window.msgs.filter(m => m.event && m.event.ev === 'run_end').pop() || {}).event);
+  check(quit && quit.reason === 'quit' && Number.isInteger(quit.score), 'embedded: Back to games ends the run with its score', quit);
   await ctx.close();
 }
 

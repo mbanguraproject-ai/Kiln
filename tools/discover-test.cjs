@@ -206,7 +206,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await wait(150);
   d = await readDiscover();
   const checkShown = await page.evaluate(() => getComputedStyle(document.querySelector('#filters .chip[aria-pressed="true"] svg')).display !== 'none');
-  check(d.rows.join() === 'tessera,crosswake,span' && d.filters.join() === 'Puzzle*,Arcade,Keyboard' && d.heading === '3 games' && d.headAction === 'Clear filters', 'Puzzle shows the puzzle games, coming soon last, with Clear filters', `${d.rows.join()} / ${d.filters.join()}`);
+  check(d.rows.join() === 'tessera,crosswake,span' && d.filters.join() === 'Puzzle*,Arcade,Keyboard' && d.heading === '2 games · 1 coming soon' && d.headAction === 'Clear filters', 'Puzzle shows the puzzle games, coming soon last, with Clear filters', `${d.rows.join()} / ${d.filters.join()} / ${d.heading}`);
   check(checkShown, 'a chosen filter shows a check mark, not colour alone');
   await page.click('#filters [data-filter="keyboard"]');
   await wait(150);

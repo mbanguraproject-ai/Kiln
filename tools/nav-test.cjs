@@ -45,7 +45,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   let s = await state();
   check(s.tab === 'home' && s.current.join() === 'home', 'opens on Home, marked as the current tab', JSON.stringify(s));
   const bar = await page.$$eval('#tabbar > button', bs => bs.map(b => b.dataset.tab || b.id));
-  check(bar.join() === 'home,library,playFab,discover', 'the bar: Home, Library, the Play button in the middle, Discover', bar.join());
+  check(bar.join() === 'home,library,playFab,discover,settings', 'the bar: Home and Library, the Play button in the middle, Discover and Settings', bar.join());
   const fab = await page.evaluate(() => {
     const f = document.querySelector('#playFab .fab').getBoundingClientRect(), b = document.getElementById('tabbar').getBoundingClientRect();
     return { centre: Math.abs(f.left + f.width / 2 - (b.left + b.width / 2)), raised: b.top - f.top };
@@ -66,7 +66,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
 
   await tap(profile);
   s = await state();
-  check(s.tab === 'settings' && s.current.length === 0, 'the profile button opens Settings, which is not a tab', JSON.stringify(s));
+  check(s.tab === 'settings' && s.current.join() === 'settings', 'the profile button opens Settings, marked in the bar', JSON.stringify(s));
   await tap('#settingsBack');
   check((await state()).tab === 'home', 'the back button in Settings returns Home');
   await tap('.tab[data-tab="library"]');

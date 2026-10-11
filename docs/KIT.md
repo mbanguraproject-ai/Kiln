@@ -65,13 +65,16 @@ view.onResize(v => { cam.zoom = Math.min(v.w / 400, v.h / 700); });
 
 ## `Kit.loop`
 
-`Kit.loop({ update(dt), draw(ctx, alpha), view, ctx, ready, autoPause, auto })`: fixed 1/60 s updates with
+`Kit.loop({ update(dt), draw(ctx, alpha), view, ctx, input, ready, autoPause, auto })`: fixed 1/60 s updates with
 an accumulator (at most 6 catch-up steps, `dt` capped at 0.1 s after a stall), one `draw` per display frame.
 
 - `update(dt)`: `dt` is `Kit.STEP` (1/60) times `timeScale`.
 - `draw(ctx, alpha)`: `ctx` is `view.ctx` (or `opts.ctx`); `alpha` is the leftover fraction of a step.
 - After each update the loop also runs `Kit.fx.update`, `Kit.tween.update` and `Kit.cam.update` (turn off
-  with `auto: false` and call them yourself), then clears input edges (`pressed`/`released`).
+  with `auto: false` and call them yourself), then clears input edges (`pressed`/`released`) of every
+  `Kit.input`, or only of `input` (one input or a list) when given. One loop per page is the normal case;
+  with two (say a UI loop and the game loop), give each its `input`, or the first to tick eats the other's
+  `pressed` edges.
 - The first `start()` draws a frame and calls `Arcade.ready()` (opt out with `ready: false`).
 - When paused, stopped or the tab is hidden, no animation frame is requested: zero CPU.
 - `autoPause` (default `true`): pauses on `Arcade.on('pause')` (the hub). `Kit.shell` turns this off and
@@ -182,25 +185,33 @@ function `(opts) => params | layers`.
 A step sequencer playing songs defined as data, scheduled on the audio clock (sample accurate, swing).
 
 ```js
-Kit.music.play(Kit.music.song('night', { seed: 3 }));   // built-in moods, varied by seed
-Kit.music.layer('kick', true);                          // adaptive: switch named tracks on and off live
+const SONG = Kit.music.song('night', { seed: 3, off: ['kick', 'snare'] }); // built-in mood, drums start silent
+Kit.music.play(SONG, { restart: true });                // each run: from bar one, tracks as the song defines
+Kit.music.layer('kick', true);                          // adaptive: bring named tracks in and out live
 Kit.music.duck(0.3, 400);                               // dip and muffle for 400 ms (or duck(0.3) ... duck(1))
 Kit.music.stop(600);                                    // fade out over 600 ms (stop(0): cut)
 ```
 
-`play(song)` (no-op when that song already plays; music asked for before the first gesture starts with it),
-`stop(ms)`, `layer(name, on)`, `duck(level = 0.35, ms?)`, `playing` (the song object), `step`,
-`song(style, { seed, key, bpm, lead })`, `styles`:
+- `play(song, { restart })`: playing the song that already plays carries on, with any `layer()` changes
+  kept; `restart: true` starts it over from bar one with its tracks as the song defines them (do this when a
+  run starts, so layers brought in last run do not carry over). Music asked for before the first gesture
+  starts with it.
+- `layer(name, on)` switches a track of the playing song; it returns `false` (and warns under `?debug`)
+  when the song has no such track. `tracks()` lists the playing song's `[{ name, inst, on }]`.
+- `song(style, { seed, key, bpm, lead: false, off: [names] })` builds a song; every built-in track starts
+  on except the ones in `off` (and `lead` when `lead: false`), so for adaptive music list the tracks to
+  bring in later in `off`.
+- Also `stop(ms)`, `duck(level = 0.35, ms?)`, `playing` (the song object), `step`, `styles`.
 
-| Style | Mood |
-|---|---|
-| `calm` | 76 bpm lydian: pad, plucked arpeggio, bells. Puzzles, idle. |
-| `night` | 88 bpm dorian, light swing: soft beat, pad, keys. Calm action, exploration. |
-| `drive` | 116 bpm minor: four-on-the-floor, octave bass, arp, lead. Racing, runners. |
-| `chip` | 140 bpm major square-wave chiptune. Arcade. |
-| `bounce` | 104 bpm mixolydian, swung: stabs and a hook. Sports, casual. |
-| `mystery` | 70 bpm phrygian: drone, sparse beat, bells. Adventure, caves. |
-| `tense` | 132 bpm harmonic minor: driving hats, stabs. Bosses, timers. |
+| Style | Mood | Tracks (for `layer` and `off`) |
+|---|---|---|
+| `calm` | 76 bpm lydian: pad, plucked arpeggio, bells. Puzzles, idle. | `pad arp bell bass` |
+| `night` | 88 bpm dorian, light swing: soft beat, pad, keys. Calm action, exploration. | `pad kick snare hat bass keys` |
+| `drive` | 116 bpm minor: four-on-the-floor, octave bass, arp, lead. Racing, runners. | `kick snare hat bass pad arp lead` |
+| `chip` | 140 bpm major square-wave chiptune. Arcade. | `kick snare hat bass arp lead` |
+| `bounce` | 104 bpm mixolydian, swung: stabs and a hook. Sports, casual. | `kick snare hat bass stabs lead` |
+| `mystery` | 70 bpm phrygian: drone, sparse beat, bells. Adventure, caves. | `pad drone beat bell` |
+| `tense` | 132 bpm harmonic minor: driving hats, stabs. Bosses, timers. | `kick snare hat bass stabs lead` |
 
 **Song format.**
 
@@ -303,14 +314,23 @@ Drawing helpers. Everything expensive is cached (sprites, noise, vignette, gradi
 | `noiseTexture(w, h, { seed, alpha, color, scale, mono })` | Cached tiling noise canvas (textures, paper, stone). |
 | `lightRays(ctx, x, y, { count, length, spread, angle, width, color, alpha, t })` | God rays fanning from a point, swaying with `t`. |
 | `starfield({ count, seed, layers, color, size, twinkle })` | `.draw(ctx, w, h, t, ox, oy)`: twinkling, parallax by depth. |
-| `layers([{ depth, paint(g, w, h), axis, tile, alpha }])` | Parallax layers painted once into tiles; `.draw(ctx, w, h, sx, sy)` scrolls each at its depth; `.invalidate()` repaints (theme change). Only the painted rows/columns of a tile are drawn. |
-| `ridge(g, w, h, { color, base, amp, rough, seed, points })` | Seamless silhouette (hills, dunes, roofline) for a layer tile. |
+| `layers([{ depth, paint(g, w, h), axis, tile, alpha }])` | Parallax layers painted once into tiles; `.draw(ctx, w, h, sx, sy)` scrolls each at its depth; `.invalidate()` repaints (theme change). Only the painted rows/columns of a tile are drawn. See below. |
+| `ridge(g, w, h, { color, side, base, amp, rough, seed, points })` | Seamless silhouette for a layer tile. `side` is the edge the mass grows from: `bottom` (default: hills, dunes, a roofline) or `top` for an x layer, `left` / `right` (cave or canyon walls) for a y layer. `base` and `amp` are fractions across the tile from the open side: `base: 0.8` fills the 20% nearest that side, plus peaks up to `amp`. |
 | `sprite(key, w, h, drawFn)` | Draw once at the view DPR, cached by key; `drawFn(g, w, h)` paints in CSS px. `clearSprites(prefix?)`. |
 | `blit(ctx, sprite, x, y, scale, rot, a)` | Centred draw of a sprite or image. |
-| `text(ctx, str, x, y, { size, weight, font, color, stroke, strokeWidth, shadow, shadowBlur, align, baseline, alpha })` | Canvas text. `font`: `display` (default) `body system rounded mono serif condensed` or any CSS family. |
+| `text(ctx, str, x, y, { size, weight, font, color, stroke, strokeWidth, shadow, shadowBlur, align, baseline, alpha, world })` | Canvas text. `font`: `display` (default) `body system rounded mono serif condensed` or any CSS family. `world: true` marks text that belongs to the scene (a sign, letters on tiles), which may show in key art; any other text drawn on the canvas in key art is taken for a HUD and fails `game-check`. |
 | `offscreen(w, h)` | A canvas of that size. |
 | `hsl(h, s, l, a?)`, `mix(c1, c2, t)`, `shade(c, amt)` (+ lighter, - darker), `alpha(c, a)`, `rgba(r, g, b, a)`, `parse(c)` -> `[r, g, b, a]`, `css(name, fallback)` | Colour helpers; any CSS colour in. |
 | `fonts`, `dpr` | Font stacks; the current sprite DPR. |
+
+**Layers in detail.** `axis: 'x'` (default) scrolls sideways and tiles left to right; `axis: 'y'` scrolls
+up and down and tiles top to bottom. `tile` is the tile's length in CSS px along that axis (default: the
+view's width for `x`, its height for `y`); across the axis a tile always spans the view. `paint(g, w, h)`
+runs once per size, theme or DPR change with `g` in CSS px and `w, h` the tile size. `draw(ctx, w, h, sx,
+sy)` takes the camera's scroll in CSS px (for example `cam.x`, or the distance travelled); each layer moves
+by scroll × `depth` (0 = fixed to the screen, 1 = moves with the world), so pass the same scroll to every
+layer set. A tile repeats end to end, so what it paints must join seamlessly along its axis: `ridge` does
+(its first and last points match), a hand painter must match its own edges.
 
 ```js
 const hills = gfx.layers([
@@ -318,6 +338,12 @@ const hills = gfx.layers([
   { depth: 0.6, paint: (g, w, h) => gfx.ridge(g, w, h, { color: pal.near, base: 0.8, amp: 0.12, seed: 5 }) },
 ]);
 // draw: gfx.sky(ctx, SKY); hills.draw(ctx, view.w, view.h, cam.x, 0);
+// A vertical shaft: both walls in one y layer, scrolling with the camera's height.
+const walls = gfx.layers([{ axis: 'y', depth: 0.7, tile: 600, paint: (g, w, h) => {
+  gfx.ridge(g, w, h, { side: 'left', color: pal.rock, base: 0.88, amp: 0.08, seed: 3 });
+  gfx.ridge(g, w, h, { side: 'right', color: pal.rock, base: 0.88, amp: 0.08, seed: 9 });
+} }]);
+// draw: walls.draw(ctx, view.w, view.h, 0, cam.y);
 const coin = () => gfx.sprite('coin', 24, 24, (g, w) => { g.fillStyle = '#FFD166'; g.beginPath(); g.arc(w / 2, w / 2, 10, 0, 7); g.fill(); });
 gfx.blit(ctx, coin(), x, y, 1 + pop * 0.3);
 ```
@@ -372,9 +398,12 @@ trapped in dialogs, every target is 44 px+, padding respects safe areas, and the
 while paused.
 
 **SDK wiring.** Play calls `Arcade.runStart(runProps?())`; `over()` saves the best and calls
-`Arcade.runEnd({ score, reason, new_best, ...props })`; Restart ends the run with `reason: 'restart'` first.
-It registers `Arcade.test` defaults: `start()`, `lose()`, `state()` -> `{ phase, score, paused }`, `pause()`,
-`resume()`. Add your own with `Arcade.test({ ... })` (merged; the demo adds `seed`, `autopilot`, `info`).
+`Arcade.runEnd({ score, reason, new_best, ...props })`; Restart ends the run with `reason: 'restart'` first,
+and Back to games with `reason: 'quit'`, both with the score so far. Only finished runs set a best: a run
+given up with Restart or Back to games is logged but never steals the next NEW BEST.
+It registers `Arcade.test` defaults: `start()`, `lose()`, `state()` -> `{ phase, score, paused, frame }`
+(`frame` is the loop's update count, which `game-check` watches to prove a paused game stands still),
+`pause()`, `resume()`. Add your own with `Arcade.test({ ... })` (merged; the demo adds `seed`, `autopilot`, `info`).
 
 **Options.** `title`, `kicker`, `tagline`, `playLabel`, `how` (string or lines), `loop`, `focus` (element to
 focus in play; default the loop's canvas), `score()`, `format(n)` (default `Kit.fmt`), `lose()`,
@@ -434,15 +463,22 @@ would work as a poster with the HUD hidden.
    boss kill is a shockwave and a slow-motion beat.
 6. **Make the HUD part of the world.** Draw it on the canvas in the game's own font and colours, with a soft
    shadow from the scene's light; keep it to the top corners and away from the pause button. No generic pills.
+   Skip it when `Kit.keyart` (card art shows the world only): `game-check` fails key art with any canvas text
+   that is not marked `world: true`.
 7. **Give the shell the game's personality.** Choose `panel`, `layout`, `button`, `titleStyle`, fonts and
-   colours that match the art. Run an attract mode behind the title (the game playing itself) instead of a
-   static image.
+   colours that match the art. Run an attract mode behind the title (the game playing itself, silent and
+   scoreless) instead of a static image; `game-check` warns when the title's play surface stands still.
 8. **Sound and music set the mood.** Pick a `music.song` style and seed that fits, layer tracks in as
-   intensity rises (`layer`), `duck` on big moments and game over.
+   intensity rises (start them silent with `song(style, { off: [...] })`, bring them in with `layer`, and
+   `play(song, { restart: true })` at each run start), `duck` on big moments and game over.
 9. **Respect players.** Honour reduced motion (the kit does for fx), keep text contrast high over busy art,
    keep important things out of the safe-area edges.
 10. **Key art and screenshots** come from `Arcade.scenes`: seed them, place the best moments by hand
-    (a near miss, a big combo), and check them with `node tools/make-art.cjs --game <id>`.
+    (a near miss, a big combo), and check them with `node tools/make-art.cjs --game <id>`. A scene runs only
+    with `?debug&scene=<name>` and plays for real (it may write saves in the capture browser), so it must keep
+    its run alive: drive it with an autopilot or make the player safe, and `loop.stop()` on the frame to keep.
+    A run that ends inside a scene opens the game-over panel 650 ms later, over the capture; `game-check`
+    fails that.
 
 ## Performance budget
 
@@ -520,10 +556,11 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
 
   /* run state */
   const SONG = Kit.music.song('bounce', { seed: 4 });
-  let G = null, rand = Kit.rng(1), nextSeed;
-  function newRun(seed) {
+  let G = null, rand = Kit.rng(1), nextSeed, autopilot = false;
+  // auto: an unseen hand pops the orbs, for the attract mode behind the title and for capture scenes.
+  function newRun(seed, auto) {
     rand = Kit.rng(seed === undefined ? Date.now() : seed);
-    G = { t: 0, score: 0, lives: 3, combo: 0, popped: 0, orbs: [], spawn: 0.4, over: false };
+    G = { t: 0, score: 0, lives: 3, combo: 0, popped: 0, orbs: [], spawn: 0.4, over: false, auto: !!auto };
   }
 
   function update(dt) {
@@ -536,7 +573,8 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     for (let i = G.orbs.length - 1; i >= 0; i--) {
       const o = G.orbs[i];
       o.y -= o.vy * dt;
-      if (o.y < -40) { G.orbs.splice(i, 1); miss(); }
+      if (G.auto && o.y < view.h * (0.3 + o.ph * 0.05)) { G.orbs.splice(i, 1); pop(o); }
+      else if (o.y < -40) { G.orbs.splice(i, 1); miss(); }
     }
   }
   function pop(o) {
@@ -546,6 +584,7 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     G.popped++;
     fx.burst(o.x, o.y, { count: 22, color: [pal.orb, pal.glow], glow: true, speed: [60, 240], size: [2, 4.5], life: [0.3, 0.7] });
     fx.shockwave(o.x, o.y, { radius: o.r * 2.6, color: pal.orb });
+    if (shell.phase === 'title') return; // the attract mode is silent and scoreless
     fx.float('+' + pts, o.x, o.y - o.r, { color: pal.ink });
     Kit.sfx.combo(G.combo);
     Kit.haptic(12);
@@ -606,24 +645,28 @@ html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: non
     tagline: 'Pop the glowing orbs before they float away.',
     how: ['Tap an orb to pop it. Pop them in a row for up to 5x points.', 'Three orbs escape and the night is over.'],
     loop,
-    score: () => (G ? G.score : 0),
+    score: () => (G && shell.phase !== 'title' ? G.score : 0),
     lose: end,
     theme: { panel: 'glass', layout: 'bottom', colors: { accent: '#FFB547', accentInk: '#2A1405' } },
-    onStart() { newRun(nextSeed); nextSeed = undefined; Kit.music.play(SONG); },
+    onStart() { newRun(nextSeed, autopilot); nextSeed = undefined; Kit.music.play(SONG); },
   });
   // Extras for tools/game-check.cjs and capture scenes, on top of the shell's start/lose/state.
   Arcade.test({ seed(n) { nextSeed = n; }, info: () => (G ? { orbs: G.orbs.length, lives: G.lives } : null) });
 
   // Deterministic states for the card art and store screenshots, registered before Arcade.ready().
+  // The autopilot keeps the run alive: a run that ended inside a scene would put game over on the capture.
   function scene(seed, steps) {
     fx.seed(seed);
     nextSeed = seed;
+    autopilot = true;
     shell.start();
     loop.step(steps);
     loop.stop(); // hold this exact frame for the capture
   }
   Arcade.scenes({ art: () => scene(7, 300), shot1: () => scene(11, 180), shot2: () => scene(23, 420) });
 
+  newRun(1, true); // attract mode: the title sits over a live sky, never an empty one
+  loop.step(150);  // pre-warmed, so the first frame already has orbs in flight
   Kit.music.play(SONG);
   loop.start(); // first frame calls Arcade.ready()
 })();

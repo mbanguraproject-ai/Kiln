@@ -43,7 +43,13 @@ const readHome = page => page.evaluate(() => ({
     label: c.getAttribute('aria-label'),
     meta: (c.querySelector('.cont-meta') || {}).textContent || '',
     pct: (c.querySelector('.cont-progress') || {}).textContent || '',
-    bar: c.querySelector('.cont-progress .bar i') ? c.querySelector('.cont-progress .bar i').style.width : '',
+    // Measured, not the inline style: a stray CSS rule once shrank the fill to a sliver of the track.
+    bar: (() => {
+      const track = c.querySelector('.cont-progress .cont-bar'), fill = track && track.querySelector('i');
+      if (!fill) return '';
+      const t = track.getBoundingClientRect(), f = fill.getBoundingClientRect();
+      return Math.abs(f.left - t.left) < 1 ? Math.round(100 * f.width / t.width) + '%' : 'offset';
+    })(),
     genre: (c.querySelector('.card-genre') || {}).textContent || '',
     icon: !!c.querySelector('.card-genre svg'),
     artFirst: c.firstElementChild.classList.contains('cont-art'),
