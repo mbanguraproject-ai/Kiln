@@ -1073,11 +1073,13 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     return true;
   }
 
+  // energy drains a little faster in every deeper cave
+  const drainRate = () => 1.25 + Math.min(1.15, (G.cave - 1) * 0.11);
   function eatMoth(m) {
     m.dead = true;
     G.carried++; G.mothsEaten++;
     const was = G.energy;
-    G.energy = Math.min(E_MAX, G.energy + 6);
+    G.energy = Math.min(E_MAX, G.energy + 5);
     const b = G.bat;
     b.puff = 1;
     Kit.tween(b, { puff: 0 }, 520, 'quadIn', { delay: 120 });
@@ -1284,7 +1286,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       if (G.fadeDir > 0 && G.fade >= 1) {
         G.fadeDir = 0;
         if (G.sub === 'dive') {
-          if (G.mode === 'play') G.energy = Math.min(E_MAX, G.energy + 10);
+          if (G.mode === 'play') G.energy = Math.min(E_MAX, G.energy + 6);
           enterCave(G.mode === 'play' ? G.cave + 1 : 1);
         }
       }
@@ -1393,7 +1395,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
     // ---- energy ----
     if (play) {
-      G.energy -= (0.95 + Math.min(0.75, G.cave * 0.07)) * dt;
+      G.energy -= drainRate() * dt;
       if (G.energy < 25 && (G.lowBeat -= dt) <= 0) { Kit.sfx('heartbeat'); G.lowBeat = 0.55 + G.energy / 50; }
       if (safeFlag) G.energy = Math.max(G.energy, 40);
       if (G.energy <= 0) { die(); return; }
@@ -1587,7 +1589,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       fx.shake(7, 280);
     }
     fx.burst(x, y, { count: 26, color: ['#9aa9c8', '#5c6886', P.red], size: [1.5, 4], speed: [40, 200], angle: -Math.PI / 2, spread: 1.4, gravity: 420, shape: 'square', spin: [-8, 8], life: [0.5, 1] });
-    fx.burst(x, y, { count: 14, color: ['#2a3350'], size: [6, 12], sizeEnd: 2.2, speed: [10, 50], angle: -Math.PI / 2, spread: 1.6, life: [0.8, 1.4], drag: 2 });
+    fx.burst(x, y, { count: 16, color: ['#7f90b8', '#a9b6d6'], size: [3, 7], sizeEnd: 1.8, speed: [20, 70], angle: -Math.PI / 2, spread: 1.6, life: [0.7, 1.2], drag: 2.4, glow: true });
     sonar(x, y - 4, 230, 90, 'crash');
   }
 
@@ -1654,7 +1656,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         m.dead = true;
         const v = m.gold ? 3 : 1;
         G.score += v; N.caught += v; G.mothsEaten++;
-        if (play) G.energy = Math.min(E_MAX, G.energy + 2.5);
+        if (play) G.energy = Math.min(E_MAX, G.energy + 1.2);
         b.puff = 1; Kit.tween(b, { puff: 0 }, 420, 'quadIn', { delay: 80 });
         fx.burst(m.x, m.y, { count: m.gold ? 22 : 12, color: [P.gold, '#fff2c0'], glow: true, size: [1.4, 3.2], speed: [40, 160], life: [0.35, 0.7], shape: 'star' });
         if (play) {
@@ -1952,6 +1954,19 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctx.stroke();
       ctx.restore();
       if (s.state !== 'hang') gfx.light(ctx, s.x, s.fy + s.len * 0.6, 30, P.red, 0.4 * a);
+      if (s.state === 'fall') {
+        // speed lines and a few pebbles falling with it
+        const L2 = Math.min(90, s.vy * 0.09);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = P.red; ctx.lineWidth = 1.2;
+        for (const [ox, k] of [[-s.w * 0.6, 0.35], [0, 0.55], [s.w * 0.6, 0.35]]) {
+          ctx.globalAlpha = k;
+          ctx.beginPath(); ctx.moveTo(s.x + ox, s.fy - 4); ctx.lineTo(s.x + ox * 0.6, s.fy - 4 - L2); ctx.stroke();
+        }
+        ctx.globalAlpha = 0.8; ctx.fillStyle = '#c9d2ea';
+        for (let k = 0; k < 4; k++) ctx.fillRect(s.x + Math.sin(k * 2.3) * s.w * 0.9, s.fy - 10 - k * L2 * 0.25, 2, 2);
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      }
     }
     // drips
     for (const dr of L.drips) {
@@ -2824,9 +2839,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       fx.clear();
       G.cd = 0; chirp();
       loop.step(25);
-      camTarget.x = G.bat.x + 135; camTarget.y = G.bat.y - 10;
+      const tall = view.h > view.w;
+      camTarget.x = tall ? (G.bat.x + L.W + 34) / 2 : G.bat.x + 135; camTarget.y = G.bat.y - (tall ? 40 : 10);
       cam.x = camTarget.x; cam.y = camTarget.y;
-      cam.zoom = zoom * 1.3;
+      cam.zoom = zoom * (tall ? 0.95 : 1.3);
       G.bat.glide = 1; G.bat.flap = 1.4;
       loop.stop();
       loop.render();
@@ -2860,12 +2876,15 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       let sy = null;
       for (let d = 0; d < 300; d += 4) if (solidAt(bx + 70, by - d)) { sy = by - d; break; }
       if (sy !== null) L.stals.push({ x: bx + 70, y: sy, len: 40, w: 12, state: 'fall', t: 0, fy: sy + 26, vy: 260, lit: G.t, floor: by + 200, tick: 0 });
-      G.cd = 0; sonar(bx - 60, by - 20, CHIRP_R, CHIRP_RAYS, 'chirp');
+      G.cd = 0; sonar(bx - 180, by - 60, CHIRP_R, CHIRP_RAYS, 'chirp');
+      loop.step(40);
+      G.cd = 0; sonar(bx + 140, by - 80, CHIRP_R, CHIRP_RAYS, 'chirp');
       loop.step(16);
       G.cd = 0; chirp();
       loop.step(20);
       for (const s of L.stals) if (s.state === 'fall' && Math.abs(s.x - (bx + 70)) < 2) { s.fy = Math.min(s.fy, by - 70); s.vy = 300; }
       loop.step(2);
+      camTarget.x = cam.x = G.bat.x + 30; camTarget.y = cam.y = G.bat.y - 70;
       loop.stop();
       loop.render();
     },
