@@ -557,7 +557,7 @@ async function embedded(browser) {
     const q = s => { const e = document.querySelector(s); return !!e && e.offsetParent !== null; };
     return { embedded: Arcade.embedded, exit: q('.k-pause [data-k=exit]'), settings: q('.k-settings'), phase: __kilnTest.state().phase };
   });
-  check(r.embedded && r.exit && !r.settings && r.phase === 'paused', 'embedded: pause menu shows Back to games, hides Sound/Vibration', r);
+  check(r.embedded && r.exit && r.settings && r.phase === 'paused', 'embedded: pause menu shows Back to games and Sound/Vibration (the hub has no settings bar)', r);
   await frame.evaluate(() => __kilnTest.resume());
   await page.evaluate(() => document.getElementById('f').contentWindow.postMessage({ kiln: 1, type: 'pause' }, '*'));
   await sleep(100);

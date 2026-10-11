@@ -213,7 +213,7 @@ function jpegSize(file) {
   await f.click('#retryBtn');
   await wait(1500);
   check(await f.locator('#launchFail').isHidden() && await f.evaluate(() => window.__kiln.game) === 'lariat', 'Try again loads the game once it can start');
-  await f.click('#backBtn');
+  await f.goBack(); // Android Back: the game has no on-screen bar
   await wait(250);
   check(await f.evaluate(() => window.__kiln.detail) === 'lariat', 'Back from the retried game returns to its page');
   await fctx.close();

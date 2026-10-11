@@ -15,7 +15,11 @@ Keep this file current: update the status table at the end of every task.
    build are green.
 3. **After finishing any task, give the owner the Codespace commands** to pull, merge and build (below), not only
    the download link.
-4. **Never leave work only in the chat or its container.** Commit and push work in progress to the working branch
+4. Games are immersive: they fill the whole screen edge to edge with no hub bar, and the Android system bars hide
+   while one plays. A game's own pause menu holds Back to games, Sound and Vibration.
+5. Speed matters: one agent per game builds and self-tests it end to end, and the assistant does the final check
+   and ships it as soon as it passes; no separate review round unless something fails.
+6. **Never leave work only in the chat or its container.** Commit and push work in progress to the working branch
    (use `[skip ci]` in the message for unfinished checkpoints, so the published APK is not replaced by a broken
    build). Anything that matters (specs, plans, workflow scripts, status) goes into the repo.
 
@@ -37,7 +41,7 @@ Every push to `main` (or a `claude/*` branch) also publishes
 | Work | State |
 | --- | --- |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
-| Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | In progress: Scrapwing and Pipistrelle shipped; Tinplate GP being finished; Napwalk, Long Ball Night and Night Bloom queued. Games ship one by one as they pass playtest |
+| Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | In progress: Scrapwing and Pipistrelle shipped (#12); Tinplate GP built and in playtest; Napwalk, Long Ball Night and Night Bloom being built. Games ship one by one as they pass playtest |
 | Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Not started (after batch 1) |
 | Batches 2 to 10 | Not started; line-ups in `docs/CATALOGUE.md` |
 

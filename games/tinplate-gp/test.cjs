@@ -133,7 +133,7 @@ function check(name, ok, detail) {
     t.race(3);
     const i0 = t.info();
     out.has = i0.loop >= 0;
-    t.placeBefore('loop', 16, 1); t.setSpeed(150); t.throttle(1); t.step(0.6);
+    t.placeBefore('loop', 16, 1); t.setSpeed(150); t.throttle(1); t.step(1.4);
     out.slow = t.info().deslots - i0.deslots;
     t.step(2.5);
     const d1 = t.info().deslots;

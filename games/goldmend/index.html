@@ -2886,8 +2886,6 @@ canvas:focus:not(:focus-visible) { outline: none; }
     Sound.ui();
   });
   if (Arcade.embedded) {
-    $('sndRow').hidden = true;
-    $('vibRow').hidden = true;
     $('exitBtn').hidden = false;
     $('exitBtn').addEventListener('click', () => { pauseEl.hidden = true; paused = false; Arcade.exit(); });
   }

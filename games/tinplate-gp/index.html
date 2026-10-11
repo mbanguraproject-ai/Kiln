@@ -106,7 +106,8 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const OFFS = [22.5, 7.5, -7.5, -22.5];          // lane offsets toward the inside of the circuit
   const HALF = 32, TW = 64;                        // track half width and width
   const DS = 4;                                    // sample spacing
-  const GRIP = 400, VTOP = 360, ACC = 470, BRAKE = 560, ROLL = 10;
+  let GRIP = 400, VTOP = 360, ACC = 470, BRAKE = 440, ROLL = 10;
+  const LANE_GRIP = [0.86, 0.95, 1.05, 1.14];         // inside lanes are shorter but hold less speed
   const SLIP_T = 0.12;
   const LOOP_RV = 30, LOOP_VMIN = 205, LOOP_G = LOOP_VMIN * LOOP_VMIN / (5 * LOOP_RV), LOOP_RING = 40;
   const J_RAMP = 28, J_GAP = 34, J_LAND = 28, J_LO = 170, J_HI = 300;
@@ -486,7 +487,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   }
   const tmpA = { x: 0, y: 0 }, tmpB = { x: 0, y: 0 };
 
-  function vlim(c, lane, i) { return Math.sqrt(GRIP * c.model.grip * TR.gm[i] * TR.lanes[lane].R[i]); }
+  function vlim(c, lane, i) { return Math.sqrt(GRIP * LANE_GRIP[lane] * c.model.grip * TR.gm[i] * TR.lanes[lane].R[i]); }
   // fastest speed now that can still brake down to every limit ahead
   function brakeLimit(c, lane, margin) {
     const L = TR.lanes[lane], N = TR.N, B = BRAKE * (margin || 1);
@@ -513,7 +514,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const m = c.model;
     if (c.state === 'slot') {
       // power ramps in over 0.3 s; letting go cuts it and the motor brakes at once (dynamic braking)
-      const up = thIn > c.th ? dt / 0.3 : dt / 0.06;
+      const up = thIn > c.th ? dt / RAMP : dt / 0.06;
       c.th = Kit.approach(c.th, thIn, up);
       c.br = Kit.approach(c.br || 0, thIn > 0.02 ? 0 : 1, dt / (thIn > 0.02 ? 0.03 : 0.06));
       const vt = VTOP * m.top;
@@ -689,6 +690,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     c.rs = (c.s - 26 + L.len) % L.len; c.rLaps = c.s - 26 < 0 ? -1 : 0;
     c.v = 0; c.th = 0; c.slip = 0; c.shim = 0; c.sw = null; c.want = 0; c.air = null;
     c.deslots++;
+    c.lastWhy = why; c.whyLog = (c.whyLog || '') + why[0];
     if (c.human) { G.deslotsThisLap++; c.part = null; }
     // a shed part: a wind-up key or a tyre
     c.part = { kind: G.rng.chance(0.5) ? 'key' : 'tyre', x: px, y: py, z: 4, vx: c.vx * 0.6 + G.rng.range(-60, 60), vy: c.vy * 0.6 + G.rng.range(-60, 60), vz: 160, rot: 0, spin: G.rng.range(-14, 14), a: 1 };
@@ -835,7 +837,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       const place = G.finishOrder.length;
       sfx(place === 1 ? 'fanfare' : 'finish');
       Kit.music.duck(0.4, 900);
-      confetti(place <= 3 ? 70 : 24);
+      confetti(place === 1 ? 140 : place <= 3 ? 80 : 24);
       Kit.haptic(place === 1 ? [40, 60, 40, 60, 80] : [30, 40]);
       fx.flash('#fff3d1', 160, 0.3);
       const allHumansDone = G.cars.every(o => !o.human || o.done);
@@ -925,6 +927,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     if (!G) return;
     G.t += dt;
     hudUpdate(dt);
+    updateFloats(dt);
     if (G.phase === 'grid') {
       G.gridT += dt;
       const lights = Math.floor(G.gridT / 0.7);
@@ -1003,7 +1006,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         const up = k + 1 < c.prevPos;
         hud.medalFlip[c.human - 1] = 1;
         sfx(up ? 'stamp' : 'stampdown');
-        if (up) { Kit.haptic(14); fxFloatAt(c, 'P' + (k + 1), '#ffe08a', 14); }
+        if (up) { Kit.haptic(14); for (let q = floats.length - 1; q >= 0; q--) if (/^P\d$/.test(floats[q].txt)) floats.splice(q, 1); fxFloatAt(c, 'P' + (k + 1), '#ffe08a', 14); }
       }
       c.pos = k + 1;
       if (c.human) c.prevPos = k + 1;
@@ -1068,7 +1071,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function pickP2Car() { const u = CARS.filter(c => c.id !== selCar && isUnlocked(c)); return (u[0] || CARS.find(c => c.id !== selCar)).id; }
   function beginRace() {
     const cfg = raceConfig(CH.cup, CH.race, CH.seed);
-    const skillBase = Math.min(0.985, 0.86 + 0.018 * CH.race + 0.012 * Math.min(CH.cup, 3));
+    const skillBase = Math.min(0.98, 0.76 + 0.04 * Math.min(CH.cup, 4) + 0.02 * CH.race);
     // the player rotates through the middle lanes; AI fills the rest
     const humanLane = [1, 2, 1, 2, 1, 2][CH.race];
     const lanes = [humanLane];
@@ -1690,9 +1693,18 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function paintRibbon(g, i0, n, dpr, elevated) {
     const N = TR.N, X = TR.X, Y = TR.Y;
     // drop shadow
-    shadowOn(g, dpr, elevated ? 16 : 7, elevated ? 12 : 4, elevated ? 18 : 6, elevated ? 0.6 : 0.6);
     g.strokeStyle = '#141418'; g.lineWidth = TW; g.lineCap = 'butt'; g.lineJoin = 'round';
-    polyPath(g, X, Y, i0, n); g.stroke();
+    if (elevated) {
+      // the deck's shadow grows with its height, so the ramps meet the ground softly
+      for (let q = 0; q < n; q += 4) {
+        const k = Math.min(5, n - q), hh = TR.hgt[(i0 + q + 2) % N];
+        shadowOn(g, dpr, 4 + 12 * hh, 3 + 9 * hh, 4 + 14 * hh, 0.35 + 0.25 * hh);
+        polyPath(g, X, Y, (i0 + q) % N, k); g.stroke();
+      }
+    } else {
+      shadowOn(g, dpr, 7, 4, 6, 0.6);
+      polyPath(g, X, Y, i0, n); g.stroke();
+    }
     shadowOff(g);
     // plastic body with a bevel
     g.strokeStyle = '#1d1d22'; g.lineWidth = TW - 5; polyPath(g, X, Y, i0, n); g.stroke();
@@ -1783,30 +1795,30 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const N = TR.N;
     if (TR.loop) paintLoop(g, dpr);
     for (const [i0, n] of groundRanges()) paintRibbon(g, i0, n, dpr, false);
-    // crossovers: diagonal slots between neighbouring lanes
+    // crossovers: a tin switch plate with S-shaped slots between neighbouring lanes
     for (const co of TR.crossovers) {
-      const a = co.i, b = (co.i + co.n) % N;
-      for (let l = 0; l < 3; l++) {
-        const A = TR.lanes[l], B = TR.lanes[l + 1];
-        for (const [P, Q] of [[A, B], [B, A]]) {
-          g.strokeStyle = '#c47a45'; g.lineWidth = 4.4; g.lineCap = 'round';
-          g.beginPath(); g.moveTo(P.x[a], P.y[a]); g.bezierCurveTo(lerp(P.x[a], Q.x[b], 0.5), lerp(P.y[a], P.y[b], 0.5), lerp(P.x[a], Q.x[b], 0.5), lerp(Q.y[a], Q.y[b], 0.5), Q.x[b], Q.y[b]); g.stroke();
-        }
-      }
-      for (let l = 0; l < 3; l++) {
-        const A = TR.lanes[l], B = TR.lanes[l + 1];
-        for (const [P, Q] of [[A, B], [B, A]]) {
-          g.strokeStyle = '#060606'; g.lineWidth = 1.9;
-          g.beginPath(); g.moveTo(P.x[a], P.y[a]); g.bezierCurveTo(lerp(P.x[a], Q.x[b], 0.5), lerp(P.y[a], P.y[b], 0.5), lerp(P.x[a], Q.x[b], 0.5), lerp(Q.y[a], Q.y[b], 0.5), Q.x[b], Q.y[b]); g.stroke();
-        }
+      const a = co.i, b = (co.i + co.n) % N, m = (co.i + (co.n >> 1)) % N;
+      const quad = (i0, i1, o0, o1) => {
+        g.beginPath();
+        for (let q = 0; q <= co.n; q++) { const i = (i0 + q) % N, nx = -TR.TY[i] * TR.S, ny = TR.TX[i] * TR.S; const x = TR.X[i] + nx * o0, y = TR.Y[i] + ny * o0; if (!q) g.moveTo(x, y); else g.lineTo(x, y); }
+        for (let q = co.n; q >= 0; q--) { const i = (i0 + q) % N, nx = -TR.TY[i] * TR.S, ny = TR.TX[i] * TR.S; g.lineTo(TR.X[i] + nx * o1, TR.Y[i] + ny * o1); }
+        g.closePath();
+      };
+      g.fillStyle = '#2c2c34'; quad(a, b, HALF - 6, -HALF + 6); g.fill();
+      g.strokeStyle = 'rgba(232,177,58,0.8)'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]);
+      const sCurve = (P, Q) => { g.beginPath(); g.moveTo(P.x[a], P.y[a]); g.bezierCurveTo(P.x[m], P.y[m], Q.x[m], Q.y[m], Q.x[b], Q.y[b]); g.stroke(); };
+      g.lineCap = 'round';
+      for (const [col, wd] of [['#8a4f28', 5.2], ['#c47a45', 4], ['#060606', 1.7]]) {
+        g.strokeStyle = col; g.lineWidth = wd;
+        for (let l = 0; l < 3; l++) { sCurve(TR.lanes[l], TR.lanes[l + 1]); sCurve(TR.lanes[l + 1], TR.lanes[l]); }
       }
       g.lineCap = 'butt';
-      // printed arrows on the shoulder
-      const m = (co.i + (co.n >> 1)) % N, nx = -TR.TY[m] * TR.S, ny = TR.TX[m] * TR.S;
+      // printed arrows on the shoulders
+      const nx = -TR.TY[m] * TR.S, ny = TR.TX[m] * TR.S;
       for (const side of [1, -1]) {
-        g.fillStyle = '#e8b13a';
         const cx = TR.X[m] + nx * side * (HALF - 3), cy = TR.Y[m] + ny * side * (HALF - 3);
-        g.beginPath(); g.arc(cx, cy, 2.2, 0, TAU); g.fill();
+        g.fillStyle = '#e8b13a'; g.beginPath(); g.arc(cx, cy, 2.4, 0, TAU); g.fill();
+        g.fillStyle = '#23395b'; g.beginPath(); g.arc(cx, cy, 1, 0, TAU); g.fill();
       }
     }
     // start / finish chequers
@@ -2164,7 +2176,6 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const motes = [];
   for (let k = 0; k < 28; k++) motes.push({ x: Math.random(), y: Math.random(), z: Math.random(), ph: Math.random() * 6 });
 
-  const PERF = new URLSearchParams(location.search).get('perf') || '';
   function draw() {
     if (layoutDirty) doLayout();
     const w = view.w, h = view.h, t = loop.time;
@@ -2179,10 +2190,10 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctx.translate(zx, zy); ctx.scale(z, z); ctx.translate(-zx, -zy);
     }
     ctx.translate(fx.shakeX || 0, fx.shakeY || 0);
-    if (!PERF.includes('s')) ctx.drawImage(staticCv, 0, 0, w, h);
+    ctx.drawImage(staticCv, 0, 0, w, h);
     ctx.save();
     worldTransform(ctx);
-    if (!PERF.includes('g')) drawGlow();
+    drawGlow();
     drawGhost();
     // ground-level cars (and tumbling ones), then the bridge layer, then raised cars
     const low = [], high = [];
@@ -2192,7 +2203,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       else low.push(c);
     }
     for (const c of G.cars) if (c.part && c.state !== 'slot') drawPart(c.part);
-    if (!PERF.includes('c')) for (const c of low) drawCar(c);
+    for (const c of low) drawCar(c);
     ctx.restore();
     if (overCv && overBox) {
       // only the part of the elevated layer that holds anything (bridge, gantry)
@@ -2210,8 +2221,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.restore();
     ctx.restore();
     // ambient: dust in the lamp light, a moth's shadow, a flicker
-    if (!PERF.includes('a')) drawAmbient(w, h, t);
-    if (!Kit.keyart && mode === 'play' && !PERF.includes('h')) drawHud(w, h, t);
+    drawAmbient(w, h, t);
+    if (!Kit.keyart) drawFloats(ctx, w, h);
+    if (!Kit.keyart && mode === 'play') drawHud(w, h, t);
   }
 
   function drawAmbient(w, h, t) {
@@ -2255,7 +2267,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const glowBuckets = Array.from({ length: 12 }, () => ({ n: 0, pts: new Float32Array(300) }));
   // What lies ahead in your lane, sample by sample: 0 green (fine), 1 amber (let go now: a moment's
   // delay and you will be too fast for what is coming), 2 red (too fast even braking now).
-  const REACT = 0.2;
+  let REACT = 0.14, RAMP = 0.3;
   const glowOut = { n: 0, j: new Int32Array(80), lvl: new Uint8Array(80), fi: new Uint8Array(80) };
   function laneOutlook(c, out) {
     const Ln = TR.lanes[c.lane], N = TR.N, m = c.model;
@@ -2652,22 +2664,40 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.restore();
   }
 
+  // float text lives in screen space (upright on a landscape bench), stays on screen and never stacks
+  const floats = [];
   function fxFloatAt(c, txt, color, size) {
     if (Kit.keyart || G.attract) return;
-    fx.float(txt, c.x, c.y - 18, { color: color || '#fff', size: (size || 13) / L.sc * 0.9, stroke: 'rgba(0,0,0,0.6)', font: 'display', weight: 800 });
-  }
-  function confetti(n) {
-    if (Kit.reducedMotion) n = Math.min(n, 16);
-    const a = toWorld(0, -10), b = toWorld(view.w, -10);
-    for (let k = 0; k < n; k++) {
-      const u = Math.random();
-      fx.burst(lerp(a.x, b.x, u), lerp(a.y, b.y, u), { count: 1, color: ['#d43d2f', '#f3e3c3', '#e8b13a', '#2f5d9e', '#4f9a78'], shape: 'circle', speed: [10, 60], angle: L.land ? Math.PI : Math.PI / 2, spread: 0.6, gravity: 0, life: [1.6, 2.6], size: [2, 3.5], drag: 0.2 });
+    const p = toScreen(c.x, c.y);
+    let y = p.y - 22;
+    for (let k = 0; k < 4; k++) {
+      const hit = floats.find(f => f.t < 0.9 && Math.abs(f.x - p.x) < 90 && Math.abs(f.y - y) < 24);
+      if (!hit) break;
+      y = hit.y - 26;
     }
-    // falling paper punches
+    floats.push({ txt, x: p.x, y, t: 0, color: color || '#fff', size: size || 13 });
+    if (floats.length > 12) floats.shift();
+  }
+  function updateFloats(dt) { for (let k = floats.length - 1; k >= 0; k--) { const f = floats[k]; f.t += dt; f.y -= dt * 26 * Math.max(0, 1 - f.t); if (f.t > 1.3) floats.splice(k, 1); } }
+  function drawFloats(ctx, w, h) {
+    for (const f of floats) {
+      const pop = f.t < 0.12 ? Kit.ease.backOut(f.t / 0.12) : 1, a = f.t > 1 ? 1 - (f.t - 1) / 0.3 : 1;
+      ctx.font = '800 ' + f.size + 'px ' + DISP;
+      const half = ctx.measureText(f.txt).width / 2 + 6;
+      const x = clamp(f.x, half, w - half), y = clamp(f.y, 70, h - 30);
+      ctx.save(); ctx.translate(x, y); ctx.scale(pop, pop);
+      gfx.text(ctx, f.txt, 0, 0, { size: f.size, color: f.color, weight: 800, font: DISP, alpha: Math.max(0, a), stroke: 'rgba(20,10,4,0.85)', strokeWidth: 4 });
+      ctx.restore();
+    }
+  }
+  // paper-punch confetti: tin-coloured dots drifting down over the whole bench
+  function confetti(n) {
+    if (Kit.reducedMotion) n = Math.min(n, 18);
+    const down = L.land ? Math.PI : Math.PI / 2;
+    const cols = ['#d43d2f', '#f3e3c3', '#e8b13a', '#2f5d9e', '#4f9a78', '#ffffff'];
     for (let k = 0; k < n; k++) {
-      const u = Math.random();
-      const p = toWorld(view.w * u, -20 - Math.random() * view.h * 0.4);
-      fx.burst(p.x, p.y, { count: 1, color: ['#d43d2f', '#f3e3c3', '#e8b13a', '#2f5d9e'], shape: 'circle', speed: [0, 20], gravity: 0, life: [2.2, 3.2], size: [2, 3.2], drag: 0 });
+      const p = toWorld(view.w * Math.random(), -10 - Math.random() * view.h * 0.5);
+      fx.burst(p.x, p.y, { count: 1, color: cols, shape: k % 3 ? 'circle' : 'square', speed: [50, 110], angle: down, spread: 0.5, gravity: 0, life: [2.6, 3.8], size: [2.4, 4.2], sizeEnd: 0.8, drag: 0.05, spin: [-6, 6] });
     }
     sfx('pop');
   }
@@ -2712,7 +2742,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       nextSeed = null;
       silenceEngines();
       beginRace();
-      fx.clear();
+      fx.clear(); floats.length = 0;
       fx.flash('#fff3d1', 200, 0.2);
       Kit.sfx('select');
     },
@@ -2808,12 +2838,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
   /* ============================================================ test hooks and scenes */
   Arcade.test({
+    lose() { if (shell.phase === 'paused') shell.resume(); if (shell.phase === 'play') { if (CH) finishChampionship(true); else shell.over({ reason: 'lose', delay: 0 }); } },
     seed(n) { nextSeed = n; },
     race(n) { if (!CH) return false; CH.race = clamp((n | 0) - 1, 0, RACES - 1); beginRace(); G.phase = 'race'; G.raceT = 0; return true; },
     step(sec) { loop.step(Math.round((sec || 1) * 60)); },
     throttle(x) { forceTh = x === null || x === undefined ? null : clamp(+x, 0, 1); },
     changeLane(dir) { const c = humanCar(1); if (c) requestLane(c, dir); return c ? c.want : 0; },
     bot(skill) { botSkill = skill ? +skill : 0; },
+    tune(o) { if (o.BRAKE) BRAKE = o.BRAKE; if (o.ACC) ACC = o.ACC; if (o.REACT !== undefined) REACT = o.REACT; if (o.RAMP) RAMP = o.RAMP; if (o.GRIP) GRIP = o.GRIP; },
     humanBot(level, react) { humanBot = level ? { level: +level, react: react === undefined ? 0.15 : +react, q: [] } : null; },
     forceDeslot() { const c = humanCar(1); if (c && c.state === 'slot') deslot(c, 'bend'); return c ? c.state : null; },
     skipGrid() { if (G && G.phase === 'grid') { G.gridT = 2.79; loop.step(2); } },

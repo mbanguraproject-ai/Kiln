@@ -80,7 +80,7 @@ function serve() {
       }
     }
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `hub-${id}.png`) });
-    await page.click('#backBtn');
+    await page.evaluate(() => window.__kiln.leaveGame()); // what Android Back does; also works in the file:// bundle
     await page.waitForFunction(() => !window.__kiln.game);
     await page.click('#detailBack');
     await page.waitForFunction(() => !window.__kiln.detail);

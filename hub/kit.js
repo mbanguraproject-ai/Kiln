@@ -2286,7 +2286,6 @@
     const $ = sel => root.querySelector(sel);
     const titleEl = $('.k-title'), pauseEl = $('.k-pause'), overEl = $('.k-over'), pauseBtn = $('.k-pausebtn');
     const toastEl = $('.k-toast'), scoreEl = $('.k-score'), statsEl = $('.k-stats'), howBtn = $('[data-k=how]');
-    $('.k-settings').hidden = A.embedded;
     root.querySelectorAll('[data-k=exit]').forEach(b => { b.hidden = !A.embedded; });
     const focusTarget = () => o.focus || (L && L.view && L.view.canvas) || null;
 
