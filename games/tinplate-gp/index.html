@@ -73,8 +73,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 .tp-car canvas { width: 150px; height: 60px; display: block; }
 .tp-car-name { font: 800 14px/1.1 "Unbounded", "Arial Black", system-ui, sans-serif; color: var(--navy); text-transform: uppercase; letter-spacing: .02em; }
 .tp-car-desc { font: 600 12px/1.25 "Figtree", system-ui, sans-serif; color: var(--ink-soft); text-align: center; min-height: 15px; }
-.tp-bars { display: flex; gap: 10px; font: 700 10px/1 "Figtree", system-ui, sans-serif; color: var(--navy); letter-spacing: .12em; text-transform: uppercase; }
-.tp-bars i { display: inline-block; width: 7px; height: 7px; margin-left: 2px; border-radius: 50%; background: rgba(35,57,91,.2); vertical-align: 0; }
+.tp-bars { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; font: 700 10px/1 "Figtree", system-ui, sans-serif; color: var(--navy); letter-spacing: .12em; text-transform: uppercase; }
+.tp-bars span { white-space: nowrap; }
+.tp-bars i { display: inline-block; width: 6px; height: 6px; margin-left: 2px; border-radius: 50%; background: rgba(35,57,91,.2); vertical-align: 0; }
 .tp-bars i.on { background: var(--red); }
 .tp-modes { display: flex; gap: 0; border-radius: 999px; box-shadow: inset 0 0 0 2px var(--navy); overflow: hidden; }
 .tp-modes button { appearance: none; border: 0; min-height: 44px; padding: 0 16px; font: 700 14px/1 "Figtree", system-ui, sans-serif; color: var(--navy); background: transparent; cursor: pointer; }
@@ -109,7 +110,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   const SLIP_T = 0.12;
   const LOOP_RV = 30, LOOP_VMIN = 205, LOOP_G = LOOP_VMIN * LOOP_VMIN / (5 * LOOP_RV), LOOP_RING = 40;
   const J_RAMP = 28, J_GAP = 34, J_LAND = 28, J_LO = 170, J_HI = 300;
-  const CARL = 24, CARW = 12;
+  const CARL = 24, CARW = 12, CAR_S = 1.14;
   const LAPS = 5, RACES = 6, POINTS = [10, 6, 3, 1];
   const POS = ['1st', '2nd', '3rd', '4th'];
   const LANE_COL = ['#e2463a', '#f2c14e', '#4f8fd8', '#5fbf7a'];
@@ -149,9 +150,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         { tpl: 'oval', banks: 0, loop: false, jump: false, tea: false, cross: 1, intro: 'Hold to go. Let go before the bend glows red.' },
         { tpl: 'kidney', banks: 2, loop: false, jump: false, tea: false, cross: 1, intro: 'New: banked turns. Striped bends hold more speed.' },
         { tpl: 'tri', banks: 1, loop: true, jump: false, tea: false, cross: 1, intro: 'New: loop-the-loop. Keep the gauge in the green or fall.' },
-        { tpl: 'dogbone', banks: 1, loop: false, jump: true, tea: false, cross: 2, intro: 'New: jump ramp. Too slow falls short, too fast flips.' },
-        { tpl: 'eight', banks: 2, loop: true, jump: false, tea: false, cross: 1, intro: 'Figure-eight with a bridge. Mind the banks.' },
-        { tpl: 'spiral', banks: 2, loop: true, jump: true, tea: false, cross: 1, intro: 'The final: every piece on one circuit.' },
+        { tpl: 'hairpin', banks: 1, loop: false, jump: true, tea: false, cross: 1, intro: 'New: jump ramp. Too slow falls short, too fast flips.' },
+        { tpl: 'eight', banks: 2, loop: false, jump: false, tea: false, cross: 1, intro: 'Figure-eight over a bridge. Mind the banks.' },
+        { tpl: 'spiral', banks: 2, loop: false, jump: true, tea: false, cross: 1, intro: 'The final: a bridge, banks and a jump.' },
       ][i];
     }
     const r = Kit.rng(seed * 31 + i * 7);
@@ -293,7 +294,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         const h = d < 46 ? 1 : d < 140 ? Kit.smoothstep(140, 46, d) : 0;
         tr.hgt[i] = Math.max(tr.hgt[i], h);
       }
-      for (const p of [a, b]) for (let k = -42; k <= 42; k++) tr.blocked[(p + k + N) % N] = 1;
+      for (const p of [a, b]) for (let k = -36; k <= 36; k++) tr.blocked[(p + k + N) % N] = 1;
     }
     for (let k = -14; k <= 16; k++) tr.blocked[(k + N) % N] = 1; // start grid and gantry
     // lanes
@@ -321,6 +322,14 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       return pick ? pick(cands) : cands[Math.floor(r.next() * cands.length)];
     };
     const block = (i0, n, margin) => { for (let q = -margin; q < n + margin; q++) tr.blocked[(i0 + q + N) % N] = 1; };
+    if (cfg.jump) {
+      const nR = Math.ceil(J_RAMP / DS), nG = Math.ceil(J_GAP / DS), nL = Math.ceil(J_LAND / DS);
+      const i = placeOn(nR + nG + nL, 7, 5);
+      if (i >= 0) {
+        tr.jump = { i0: i, lip: (i + nR) % N, land: (i + nR + nG) % N, end: (i + nR + nG + nL) % N, nR, nG, nL };
+        block(i, nR + nG + nL, 8);
+      }
+    }
     // loop (needs a clear ring beside the straight)
     if (cfg.loop) {
       const tries = [];
@@ -337,20 +346,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
           if (cx - reach < -30 || cx + reach > W0 + 30 || cy - reach < -30 || cy + reach > H0 + 30) continue;
           let clear = true;
           for (let j = 0; j < N && clear; j += 2) {
-            if (cd(i, j, N) < 22) continue;
+            if (cd(i, j, N) < 30) continue;
             if (Math.hypot(tr.X[j] - cx, tr.Y[j] - cy) < reach + HALF + 2) clear = false;
           }
-          if (clear) { tr.loop = { i, side, cx, cy }; block(i, 1, 26); break; }
+          if (clear) { tr.loop = { i, side, cx, cy }; block(i, 1, 18); break; }
         }
         if (tr.loop) break;
-      }
-    }
-    if (cfg.jump) {
-      const nR = Math.ceil(J_RAMP / DS), nG = Math.ceil(J_GAP / DS), nL = Math.ceil(J_LAND / DS);
-      const i = placeOn(nR + nG + nL, 14, 8);
-      if (i >= 0) {
-        tr.jump = { i0: i, lip: (i + nR) % N, land: (i + nR + nG) % N, end: (i + nR + nG + nL) % N, nR, nG, nL };
-        block(i, nR + nG + nL, 14);
       }
     }
     for (let k = 0; k < (cfg.cross || 0); k++) {
@@ -511,10 +512,12 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function stepCar(c, dt, thIn) {
     const m = c.model;
     if (c.state === 'slot') {
+      // power ramps in over 0.3 s; letting go cuts it and the motor brakes at once (dynamic braking)
       const up = thIn > c.th ? dt / 0.3 : dt / 0.06;
       c.th = Kit.approach(c.th, thIn, up);
+      c.br = Kit.approach(c.br || 0, thIn > 0.02 ? 0 : 1, dt / (thIn > 0.02 ? 0.03 : 0.06));
       const vt = VTOP * m.top;
-      const a = c.th * ACC * m.accel * Math.max(0, 1 - c.v / vt) - (1 - c.th) * BRAKE - ROLL;
+      const a = c.th * ACC * m.accel * Math.max(0, 1 - c.v / vt) - c.br * BRAKE - ROLL;
       const prev = c.v;
       c.v = Math.max(0, c.v + a * dt);
       c.squash = Kit.smooth(c.squash, 1 + clamp((c.v - prev) / dt / 3000, -0.06, 0.06), 12, dt);
@@ -602,7 +605,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const v0 = c.loopV, h = LOOP_RV * (1 - Math.cos(c.loopTh));
     const v2 = v0 * v0 - 2 * LOOP_G * h;
     const need = LOOP_G * LOOP_RV * Math.max(0, -Math.cos(c.loopTh));
-    if (v2 < need || v2 <= 400) {
+    if (v2 < need || v2 <= 3600) {
       // not enough speed: drop off the hoop
       const p = loopPoint(c, c.loopTh);
       c.state = 'slot';
@@ -852,15 +855,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         c.cookT = -Math.log(1 - G.rng.next() * 0.98) / rate;
       }
     }
-    let target = brakeLimit(c, c.lane, 0.92) * sk;
-    if (TR.loop) {
-      const d = distAhead(c, TR.loop.i);
-      if (d < 220 && d > 0) target = Math.max(Math.min(target, 1e9), Math.min(LOOP_VMIN * 1.12, brakeLimit(c, c.lane, 0.92)));
-    }
-    if (TR.jump) {
-      const d = distAhead(c, TR.jump.lip);
-      if (d < 220 && d > 0) target = Math.min(target, lerp(J_LO, J_HI, 0.55) + (sk - 0.95) * 200);
-    }
+    let target = pieceTarget(c, brakeLimit(c, c.lane, 0.92) * sk, sk);
     // traffic in the same lane
     for (const o of G.cars) {
       if (o === c || o.lane !== c.lane || (o.state !== 'slot' && o.state !== 'air')) continue;
@@ -875,6 +870,33 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       }
     }
     return clamp((target - c.v) / 18, 0, 1);
+  }
+
+  // A stand-in for a person (tests and balancing): on/off throttle from the lane glow, with a reaction delay.
+  let humanBot = null;
+  function humanBotThrottle(c, dt) {
+    const hb = humanBot;
+    if (c.state !== 'slot') return 0;
+    let want = laneOutlook(c, null) === 0 ? 1 : 0;
+    if (c.v > pieceTarget(c, 1e9, 0.95)) want = 0;
+    if (TR.loop && c.v < LOOP_VMIN * 1.1) { const d = distAhead(c, TR.loop.i); if (d > 0 && d < 220) want = 1; }
+    if (hb.level < 1 && c.v > brakeLimit(c, c.lane, 1) * hb.level) want = 0;
+    hb.q.push(want);
+    while (hb.q.length > Math.max(1, Math.round(hb.react / dt))) hb.q.shift();
+    return hb.q[0];
+  }
+
+  // loops want speed, jump ramps want the middle of the dial
+  function pieceTarget(c, target, sk) {
+    if (TR.loop) {
+      const d = distAhead(c, TR.loop.i);
+      if (d < 220 && d > 0) target = Math.max(target, Math.min(LOOP_VMIN * 1.12, brakeLimit(c, c.lane, 0.92)));
+    }
+    if (TR.jump) {
+      const d = distAhead(c, TR.jump.lip);
+      if (d < 220 && d > 0) target = Math.min(target, lerp(J_LO, J_HI, 0.55) + (sk - 0.95) * 200);
+    }
+    return target;
   }
 
   // cars in one lane cannot pass through each other
@@ -923,6 +945,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         if (c.human && !c.done && !G.attract) th = humanThrottle(c);
         else th = aiThrottle(c, dt, c.done ? 0.72 : c.human ? (botSkill || 0.95) : c.skill);
         if (c.human && botSkill && !c.done) th = aiThrottle(c, dt, botSkill);
+        if (c.human === 1 && humanBot && !c.done) th = humanBotThrottle(c, dt);
         if (c.want && !c.human && !G.attract) { /* AI waits for a crossover */ }
       } else if (G.phase === 'grid' && c.human) {
         c.th = Kit.approach(c.th, humanThrottle(c), dt / 0.3); // revving on the grid
@@ -1045,7 +1068,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   function pickP2Car() { const u = CARS.filter(c => c.id !== selCar && isUnlocked(c)); return (u[0] || CARS.find(c => c.id !== selCar)).id; }
   function beginRace() {
     const cfg = raceConfig(CH.cup, CH.race, CH.seed);
-    const skillBase = Math.min(0.99, 0.86 + 0.024 * CH.race + 0.01 * Math.min(CH.cup, 3));
+    const skillBase = Math.min(0.985, 0.86 + 0.018 * CH.race + 0.012 * Math.min(CH.cup, 3));
     // the player rotates through the middle lanes; AI fills the rest
     const humanLane = [1, 2, 1, 2, 1, 2][CH.race];
     const lanes = [humanLane];
@@ -1390,19 +1413,33 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     const lx = w * LAMP.fx, ly = h * LAMP.fy, R = Math.hypot(w, h) * 0.78;
     g.save();
     if (!atop) {
-      const warm = g.createRadialGradient(lx, ly, 0, lx, ly, R * 0.55);
-      warm.addColorStop(0, 'rgba(255,210,122,0.30)');
-      warm.addColorStop(0.5, 'rgba(255,190,100,0.10)');
+      // the shadow of the lamp's arm, a long soft band across the bench from the top-left corner
+      g.save();
+      g.translate(lx, ly); g.rotate(-2.35);
+      const arm = g.createLinearGradient(0, -26, 0, 26);
+      arm.addColorStop(0, 'rgba(20,10,4,0)'); arm.addColorStop(0.5, 'rgba(20,10,4,0.22)'); arm.addColorStop(1, 'rgba(20,10,4,0)');
+      g.fillStyle = arm; g.fillRect(R * 0.22, -26, R, 52);
+      g.restore();
+      const warm = g.createRadialGradient(lx, ly, 0, lx, ly, R * 0.6);
+      warm.addColorStop(0, 'rgba(255,210,122,0.34)');
+      warm.addColorStop(0.45, 'rgba(255,190,100,0.12)');
       warm.addColorStop(1, 'rgba(255,190,100,0)');
       g.globalCompositeOperation = 'overlay';
       g.fillStyle = warm; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'lighter';
+      const hot = g.createRadialGradient(lx, ly, 0, lx, ly, R * 0.42);
+      hot.addColorStop(0, 'rgba(255,214,140,0.16)');
+      hot.addColorStop(0.5, 'rgba(255,190,110,0.06)');
+      hot.addColorStop(1, 'rgba(255,190,110,0)');
+      g.fillStyle = hot; g.fillRect(0, 0, w, h);
       g.globalCompositeOperation = 'source-over';
     }
-    const dark = g.createRadialGradient(lx, ly, R * 0.16, lx, ly, R);
+    const dark = g.createRadialGradient(lx, ly, R * 0.14, lx, ly, R);
     dark.addColorStop(0, 'rgba(26,15,8,0)');
-    dark.addColorStop(0.45, 'rgba(26,15,8,0.30)');
-    dark.addColorStop(0.75, 'rgba(26,15,8,0.72)');
-    dark.addColorStop(1, 'rgba(26,15,8,0.94)');
+    dark.addColorStop(0.32, 'rgba(26,15,8,0.10)');
+    dark.addColorStop(0.55, 'rgba(26,15,8,0.48)');
+    dark.addColorStop(0.78, 'rgba(26,15,8,0.82)');
+    dark.addColorStop(1, 'rgba(26,15,8,0.97)');
     if (atop) g.globalCompositeOperation = 'source-atop';
     g.fillStyle = dark; g.fillRect(0, 0, w, h);
     g.restore();
@@ -1936,7 +1973,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
 
   /* ============================================================ cars */
   function carSprite(model) {
-    const sc = L.sc, pad = 5;
+    const sc = L.sc * CAR_S, pad = 5;
     const w = Math.ceil((CARL + pad * 2) * sc), h = Math.ceil((CARW + pad * 2) * sc);
     return gfx.sprite('car:' + model.id + ':' + sc.toFixed(3), w, h, (g, ww, hh) => {
       g.translate(ww / 2, hh / 2); g.scale(sc, sc);
@@ -2026,7 +2063,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     ctx.globalAlpha = alpha === undefined ? 1 : alpha;
     // shadow
     ctx.save();
-    ctx.translate(c.x + so.x, c.y + so.y); ctx.rotate(c.ang);
+    ctx.translate(c.x + so.x, c.y + so.y); ctx.rotate(c.ang); ctx.scale(CAR_S, CAR_S);
     ctx.globalAlpha *= clamp(1 - z * 0.012, 0.35, 1);
     ctx.drawImage(sh, -20, -14, 40, 28);
     ctx.restore();
@@ -2039,6 +2076,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     }
     ctx.translate(c.x, c.y);
     ctx.rotate(c.ang);
+    ctx.scale(CAR_S, CAR_S);
     // tumbling: squash across the roll axis and flip the livery
     const rollC = Math.cos(c.roll || 0);
     const vib = c.state === 'slot' && c.v > 30 ? (Math.random() - 0.5) * 0.3 : 0;
@@ -2215,29 +2253,44 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
   // Your lane ahead glows green, amber, red: the colour says whether you can still brake for what is coming.
   const GLOW_COL = ['rgba(120,235,140,', 'rgba(255,176,50,', 'rgba(255,70,45,'];
   const glowBuckets = Array.from({ length: 12 }, () => ({ n: 0, pts: new Float32Array(300) }));
+  // What lies ahead in your lane, sample by sample: 0 green (fine), 1 amber (let go now: a moment's
+  // delay and you will be too fast for what is coming), 2 red (too fast even braking now).
+  const REACT = 0.2;
+  const glowOut = { n: 0, j: new Int32Array(80), lvl: new Uint8Array(80), fi: new Uint8Array(80) };
+  function laneOutlook(c, out) {
+    const Ln = TR.lanes[c.lane], N = TR.N, m = c.model;
+    const vt = VTOP * m.top;
+    const v1 = Math.min(vt, c.v + ACC * m.accel * Math.max(0, 1 - c.v / vt) * REACT), d1 = (c.v + v1) / 2 * REACT;
+    let i = c.i, d = -c.f * (Ln.cum[i + 1] - Ln.cum[i]), worst = 0;
+    const reach = 70 + c.v * 0.55;
+    let n = 0;
+    for (let k = 0; k < 70 && d < reach; k++) {
+      const j = (i + 1) % N;
+      const vl = vlim(c, c.lane, j), dd = Math.max(0, d);
+      const rNow = Math.sqrt(Math.max(0, c.v * c.v - 2 * BRAKE * dd)) / vl;
+      const rLate = (dd < d1 ? v1 : Math.sqrt(Math.max(0, v1 * v1 - 2 * BRAKE * (dd - d1)))) / vl;
+      const lvl = rNow > 1.0 ? 2 : rLate > 1.0 ? 1 : 0;
+      if (lvl > worst) worst = lvl;
+      if (out) { out.j[n] = j; out.lvl[n] = lvl; out.fi[n] = clamp(Math.floor(d / reach * 4), 0, 3); n++; }
+      d += Ln.cum[i + 1] - Ln.cum[i];
+      i = j;
+    }
+    if (out) out.n = n;
+    return worst;
+  }
   function drawGlow() {
     if (G.attract || Kit.keyart) return;
     for (const c of G.cars) {
       if (!c.human || c.state !== 'slot' || c.done) continue;
       const Ln = TR.lanes[c.lane], N = TR.N;
-      let i = c.i, d = -c.f * (Ln.cum[i + 1] - Ln.cum[i]);
-      const reach = 70 + c.v * 0.55;
-      let worst = 0;
-      // segments bucketed by colour and fade step: a dozen strokes instead of seventy
+      const worst = laneOutlook(c, glowOut);
       for (const bk of glowBuckets) bk.n = 0;
       let px = c.x, py = c.y;
-      for (let k = 0; k < 70 && d < reach; k++) {
-        const j = (i + 1) % N;
-        const vb = Math.sqrt(Math.max(0, c.v * c.v - 2 * BRAKE * Math.max(0, d)));
-        const ratio = vb / vlim(c, c.lane, j);
-        worst = Math.max(worst, ratio);
-        const ci = ratio > 1.0 ? 2 : ratio > 0.9 ? 1 : 0;
-        const fi = Math.min(3, Math.floor(d / reach * 4));
-        const bk = glowBuckets[ci * 4 + fi];
+      for (let k = 0; k < glowOut.n; k++) {
+        const j = glowOut.j[k];
+        const bk = glowBuckets[glowOut.lvl[k] * 4 + glowOut.fi[k]];
         bk.pts[bk.n++] = px; bk.pts[bk.n++] = py; bk.pts[bk.n++] = Ln.x[j]; bk.pts[bk.n++] = Ln.y[j];
         px = Ln.x[j]; py = Ln.y[j];
-        d += Ln.cum[i + 1] - Ln.cum[i];
-        i = j;
       }
       ctx.lineCap = 'round';
       ctx.globalCompositeOperation = 'lighter';
@@ -2245,9 +2298,9 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         const bk = glowBuckets[q];
         if (!bk.n) continue;
         const ci = q >> 2, fi = q & 3, hot = ci > 0;
-        const a = (1 - (fi + 0.5) / 4) * (hot ? 0.8 : 0.34);
+        const a = (1 - (fi + 0.5) / 4) * (hot ? 0.85 : 0.5);
         ctx.strokeStyle = GLOW_COL[ci] + a.toFixed(3) + ')';
-        ctx.lineWidth = hot ? 6.5 : 4.5;
+        ctx.lineWidth = hot ? 7 : 5;
         ctx.beginPath();
         for (let m = 0; m < bk.n; m += 4) { ctx.moveTo(bk.pts[m], bk.pts[m + 1]); ctx.lineTo(bk.pts[m + 2], bk.pts[m + 3]); }
         ctx.stroke();
@@ -2372,13 +2425,13 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     lapP(1, 10);
     if (twoP) lapP(2, w - 112 - 66);
     // stamped tin position medallion
-    const medal = (pl, x) => {
+    const medal = (pl, x, my) => {
       const c = humanCar(pl);
       if (!c) return;
       const pos = c.pos || (G.cars.indexOf(c) + 1);
       const fl = hud.medalFlip[pl - 1];
       const sx = fl > 0 ? Math.abs(Math.cos(fl * Math.PI)) : 1;
-      const y = top + 24;
+      const y = my || top + 24;
       ctx.save();
       ctx.translate(x, y); ctx.scale(Math.max(0.08, sx) * (1 + Math.sin(fl * Math.PI) * 0.15), 1 + Math.sin(fl * Math.PI) * 0.15);
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.arc(2, 3, 25, 0, TAU); ctx.fill();
@@ -2403,7 +2456,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       }
     };
     if (!twoP) medal(1, Math.min(w / 2, 150 + 30));
-    else { medal(1, 150); medal(2, w - 66 - 140); }
+    else { medal(1, w / 2 - 34, h - 50); medal(2, w / 2 + 34, h - 50); }
     // race tag
     if (CH && !twoP) {
       const rx = Math.min(w / 2, 180) + 34, rw = Math.max(0, w - 62 - rx);
@@ -2440,7 +2493,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(x - 4, ky + 1, 5, 2.4, -0.3, 0, TAU); ctx.fill();
       gfx.text(ctx, pl === 1 && !twoP ? 'HOLD' : 'P' + pl, x, by + 18, { size: 9, color: '#f3e3c3', weight: 800, font: DISP });
       const c = humanCar(pl);
-      if (c && c.glowRatio > 0.9 && c.state === 'slot') {
+      if (c && c.glowRatio > 0 && c.state === 'slot') {
         ctx.fillStyle = c.glowRatio > 1 ? '#ff4a2d' : '#ffb032';
         ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 20);
         ctx.beginPath(); ctx.arc(x, by + 31, 4, 0, TAU); ctx.fill();
@@ -2761,6 +2814,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     throttle(x) { forceTh = x === null || x === undefined ? null : clamp(+x, 0, 1); },
     changeLane(dir) { const c = humanCar(1); if (c) requestLane(c, dir); return c ? c.want : 0; },
     bot(skill) { botSkill = skill ? +skill : 0; },
+    humanBot(level, react) { humanBot = level ? { level: +level, react: react === undefined ? 0.15 : +react, q: [] } : null; },
     forceDeslot() { const c = humanCar(1); if (c && c.state === 'slot') deslot(c, 'bend'); return c ? c.state : null; },
     skipGrid() { if (G && G.phase === 'grid') { G.gridT = 2.79; loop.step(2); } },
     win() {
@@ -2788,7 +2842,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     },
     track: () => (TR ? { tpl: TR.tpl, N: TR.N, len: TR.lanes.map(l => Math.round(l.len)), minR: Math.min(...TR.lanes[0].R), crossings: TR.crossings.length } : null),
     build(tpl, seed, cfg) { const t = buildTrack(Object.assign({ tpl, banks: 1, loop: true, jump: true, tea: true, cross: 2 }, cfg || {}), seed); return { N: t.N, loop: !!t.loop, jump: !!t.jump, crossovers: t.crossovers.length, crossings: t.crossings.length, minR: Math.min(...t.lanes.map(l => Math.min(...l.R))), len: t.lanes.map(l => Math.round(l.len)) }; },
-    setSpeed(v) { const c = humanCar(1); if (c) c.v = v; },
+    setSpeed(v, th) { const c = humanCar(1); if (c) { c.v = v; if (th !== undefined) c.th = th; } },
     placeBefore(kind, dist, lane) {
       const c = humanCar(1); if (!c) return false;
       const target = kind === 'loop' ? TR.loop && TR.loop.i : kind === 'jump' ? TR.jump && TR.jump.lip : kind === 'cross' ? TR.crossovers[0] && TR.crossovers[0].i : null;
@@ -2807,6 +2861,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       for (let i = 0; i < TR.N; i++) if (TR.lanes[c.lane].R[i] < TR.lanes[c.lane].R[best]) best = i;
       const Ln = TR.lanes[c.lane];
       c.s = (Ln.cum[best] - 8 + Ln.len) % Ln.len; c.i = 0; locate(c); c.state = 'slot';
+      for (const o of G.cars) if (o !== c && o.lane === c.lane) { o.lane = (c.lane + 2) % 4; o.s = sAtIndex(o.lane, o.i, o.f); }
       return vlim(c, c.lane, best);
     },
     p2: () => { const c = humanCar(2); return c ? { v: c.v, th: c.th, lane: c.lane } : null; },
@@ -2828,21 +2883,47 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
     loop.stop();
   }
   function runFor(sec) { const n = Math.round(sec * 60); for (let k = 0; k < n; k++) loop.step(1); }
+  // spread the field round the circuit so every car reads on its own
+  function spreadCars(fracs, v) {
+    G.cars.forEach((c, k) => { const Ln = TR.lanes[c.lane]; c.i = 0; placeAt(c, c.lane, Ln.len * fracs[k]); c.v = v; c.state = 'slot'; c.laps = 2; });
+  }
+  function tightBend(lane, near) {
+    let best = -1, br = 1e9;
+    for (let i = 0; i < TR.N; i++) {
+      if (TR.K[i] === 0 || TR.hgt[i] > 0.05 || TR.bank[i] || (TR.loop && cd(i, TR.loop.i, TR.N) < 30)) continue;
+      const R = TR.lanes[lane].R[i] + (near ? Math.hypot(TR.X[i] - near.x, TR.Y[i] - near.y) * 0.4 : 0);
+      if (R < br) { br = R; best = i; }
+    }
+    return best;
+  }
   Arcade.scenes({
     // the lamp-lit bench from above: a figure-eight, four tin cars, one tumbling off a bend in sparks
     art: () => scene(41, 5, () => {
-      runFor(6.5);
-      const victim = G.cars.find(c => !c.human && c.state === 'slot' && TR.K[c.i] !== 0 && TR.hgt[c.i] < 0.2) || G.cars.find(c => !c.human && c.state === 'slot');
-      if (victim) { victim.v = 300; deslot(victim, 'bend'); }
-      fx.clear();
-      if (victim) {
-        fx.burst(victim.x, victim.y, { count: 40, color: ['#ffd27a', '#ffb347', '#fff1c1', '#e8743a'], shape: 'spark', speed: [80, 320], life: [0.3, 0.6], size: [1.4, 3.2], glow: true, gravity: 120 });
-        G.zoom = 0;
+      runFor(2);
+      spreadCars([0.12, 0.36, 0.52, 0.86], 240);
+      runFor(0.5);
+      const victim = G.cars.find(c => c.human);
+      const lamp = toWorld(view.w * LAMP.fx, view.h * LAMP.fy);
+      const bi = tightBend(victim.lane, lamp);
+      if (bi >= 0) {
+        victim.i = 0; placeAt(victim, victim.lane, sAtIndex(victim.lane, bi, 0));
+        updateCarPose(victim, 0);
+        victim.v = 330;
+        deslot(victim, 'bend');
+        victim.vz = 330;
       }
-      for (let k = 0; k < 9; k++) loop.step(1);
+      fx.clear();
+      for (let k = 0; k < 3; k++) loop.step(1);
+      fx.burst(victim.x, victim.y, { count: 46, color: ['#ffd27a', '#ffb347', '#fff1c1', '#e8743a'], shape: 'spark', speed: [90, 340], life: [0.35, 0.7], size: [1.6, 3.4], glow: true, gravity: 120 });
+      fx.burst(victim.x, victim.y, { count: 10, color: ['#8a7a66', '#5d5146'], speed: [20, 70], life: [0.6, 1], size: [2.5, 5], drag: 2 });
+      for (let k = 0; k < 8; k++) loop.step(1);
+      // hold it mid-tumble: high off the bench, livery still showing, a key flying free
+      victim.z = 22; victim.roll = 0.75; victim.ang += 0.5;
+      if (victim.part) { victim.part.z = 16; }
       G.zoom = 0;
+      loop.render();
     }),
-    // the start grid: lights, rolling counter, medallion and plunger
+    // the start grid: lights, rolling counter, medallion and plunger, and the ghost thumb
     shot1: () => {
       fx.seed(11);
       Kit.save.set('champ', null);
@@ -2857,28 +2938,24 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
       loop.stop();
     },
     // a loop and a banked turn, your lane glowing red, leading the race
-    shot2: () => scene(23, 6, () => {
-      runFor(9);
+    shot2: () => scene(23, 3, () => {
+      runFor(3);
+      spreadCars([0.5, 0.2, 0.75, 0.05], 200);
       const c = humanCar(1);
-      // lead the field, then charge into the next bend too fast
-      const lead = rankCars()[0];
-      if (lead !== c) { c.laps = lead.laps; }
-      let best = -1, bd = 1e9;
       const Ln = TR.lanes[c.lane];
-      for (let i = 0; i < TR.N; i++) {
-        if (!TR.bank[i] || TR.hgt[i] > 0.1) continue;
-        const d = (Ln.cum[i] - c.s + Ln.len) % Ln.len;
-        if (d > 40 && d < bd) { bd = d; best = i; }
-      }
-      if (best >= 0) { c.s = (Ln.cum[best] - 95 + Ln.len) % Ln.len; c.i = 0; locate(c); }
-      c.v = 330; c.th = 1; forceTh = 1; botSkill = 0;
-      for (const o of G.cars) if (o !== c) { o.laps = Math.min(o.laps, c.laps); }
+      let best = -1;
+      for (const bk of TR.banks) { best = bk.i0; break; }
+      if (best < 0) best = tightBend(c.lane);
+      c.i = 0; placeAt(c, c.lane, Ln.cum[best] - 70);
+      c.v = 335; c.th = 1; forceTh = 1; botSkill = 0;
+      c.laps = 3;
       const looper = G.cars.find(o => !o.human);
-      if (looper && TR.loop) { looper.state = 'loop'; looper.loopTh = 2.6; looper.loopV = 300; }
-      loop.step(3);
+      if (looper && TR.loop) { looper.lane = 3; looper.state = 'loop'; looper.loopTh = 2.5; looper.loopV = 300; G.loopPulse = 0.6; }
+      loop.step(4);
       updatePositions();
       c.pos = 1;
       forceTh = null;
+      loop.render();
     }),
   });
 

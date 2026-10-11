@@ -103,7 +103,9 @@ function jpegSize(file) {
     check(d.facts.length === 6 && d.facts.includes('Plays offline') && d.facts.includes(g.controls), `${g.id}: quick facts`, d.facts.join(' | '));
     check(shots.length === g.shots.length && shots.every(Boolean), `${g.id}: screenshots load`, shots.join());
     check(d.sections.includes('How it plays') && !d.sections.includes('Your record'), `${g.id}: How it plays; no record before playing`, d.sections.join(' | '));
-    check(d.related.length > 0 && !d.related.includes(g.id), `${g.id}: related games, never itself`, d.related.join());
+    // Related games share a collection or the category; a game alone in both gets no section rather than filler.
+    const peers = playable.some(x => x.id !== g.id && (x.genre === g.genre || (sb.window.KILN_COLLECTIONS || []).some(c => c.games.includes(g.id) && c.games.includes(x.id))));
+    check(peers ? d.related.length > 0 && !d.related.includes(g.id) : d.related.length === 0, `${g.id}: related games when it has peers, never itself`, d.related.join() || 'none');
     await back();
   }
   check(!(await state()).detail, 'Back closes each page');
