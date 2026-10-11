@@ -36,6 +36,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const ids = list => list.filter(g => g.status !== 'soon').concat(list.filter(g => g.status === 'soon')).map(g => g.id).join();
   const tagged = (field, tag) => ids(GAMES.filter(g => (g[field] || []).some(t => t.toLowerCase() === tag.toLowerCase())));
   const ofGenre = genre => ids(GAMES.filter(g => g.genre === genre));
+  const count = n => `${n} ${n === 1 ? 'game' : 'games'}`;
   const keyboardGames = ids(playable.filter(g => /keyboard/i.test(g.controls || '')));
   const collectionGames = id => ids(GAMES.filter(g => (COLLECTIONS.find(c => c.id === id) || { games: [] }).games.includes(g.id)));
   // Discover's filters: each category with playable games, in category order, then keyboard play when it splits the catalogue.
@@ -152,7 +153,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     check(d.rows.join() === want, `"${q}" finds ${want}`, d.rows.join() || 'nothing');
   }
   d = await type('calm');
-  check(d.bold.crosswake === 'Calm' && d.heading === '1 game' && d.status === '1 game for calm', 'the matched tag is shown in bold, with the count read out', `${d.bold.crosswake} / ${d.heading} / ${d.status}`);
+  const calmCount = count(tagged('moods', 'Calm').split(',').length);
+  check(d.bold.crosswake === 'Calm' && d.heading === calmCount && d.status === `${calmCount} for calm`, 'the matched tag is shown in bold, with the count read out', `${d.bold.crosswake} / ${d.heading} / ${d.status}`);
   d = await type('one more run');
   check(d.bold.goldmend === 'One more run', 'a collection match names the collection', d.bold.goldmend);
 
@@ -225,7 +227,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await page.click('#filters [data-filter="keyboard"]');
   await wait(150);
   d = await readDiscover();
-  check(d.rows.join() === 'tessera' && d.heading === '1 game', 'Puzzle with Keyboard narrows to the games that have both', d.rows.join());
+  const puzzleKeys = playable.filter(g => g.genre === 'Puzzle' && /keyboard/i.test(g.controls || ''));
+  check(d.rows.join() === ids(puzzleKeys) && d.heading === count(puzzleKeys.length), 'Puzzle with Keyboard narrows to the games that have both', d.rows.join());
   await page.click('#filters [data-filter="genre:Arcade"]');
   await wait(150);
   d = await readDiscover();

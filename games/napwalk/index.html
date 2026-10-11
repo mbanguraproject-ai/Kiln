@@ -2135,7 +2135,7 @@ body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; bac
         loop.step(5);
       });
     },
-    shot1: () => scene(1, () => { G.silent = true; stepSeconds(0.65); }),
+    shot1: () => scene(1, () => { G.silent = true; stepSeconds(1.12); }),
     shot2: () => scene(34, () => {
       const sol = G.R.sol.slice();
       for (let k = 0; k < Math.min(3, sol.length - 2); k++) { snap(); doMove(DIRN[sol[k]]); }
