@@ -4,351 +4,160 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Crosswake</title>
-<meta name="description" content="Crosswake: drop two stones in a pond. Where their ripples cross, a spark runs across the water and lights every lantern it touches.">
+<meta name="description" content="Crosswake: drop two stones in a garden pond at dusk. Where their ripples cross, a spark runs across the water and lights every lantern it touches.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700&family=Unbounded:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;700;800&family=Unbounded:wght@500;600;800&display=swap">
 <style>
-/* Layout: score bar, the pond (the board), and a control row with the delay slider and the Drop button */
+/* World: a temple-garden koi pond at blue hour, seen from above. Raked gravel, moss, red maples,
+   floating paper lanterns. The world keeps one palette in both themes; panels are washi paper. */
 :root {
-  --plaster: #E6EBEF;
-  --grout: #CDD6DE;
-  --slot: #BCC8D3;
-  --card: #F7F9FB;
-  --ink: #16253A;
-  --ink-soft: #56687D;
-  --accent: #2752C4;
-  --accent-ink: #FFFFFF;
-  --scrim: rgba(22, 37, 58, 0.42);
-  --water-1: #D3E4E6;    /* pond centre */
-  --water-2: #AFC9CE;    /* pond edge */
-  --ripple: #2D5563;
-  --paper: #F4EFE4;      /* unlit lantern */
-  --lit: #E39C1A;        /* saffron flame */
-  --lit-2: #DD5038;      /* coral, deeper chains */
-  --stone: #5B6B78;
-  --spark: #F2B23A;
-  --pad: #7FA58F;
+  --night: #0A1D21;
+  --ink: #F3EAD7;
+  --ink-soft: rgba(243, 234, 215, 0.72);
+  --paper: #F1E7D3;
+  --paper-ink: #2A2019;
+  --paper-soft: #6B5A48;
+  --seal: #CF4128;
+  --seal-ink: #FFF6E8;
+  --lacquer: #1E1612;
+  --lacquer-2: #2E221B;
+  --brass: #C99A5B;
+  --bamboo: #A9BC6A;
+  --bamboo-2: #6F8A3E;
+  --scrim: rgba(6, 18, 20, 0.46);
   --font-display: "Unbounded", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --plaster: #0D141D; --grout: #1A2636; --slot: #111B27; --card: #1A2533;
-    --ink: #E3EBF3; --ink-soft: #8D9DB1; --accent: #6D91FF; --accent-ink: #0A1220;
-    --scrim: rgba(3, 7, 12, 0.62);
-    --water-1: #12303C; --water-2: #0A1B24; --ripple: #9CC7D4;
-    --paper: #2A3644; --lit: #F2B640; --lit-2: #F07058; --stone: #8FA0AE; --spark: #FFD27A; --pad: #2F5A45;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --plaster: #0D141D; --grout: #1A2636; --slot: #111B27; --card: #1A2533;
-  --ink: #E3EBF3; --ink-soft: #8D9DB1; --accent: #6D91FF; --accent-ink: #0A1220;
-  --scrim: rgba(3, 7, 12, 0.62);
-  --water-1: #12303C; --water-2: #0A1B24; --ripple: #9CC7D4;
-  --paper: #2A3644; --lit: #F2B640; --lit-2: #F07058; --stone: #8FA0AE; --spark: #FFD27A; --pad: #2F5A45;
   color-scheme: dark;
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #ECE1CA; --scrim: rgba(3, 11, 13, 0.6); }
+}
+:root[data-theme="dark"] { --paper: #ECE1CA; --scrim: rgba(3, 11, 13, 0.6); }
+:root[data-theme="light"] { --paper: #F4EBD8; --scrim: rgba(10, 26, 28, 0.42); }
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html {
-  height: 100%;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-body {
-  height: 100%;
-  margin: 0;
-  background: var(--plaster);
-  color: var(--ink);
-  font: 500 16px/1.4 var(--font-body);
-  overflow: hidden;
-  overscroll-behavior: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-button { font: inherit; color: inherit; }
-button:focus-visible, canvas:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-canvas:focus:not(:focus-visible) { outline: none; }
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--night); }
+body { color: var(--ink); font: 600 16px/1.4 var(--font-body); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+#pond { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
 
-#app {
-  height: 100%;
-  max-width: 760px;
-  margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0 12px;
+/* ---------- the control tray: a lacquered board with a bamboo water-clock and a vermilion seal ---------- */
+#controls {
+  position: fixed; z-index: 10; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  transform: translateX(-50%); width: min(540px, calc(100% - 20px));
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) 84px; gap: 12px; align-items: center;
+  padding: 10px 10px 10px 10px; border-radius: 26px;
+  background: linear-gradient(180deg, rgba(46, 34, 27, 0.94), rgba(24, 17, 14, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 228, 186, 0.14), inset 0 0 0 1px rgba(201, 154, 91, 0.32), 0 18px 40px -14px rgba(0, 0, 0, 0.75);
+  transition: opacity 0.25s ease, transform 0.3s ease;
 }
-.hud {
-  flex: none;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  column-gap: 12px;
-  padding-block: 14px 4px;
+#controls::before { content: ""; position: absolute; inset: 4px; border-radius: 22px; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(201, 154, 91, 0.12); }
+body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(-50%, 18px); }
+.cw-round {
+  width: 48px; height: 48px; border: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #5B6462, #2F3536 70%); color: var(--ink);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 4px 10px -4px rgba(0, 0, 0, 0.6);
+  transition: transform 0.08s, opacity 0.2s;
 }
-.best {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px 7px 10px;
-  border-radius: 999px;
-  background: var(--grout);
-  color: var(--ink-soft);
-  font: 700 11px/1 var(--font-body);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.cw-round svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.cw-round:active { transform: scale(0.94); }
+.cw-round:disabled { opacity: 0.35; cursor: default; transform: none; }
+.wait { display: grid; gap: 4px; min-width: 0; }
+.wait label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font: 800 10.5px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(243, 234, 215, 0.62); white-space: nowrap; }
+.wait label b { font: 600 13px/1 var(--font-display); letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+#delay { -webkit-appearance: none; appearance: none; width: 100%; height: 34px; margin: 0; background: transparent; cursor: pointer; }
+#delay::-webkit-slider-runnable-track {
+  height: 10px; border-radius: 6px;
+  background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(40, 52, 20, 0.7) 46px 48px), linear-gradient(180deg, #C9D98A, var(--bamboo) 45%, var(--bamboo-2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 0 rgba(0, 0, 0, 0.4);
 }
-.best svg { width: 14px; height: 14px; fill: var(--lit); flex: none; }
-.best b { font: 600 14px/1 var(--font-display); letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
-.score { font: 800 clamp(32px, 9.5vw, 50px)/1 var(--font-display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; text-align: center; }
-.icon-btn {
-  justify-self: end;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--grout);
-  color: var(--ink);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
+#delay::-moz-range-track { height: 10px; border-radius: 6px; background: linear-gradient(180deg, #C9D98A, var(--bamboo) 45%, var(--bamboo-2)); }
+#delay::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 30px; height: 26px; margin-top: -8px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #A8B0AC, #4A5250 62%, #2C3131); border: 0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.3);
 }
-.icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
-.status {
-  grid-column: 1 / -1;
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font: 700 12px/1 var(--font-body);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
+#delay::-moz-range-thumb { width: 30px; height: 26px; border: 0; border-radius: 50%; background: radial-gradient(circle at 36% 30%, #A8B0AC, #4A5250 62%, #2C3131); }
+#delay:disabled { opacity: 0.38; cursor: default; }
+#delay:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; border-radius: 8px; }
+#dropBtn {
+  position: relative; height: 62px; border: 0; border-radius: 18px; cursor: pointer;
+  background: radial-gradient(circle at 40% 25%, #E9654A, var(--seal) 55%, #9E2C1A);
+  color: var(--seal-ink); font: 800 15px/1 var(--font-display); letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 3px rgba(255, 236, 214, 0.9), inset 0 0 0 5px var(--seal), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 8px 18px -8px rgba(207, 65, 40, 0.9);
+  transition: transform 0.08s, filter 0.2s;
 }
-.stones { display: inline-flex; gap: 5px; align-items: center; }
-.stones i { width: 12px; height: 10px; border-radius: 50%; background: var(--stone); }
-.stones i.used { background: transparent; box-shadow: inset 0 0 0 2px var(--slot); }
-.hint {
-  grid-column: 1 / -1;
-  min-height: 40px;
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  text-align: center;
-  text-wrap: balance;
+#dropBtn:active { transform: translateY(2px) scale(0.97); }
+#dropBtn:disabled { cursor: default; filter: grayscale(0.85) brightness(0.62); transform: none; }
+#dropBtn.ready { animation: seal 1.6s ease-in-out infinite; }
+#dropBtn:focus-visible, .cw-round:focus-visible { outline: 3px solid var(--brass); outline-offset: 3px; }
+@keyframes seal { 0%, 100% { box-shadow: inset 0 0 0 3px rgba(255, 236, 214, 0.9), inset 0 0 0 5px var(--seal), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 8px 18px -8px rgba(207, 65, 40, 0.9); }
+  50% { box-shadow: inset 0 0 0 3px rgba(255, 236, 214, 0.9), inset 0 0 0 5px var(--seal), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 0 26px 2px rgba(255, 140, 90, 0.55); } }
+@media (max-height: 650px) {
+  #controls { grid-template-columns: 44px minmax(0, 1fr) 78px; padding: 8px; border-radius: 22px; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
+  #controls::before { border-radius: 18px; }
+  .cw-round { width: 44px; height: 44px; }
+  #dropBtn { height: 56px; }
 }
-.stage { position: relative; flex: 1 1 auto; min-height: 0; }
-#pond { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-.controls {
-  flex: none;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: end;
-  gap: 10px;
-  padding-top: 12px;
-}
-.delay { display: grid; gap: 8px; min-width: 0; }
-.delay label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--ink-soft); }
-.delay label b { color: var(--ink); font-variant-numeric: tabular-nums; }
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 28px;
-  background: transparent;
-  margin: 0;
-}
-input[type="range"]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: var(--grout); }
-input[type="range"]::-moz-range-track { height: 8px; border-radius: 4px; background: var(--grout); }
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 26px;
-  height: 26px;
-  margin-top: -9px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-}
-input[type="range"]::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: var(--accent); }
-input[type="range"]:disabled { opacity: 0.4; }
-.btn {
-  appearance: none;
-  border: 0;
-  cursor: pointer;
-  font: 700 17px/1 var(--font-body);
-  padding: 16px 18px;
-  border-radius: 16px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.2), inset 0 2px 0 rgba(255, 255, 255, 0.22);
-  transition: transform 0.08s;
-}
-.btn:active { transform: translateY(2px); }
-.btn:disabled { opacity: 0.4; cursor: default; transform: none; }
-.btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--slot); }
-.btn.square { width: 52px; padding: 0; height: 50px; display: grid; place-items: center; }
-.btn.square svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-reduced-motion: reduce) { #dropBtn.ready { animation: none; } #controls { transition: none; } }
 
-/* ---------- overlays ---------- */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: var(--scrim);
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
-  animation: fade 0.2s ease-out;
+/* ---------- the kit shell, dressed as washi paper and ink ---------- */
+.k-shell { --k-radius: 20px; }
+.k-shell .k-title { background: radial-gradient(130% 60% at 50% 42%, rgba(4, 14, 16, 0.55), transparent 72%), linear-gradient(to bottom, rgba(4, 14, 16, 0.25), transparent 30%, transparent 62%, rgba(4, 14, 16, 0.6)); }
+.k-shell .k-title-h { font: 600 clamp(34px, 10vw, 64px)/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 190, 110, 0.25); padding-left: 0.12em; }
+.k-shell .k-title-head::before {
+  content: ""; width: 54px; height: 54px; border-radius: 12px; margin: 0 auto 4px;
+  background: radial-gradient(circle, transparent 5px, var(--seal-ink) 5.5px 7.5px, transparent 8px 12px, var(--seal-ink) 12.5px 14.5px, transparent 15px 19px, var(--seal-ink) 19.5px 21px, transparent 21.5px), var(--seal);
+  box-shadow: 0 6px 18px -6px rgba(207, 65, 40, 0.8), inset 0 0 0 2px rgba(255, 246, 232, 0.25); transform: rotate(-4deg);
 }
-.card {
-  width: min(360px, 100%);
-  max-height: 100%;
-  overflow: auto;
-  background: var(--card);
-  color: var(--ink);
-  border-radius: 24px;
-  padding: 26px 22px 22px;
-  display: grid;
-  gap: 14px;
-  text-align: center;
-  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.5);
-  animation: rise 0.36s cubic-bezier(.2, .9, .25, 1.15);
+.k-shell .k-kicker { color: rgba(243, 234, 215, 0.78); letter-spacing: 0.3em; }
+.k-shell .k-tagline { color: rgba(243, 234, 215, 0.86); font-weight: 600; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7); }
+.k-shell .k-best { color: rgba(243, 234, 215, 0.7); }
+.k-shell .k-title .k-btn.k-primary { border-radius: 18px; }
+.k-shell[data-panel=paper] .k-panel {
+  transform: none; border: 0; color: var(--paper-ink);
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(207, 65, 40, 0.08), transparent 50%),
+    repeating-linear-gradient(97deg, rgba(120, 96, 64, 0.035) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(-8deg, rgba(120, 96, 64, 0.03) 0 1px, transparent 1px 13px),
+    var(--paper);
+  box-shadow: inset 0 0 0 1px rgba(43, 33, 24, 0.18), inset 0 0 0 6px var(--paper), inset 0 0 0 7px rgba(43, 33, 24, 0.12), 0 30px 70px -24px rgba(0, 0, 0, 0.75);
 }
-.card h2 { margin: 0; font: 800 24px/1.15 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
-.card p { margin: 0; line-height: 1.5; }
-.eyebrow { font: 700 12px/1 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
-.big { font: 800 56px/1 var(--font-display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
-.ribbon {
-  justify-self: center;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: var(--lit);
-  color: #1C1405;
-  font: 700 12px/1 var(--font-body);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.k-shell[data-panel=paper] .k-panel::after {
+  content: ""; position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border-radius: 6px; transform: rotate(6deg);
+  background: radial-gradient(circle, transparent 3px, var(--seal-ink) 3.5px 4.5px, transparent 5px 7px, var(--seal-ink) 7.5px 8.5px, transparent 9px), var(--seal); opacity: 0.9;
 }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.stat { background: var(--plaster); border-radius: 14px; padding: 10px 4px; display: grid; gap: 6px; }
-.stat span { font: 700 10px/1.1 var(--font-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); }
-.stat b { font: 600 17px/1 var(--font-display); font-variant-numeric: tabular-nums; }
-.stack { display: grid; gap: 12px; }
-.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 2px; font-weight: 600; }
-.switch {
-  flex: none;
-  position: relative;
-  width: 52px;
-  height: 30px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--slot);
-  cursor: pointer;
-}
-.switch::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--card);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s;
-}
-.switch[aria-checked="true"] { background: var(--pad); }
-.switch[aria-checked="true"]::after { transform: translateX(22px); }
-.how { font-size: 14px; color: var(--ink-soft); text-align: left; }
-@keyframes fade { from { opacity: 0; } }
-@keyframes rise { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
-@media (prefers-reduced-motion: reduce) { .overlay, .card { animation: none; } }
-/* Key-art mode (tools/make-art.cjs): only the play surface, no controls or text, for the hub's card art. */
-.kiln-keyart .hud, .kiln-keyart .controls, .kiln-keyart .foot, .kiln-keyart .overlay { display: none !important; }
-.kiln-keyart #app { padding: 0 !important; max-width: none !important; }
+.k-shell[data-panel=paper] .k-btn { box-shadow: inset 0 0 0 1.5px rgba(43, 33, 24, 0.45); }
+.k-shell[data-panel=paper] .k-btn.k-primary { box-shadow: inset 0 0 0 2px rgba(255, 236, 214, 0.75), inset 0 0 0 4px var(--seal), inset 0 -4px 0 rgba(0, 0, 0, 0.2), 0 10px 22px -10px rgba(207, 65, 40, 0.9); }
+.k-shell[data-panel=paper] .k-btn.k-primary:active { transform: translateY(2px) scale(0.98); box-shadow: inset 0 0 0 2px rgba(255, 236, 214, 0.75), inset 0 0 0 4px var(--seal); }
+.k-shell .k-panel h2, .k-shell .k-score { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.02em; }
+.k-shell .k-stat { background: rgba(43, 33, 24, 0.07); }
+.k-shell .k-pausebtn { border-radius: 50%; background: radial-gradient(circle at 36% 30%, rgba(80, 90, 88, 0.85), rgba(26, 32, 33, 0.85) 70%); color: var(--ink); box-shadow: inset 0 0 0 1.5px rgba(243, 234, 215, 0.28), 0 6px 14px -6px rgba(0, 0, 0, 0.7); }
+.k-shell .k-toast { background: var(--paper); color: var(--paper-ink); }
+.kiln-keyart #controls { display: none !important; }
 </style>
 </head>
-<body>
-<div id="app">
-  <header class="hud">
-    <div class="best" title="Best score">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 4 5 6.5 5 10a5 5 0 0 1-10 0c0-3.5 2-6 5-10z"/></svg>
-      <span>Best</span> <b id="best">0</b>
-    </div>
-    <div class="score" id="score">0</div>
-    <button class="icon-btn" id="menuBtn" type="button" aria-label="Pause">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg>
-    </button>
-    <div class="status"><span id="pondLabel">Pond 1</span><span class="stones" id="stones" aria-label="Stones left"></span></div>
-    <div class="hint" id="hint"></div>
-  </header>
-  <main class="stage" id="stage">
-    <canvas id="pond" tabindex="0" aria-label="Pond. Tap to drop the first stone, tap again for the second, set the delay, then press Drop stones."></canvas>
-  </main>
-  <div class="controls">
-    <div class="delay">
-      <label for="delay"><span>Second stone waits</span><b id="delayVal">0.00 s</b></label>
-      <input type="range" id="delay" min="0" max="1000" step="1" value="0" disabled>
-    </div>
-    <button class="btn square ghost" id="clearBtn" type="button" aria-label="Pick up the stones" disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>
-    </button>
-    <button class="btn" id="dropBtn" type="button" disabled>Drop</button>
+<body class="cw-hide">
+<canvas id="pond" aria-label="The pond. Tap twice to place two stones, set how long the second waits, then press Drop."></canvas>
+<div id="controls" role="group" aria-label="Drop controls">
+  <button class="cw-round" id="clearBtn" type="button" aria-label="Pick up the stones" disabled>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>
+  </button>
+  <div class="wait">
+    <label for="delay"><span>Second stone waits</span><b id="delayVal">0.00 s</b></label>
+    <input type="range" id="delay" min="0" max="1000" step="1" value="0" disabled>
   </div>
-</div>
-
-<div class="overlay" id="pause" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
-    <h2 id="pauseTitle">Paused</h2>
-    <div class="stack">
-      <button class="btn" id="resumeBtn" type="button">Resume</button>
-      <button class="btn ghost" id="restartBtn" type="button">New run</button>
-      <button class="btn ghost" id="exitBtn" type="button" hidden>Back to games</button>
-      <div id="settingsBox">
-        <div class="row"><span id="sndLbl">Sound</span><button class="switch" id="sndSw" type="button" role="switch" aria-checked="true" aria-labelledby="sndLbl"></button></div>
-        <div class="row"><span id="vibLbl">Vibration</span><button class="switch" id="vibSw" type="button" role="switch" aria-checked="true" aria-labelledby="vibLbl"></button></div>
-      </div>
-      <p class="how">Tap the pond to place two stones. When you press Drop, each sends out a ripple. Where the two ripples cross, a spark runs across the water and lights every lantern it touches.</p>
-      <p class="how">Dropped together, the spark runs in a straight line halfway between the stones. Make the second stone wait and the line bends around it. A lit lantern ripples too: its sparks fly straight out, away from each stone.</p>
-      <p class="how">Every drop costs two stones. Light every lantern to clear the pond. Unused stones are worth 50 each.</p>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="over" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="overTitle">
-    <div class="eyebrow">Run over</div>
-    <h2 id="overTitle">Out of stones</h2>
-    <div class="ribbon" id="newBest" hidden>New best</div>
-    <div class="big" id="overScore">0</div>
-    <div class="stats">
-      <div class="stat"><span>Ponds</span><b id="overPonds">0</b></div>
-      <div class="stat"><span>Lanterns</span><b id="overLanterns">0</b></div>
-      <div class="stat"><span>Pair clears</span><b id="overPairs">0</b></div>
-    </div>
-    <button class="btn" id="againBtn" type="button">Play again</button>
-  </div>
+  <button id="dropBtn" type="button" disabled>Drop</button>
 </div>
 
 <script src="../../hub/sdk.js"></script>
+<script src="../../hub/kit.js"></script>
 <script>
 (() => {
   'use strict';
-  const kiln = Arcade.init({ id: 'crosswake', title: 'Crosswake', version: '0.1.0' });
+  Arcade.init({ id: 'crosswake', title: 'Crosswake', version: '1.0.0' });
+  const { gfx, fx } = Kit;
   const store = Arcade.store;
 
   /* ---------- rules (distances in pond units: the pond is 420 units wide) ---------- */
@@ -359,13 +168,13 @@ input[type="range"]:disabled { opacity: 0.4; }
   const LANTERN_R = 15;         // lantern hit radius
   const STONE_GAP = 34;         // minimum distance between the two stones
   const MAX_WAIT = 0.92;        // delay slider maximum, as a share of the time a ripple takes to cross between the stones
+  const WM = 20;                // open water beyond the play area, in units
+  const FALL = 0.2;             // seconds a stone takes to fall before it hits the water
 
-  const nf = new Intl.NumberFormat();
-  const fmt = n => nf.format(Math.round(n));
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const clamp = Kit.clamp;
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  const easeOutBack = t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const TAU = Math.PI * 2;
+  const reduced = () => Kit.reducedMotion;
   function mulberry32(a) {
     return () => {
       a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -411,7 +220,7 @@ input[type="range"]:disabled { opacity: 0.4; }
   // Runs one drop: returns the ripples and the lanterns it lights, in order.
   function simulate(stones, lanterns, litBefore) {
     const rings = stones.map(s => ({ x: s.x, y: s.y, t: s.t, R: R_STONE, depth: 0, parents: null }));
-    const lit = new Map(); // lantern index -> event
+    const lit = new Map();
     const queue = [];
     const consider = (a, b) => {
       lanterns.forEach((L, i) => {
@@ -474,7 +283,6 @@ input[type="range"]:disabled { opacity: 0.4; }
             if (freeSpot(q) && mine.every(m => dist(m, q) > LANTERN_R * 2.9)) mine.push({ x: q.x, y: q.y });
           }
           if (mine.length < 3) continue;
-          // Lanterns on a chain ray: straight out from a stone through a lit lantern.
           const chain = teach === 3 || (!teach && n >= 4 && rng() < 0.55);
           const extra = [];
           if (chain) {
@@ -495,7 +303,6 @@ input[type="range"]:disabled { opacity: 0.4; }
         if (!placed) break;
       }
       if (solution.length < pairs) continue;
-      // Keep only lanterns the hidden solution really lights.
       const lit = new Set();
       for (const s of solution) simulate([{ x: s.A.x, y: s.A.y, t: 0 }, { x: s.B.x, y: s.B.y, t: s.delay }], lanterns, lit).events.forEach(e => lit.add(e.i));
       const kept = lanterns.filter((_, i) => lit.has(i));
@@ -511,164 +318,491 @@ input[type="range"]:disabled { opacity: 0.4; }
     return pads;
   }
 
-  /* ---------- DOM, theme, layout ---------- */
+  /* ---------- view and layout ---------- */
   const $ = id => document.getElementById(id);
-  const stage = $('stage'), cv = $('pond'), ctx = cv.getContext('2d');
-  const scoreEl = $('score'), bestEl = $('best'), hintEl = $('hint'), stonesEl = $('stones'), pondLabel = $('pondLabel');
+  const canvas = $('pond');
+  const view = Kit.view(canvas, { alpha: false });
+  const ctx = view.ctx;
   const delayEl = $('delay'), delayVal = $('delayVal'), dropBtn = $('dropBtn'), clearBtn = $('clearBtn');
-  const pauseEl = $('pause'), overEl = $('over');
-  let T = {};
-  function readTheme() {
-    const cs = getComputedStyle(document.documentElement);
-    const v = n => cs.getPropertyValue(n).trim();
-    T = {
-      plaster: v('--plaster'), card: v('--card'), ink: v('--ink'), inkSoft: v('--ink-soft'), accent: v('--accent'),
-      water1: v('--water-1'), water2: v('--water-2'), ripple: v('--ripple'), paper: v('--paper'),
-      lit: v('--lit'), lit2: v('--lit-2'), stone: v('--stone'), spark: v('--spark'), pad: v('--pad'),
-    };
-    bg = null;
-  }
-  function hex(h) { h = (h || '#888').replace('#', ''); if (h.length === 3) h = h.split('').map(x => x + x).join(''); const n = parseInt(h, 16) || 0; return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-  const rgba = (h, a) => { const c = hex(h); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; };
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+  document.body.appendChild(probe);
 
-  let W = 1, H = 1, dpr = 1, S = 1, OX = 0, OY = 0, pondH = PW * 1.3, bg = null;
-  function layout() {
-    const r = stage.getBoundingClientRect();
-    W = Math.max(1, r.width); H = Math.max(1, r.height);
-    dpr = Math.min(2.5, window.devicePixelRatio || 1);
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    // The pond keeps its own shape (set when it is generated); fit it into the stage.
-    S = Math.min(W / PW, H / pondH);
-    OX = (W - PW * S) / 2; OY = (H - pondH * S) / 2;
-    bg = null;
-    requestRender();
+  let W = 1, H = 1, S = 1, OX = 0, OY = 0, pondH = PW * 1.4;
+  let safe = { t: 0, r: 0, b: 0, l: 0 }, area = { x: 0, y: 0, w: 1, h: 1 }, hud = { h: 64, hintY: 80, x0: 16 };
+  let bg = null, waterPath = null, shore = null;
+  function measure() {
+    W = Math.max(1, view.w); H = Math.max(1, view.h);
+    const cs = getComputedStyle(probe);
+    safe = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+    const short = H < 650;
+    hud.h = short ? 54 : 62;
+    hud.hintY = safe.t + hud.h + (short ? 12 : 16);
+    hud.x0 = Math.max(16 + safe.l, W / 2 - 320);
+    const top = Kit.keyart ? 22 : safe.t + hud.h + (short ? 36 : 46);
+    const bot = Kit.keyart ? 22 : safe.b + (short ? 72 : 82) + (short ? 22 : 30);
+    area = { x: 12 + safe.l, y: top, w: Math.max(40, W - 24 - safe.l - safe.r), h: Math.max(40, H - top - bot) };
   }
-  const toPond = (x, y) => ({ x: (x - OX) / S, y: (y - OY) / S });
+  function fit() {
+    S = Math.min(area.w / PW, area.h / pondH);
+    OX = area.x + (area.w - PW * S) / 2;
+    OY = area.y + (area.h - pondH * S) / 2;
+    bg = null;
+  }
+  function layout() { measure(); fit(); }
+  function pondHeightFor() {
+    measure();
+    const ratio = area.w > 0 ? area.h / area.w : 1.4;
+    return clamp(PW * ratio, Kit.keyart ? PW * 0.5 : PW * 1.0, PW * 1.9);
+  }
   const sx = x => OX + x * S, sy = y => OY + y * S;
+  const toPond = (x, y) => ({ x: (x - OX) / S, y: (y - OY) / S });
+
+  /* ---------- palette ---------- */
+  const C = {
+    water0: '#1B5653', water1: '#103E41', water2: '#082429',
+    gravel0: '#5A6262', gravel1: '#454D4F',
+    moss0: '#24402A', moss1: '#36592F', moss2: '#5C8A3C',
+    lit: '#FFC765', lit2: '#FF7A4D', spark: '#FFD37A', ripple: '#CDEFE6',
+    ink: '#F3EAD7', paper: '#F1E7D3', paperInk: '#2A2019', seal: '#CF4128',
+    maple: ['#7A2216', '#9C2E1B', '#B9361F', '#D04A25', '#E2673A', '#EE8C47'],
+  };
+
+  /* ---------- the pond's shoreline (pond units), built per pond ---------- */
+  function rrPoints(x, y, w, h, R, step) {
+    const pts = [];
+    const seg = (ax, ay, bx, by, nx, ny) => {
+      const n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / step));
+      for (let i = 0; i < n; i++) { const t = i / n; pts.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t, nx, ny }); }
+    };
+    const arc = (cx, cy, a0) => {
+      const n = Math.max(2, Math.round((R * Math.PI) / 2 / step));
+      for (let i = 0; i < n; i++) { const a = a0 + (i / n) * Math.PI / 2; pts.push({ x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, nx: Math.cos(a), ny: Math.sin(a) }); }
+    };
+    seg(x + R, y, x + w - R, y, 0, -1); arc(x + w - R, y + R, -Math.PI / 2);
+    seg(x + w, y + R, x + w, y + h - R, 1, 0); arc(x + w - R, y + h - R, 0);
+    seg(x + w - R, y + h, x + R, y + h, 0, 1); arc(x + R, y + h - R, Math.PI / 2);
+    seg(x, y + h - R, x, y + R, -1, 0); arc(x + R, y + R, Math.PI);
+    return pts;
+  }
+  function smoothPath(pts, close = true) {
+    const p = new Path2D();
+    const n = pts.length;
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const m0 = mid(pts[n - 1], pts[0]);
+    p.moveTo(m0.x, m0.y);
+    for (let i = 0; i < n; i++) { const a = pts[i], m = mid(a, pts[(i + 1) % n]); p.quadraticCurveTo(a.x, a.y, m.x, m.y); }
+    if (close) p.closePath();
+    return p;
+  }
+  function buildShore() {
+    const rng = mulberry32(((P ? P.seed : 7) * 31 + 11) >>> 0);
+    const base = rrPoints(-WM, -WM, PW + 2 * WM, pondH + 2 * WM, 46, 9);
+    const N = base.length, p1 = rng() * TAU, p2 = rng() * TAU, p3 = rng() * TAU;
+    const pts = base.map((q, i) => {
+      const u = (i / N) * TAU;
+      const off = Math.max(0, 4.5 + 2.6 * Math.sin(u * 3 + p1) + 1.8 * Math.sin(u * 7 + p2) + 1.1 * Math.sin(u * 13 + p3));
+      return { x: q.x + q.nx * off, y: q.y + q.ny * off, nx: q.nx, ny: q.ny };
+    });
+    waterPath = smoothPath(pts);
+    const rocks = [], moss = [], pebbles = [];
+    let acc = rng() * 30;
+    for (let i = 0; i < N; i++) {
+      const q = pts[i];
+      acc += 9;
+      if (acc > 30 + rng() * 34) {
+        acc = 0;
+        if (rng() < 0.8) {
+          const r = 8 + rng() * 13;
+          rocks.push({ x: q.x + q.nx * (r * 0.5 + 1), y: q.y + q.ny * (r * 0.5 + 1), r, seed: (rng() * 1e9) | 0, moss: rng() < 0.45 });
+        }
+      }
+      if (i % 2 === 0) moss.push({ x: q.x + q.nx * (6 + rng() * 14), y: q.y + q.ny * (6 + rng() * 14), r: 9 + rng() * 15, c: rng() });
+      if (rng() < 0.18) pebbles.push({ x: q.x - q.nx * (4 + rng() * 22), y: q.y - q.ny * (4 + rng() * 22), r: 1.8 + rng() * 3.2, c: rng() });
+    }
+    // Decorative lily pads (the pond's own three plus a few more), kept clear of the lanterns.
+    const pads = [];
+    const padRng = mulberry32(((P ? P.seed : 3) ^ 0x2f6b) >>> 0);
+    const want = 6 + ((padRng() * 3) | 0);
+    for (let k = 0; k < 60 && pads.length < want; k++) {
+      const p = k < 3 && P && P.pads[k] ? { x: P.pads[k].x, y: P.pads[k].y, r: P.pads[k].r, a: P.pads[k].a } : { x: padRng() * PW, y: padRng() * pondH, r: 11 + padRng() * 13, a: padRng() * TAU };
+      p.flower = padRng() < 0.3;
+      p.ph = padRng() * TAU;
+      if (P && P.lanterns.some(L => dist(L, p) < p.r + 22)) continue;
+      if (pads.some(o => dist(o, p) < o.r + p.r + 6)) continue;
+      pads.push(p);
+    }
+    // Pebbles on the pond floor, seen through the water.
+    const floor = [];
+    for (let k = 0; k < 26; k++) floor.push({ x: rng() * PW, y: rng() * pondH, r: 3 + rng() * 7, a: rng() * TAU });
+    shore = { pts, rocks, moss, pebbles, pads, floor };
+    bg = null;
+  }
+
+  /* ---------- painters ---------- */
+  function maplePath(g, r) {
+    const R = [[0, -1], [0.14, -0.6], [0.55, -0.78], [0.38, -0.3], [0.92, -0.2], [0.52, 0.1], [0.66, 0.45], [0.18, 0.28], [0.06, 0.5], [0.025, 0.95]];
+    g.beginPath();
+    R.forEach(([x, y], i) => (i ? g.lineTo(x * r, y * r) : g.moveTo(x * r, y * r)));
+    for (let i = R.length - 1; i >= 1; i--) g.lineTo(-R[i][0] * r, R[i][1] * r);
+    g.closePath();
+  }
+  function rockShape(g, r, seed) {
+    const rr = mulberry32(seed);
+    const n = 9, pts = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * TAU; const k = 0.78 + rr() * 0.3; pts.push({ x: Math.cos(a) * r * k * 1.08, y: Math.sin(a) * r * k * 0.9 }); }
+    return smoothPath(pts);
+  }
+  function paintRock(g, x, y, r, seed, mossy, sc) {
+    const path = rockShape(g, r, seed);
+    g.save();
+    g.translate(x, y);
+    // cast shadow (soft, layered)
+    for (let k = 3; k >= 1; k--) {
+      g.save(); g.translate(r * 0.18 * k, r * 0.26 * k); g.globalAlpha = 0.16; g.fillStyle = '#020A0C'; g.fill(path); g.restore();
+    }
+    const grd = g.createLinearGradient(-r, -r, r, r);
+    grd.addColorStop(0, '#9AA39E'); grd.addColorStop(0.45, '#69726E'); grd.addColorStop(1, '#2E3534');
+    g.fillStyle = grd; g.fill(path);
+    g.save(); g.clip(path);
+    g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.ellipse(-r * 0.3, -r * 0.35, r * 0.55, r * 0.35, -0.5, 0, TAU); g.fill();
+    const rr = mulberry32(seed + 5);
+    g.fillStyle = 'rgba(20,26,26,0.25)';
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.arc((rr() - 0.5) * r * 1.4, (rr() - 0.5) * r * 1.2, 0.6 + rr() * 1.4 / (sc || 1), 0, TAU); g.fill(); }
+    if (mossy) {
+      g.fillStyle = C.moss1; g.globalAlpha = 0.9;
+      g.beginPath(); g.ellipse(-r * 0.35, -r * 0.45, r * 0.7, r * 0.42, -0.4, 0, TAU); g.fill();
+      g.fillStyle = C.moss2; g.globalAlpha = 0.55;
+      g.beginPath(); g.ellipse(-r * 0.45, -r * 0.55, r * 0.38, r * 0.2, -0.4, 0, TAU); g.fill();
+      g.globalAlpha = 1;
+    }
+    g.restore();
+    g.strokeStyle = 'rgba(210,225,220,0.22)'; g.lineWidth = 1.2 / (sc || 1);
+    g.stroke(path);
+    g.restore();
+  }
+  function paintMoss(g, x, y, r, c) {
+    const grd = g.createRadialGradient(x - r * 0.2, y - r * 0.2, 0, x, y, r);
+    grd.addColorStop(0, c > 0.5 ? '#4B7536' : '#3D6431');
+    grd.addColorStop(0.7, C.moss0);
+    grd.addColorStop(1, 'rgba(36,64,42,0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  }
+  function rakeRings(g, cx, cy, rx, ry, from, count, gap, round) {
+    for (let k = 0; k < count; k++) {
+      const o = from + k * gap;
+      for (const [col, d] of [['rgba(8,14,16,0.26)', 1.4], ['rgba(225,235,230,0.11)', 0]]) {
+        g.strokeStyle = col; g.lineWidth = 1.3;
+        g.beginPath();
+        if (round) g.ellipse(cx, cy + d, rx + o, ry + o, 0, 0, TAU);
+        else gfx.roundRect(g, cx - rx - o, cy - ry - o + d, (rx + o) * 2, (ry + o) * 2, Math.min(rx, ry, 60) * 0.0 + 40 + o);
+        g.stroke();
+      }
+    }
+  }
+  function gravelFill(g, x, y, w, h) {
+    const grd = g.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, C.gravel0); grd.addColorStop(1, C.gravel1);
+    g.fillStyle = grd; g.fillRect(x, y, w, h);
+    g.fillStyle = g.createPattern(gfx.noiseTexture(128, 128, { seed: 4, alpha: 0.28, color: '#0b1112' }), 'repeat'); g.fillRect(x, y, w, h);
+    g.fillStyle = g.createPattern(gfx.noiseTexture(96, 96, { seed: 9, alpha: 0.1, color: '#ffffff' }), 'repeat'); g.fillRect(x, y, w, h);
+  }
+
+  // Garden spots for the margins (screen px), placed once per layout.
+  let garden = null;
+  function planGarden() {
+    const rng = mulberry32(1234 + Math.round(W) * 7 + Math.round(H));
+    const wx0 = sx(-WM), wy0 = sy(-WM), wx1 = sx(PW + WM), wy1 = sy(pondH + WM);
+    const rocks = [];
+    const u = clamp(Math.min(W, H) / 420, 0.8, 1.5);
+    for (let k = 0; k < 120 && rocks.length < 9; k++) {
+      const r = (16 + rng() * 26) * u;
+      const x = rng() * W, y = rng() * H;
+      const dx = Math.max(wx0 - x, 0, x - wx1), dy = Math.max(wy0 - y, 0, y - wy1);
+      if (Math.hypot(dx, dy) < r + 46) continue;
+      if (rocks.some(o => Math.hypot(o.x - x, o.y - y) < o.r + r + 60)) continue;
+      rocks.push({ x, y, r, seed: (rng() * 1e9) | 0, moss: rng() < 0.6 });
+    }
+    // The stone lantern (toro) stands on the bank at a corner of the pond.
+    const wide = W > H * 1.05;
+    const toro = wide ? { x: wx0 - 46 * u, y: wy0 + (wy1 - wy0) * 0.22 } : { x: Math.max(28 * u, wx0 + 18 * u), y: Math.max(safe.t + hud.h + 8, wy0 + 2) };
+    toro.r = 21 * u;
+    garden = { rocks, toro, u, wide };
+  }
 
   function buildBg() {
-    const c = document.createElement('canvas');
-    c.width = Math.max(2, Math.round(W * dpr)); c.height = Math.max(2, Math.round(H * dpr));
+    planGarden();
+    const dpr = view.dpr || 1;
+    const c = gfx.offscreen(W * dpr, H * dpr);
     const g = c.getContext('2d');
     g.scale(dpr, dpr);
-    const x0 = sx(0), y0 = sy(0), w = PW * S, h = pondH * S, rad = 26 * S;
-    const grd = g.createRadialGradient(x0 + w / 2, y0 + h * 0.42, 10, x0 + w / 2, y0 + h / 2, Math.max(w, h) * 0.7);
-    grd.addColorStop(0, T.water1);
-    grd.addColorStop(1, T.water2);
-    g.fillStyle = grd;
-    round(g, x0, y0, w, h, rad);
-    g.fill();
-    // ink-wash grain
-    g.save();
-    round(g, x0, y0, w, h, rad);
-    g.clip();
-    const rng = mulberry32(31);
-    g.strokeStyle = rgba(T.ripple, 0.05);
-    g.lineWidth = 1.2 * S;
-    for (let i = 0; i < 26; i++) {
-      const yy = y0 + rng() * h, xx = x0 + rng() * w, len = (40 + rng() * 120) * S;
-      g.beginPath(); g.moveTo(xx, yy); g.quadraticCurveTo(xx + len / 2, yy - 3 * S, xx + len, yy); g.stroke();
+    const u = garden.u;
+    // Raked gravel: straight furrows everywhere...
+    gravelFill(g, 0, 0, W, H);
+    for (let y = 3; y < H; y += 7) {
+      for (const [col, d] of [['rgba(8,14,16,0.24)', 1.4], ['rgba(225,235,230,0.10)', 0]]) {
+        g.strokeStyle = col; g.lineWidth = 1.3;
+        g.beginPath();
+        for (let x = 0; x <= W; x += 24) { const yy = y + d + Math.sin(x * 0.012 + y * 0.05) * 0.8; x ? g.lineTo(x, yy) : g.moveTo(x, yy); }
+        g.stroke();
+      }
     }
-    if (P) for (const p of P.pads) drawPad(g, sx(p.x), sy(p.y), p.r * S, p.a);
+    // ...then circles raked around the pond and around each garden rock.
+    const wx0 = sx(-WM), wy0 = sy(-WM), wx1 = sx(PW + WM), wy1 = sy(pondH + WM);
+    const cx = (wx0 + wx1) / 2, cy = (wy0 + wy1) / 2, rx = (wx1 - wx0) / 2, ry = (wy1 - wy0) / 2;
+    g.save();
+    g.beginPath(); gfx.roundRect(g, cx - rx - 70, cy - ry - 70, (rx + 70) * 2, (ry + 70) * 2, 110); g.clip();
+    gravelFill(g, 0, 0, W, H);
+    g.restore();
+    rakeRings(g, cx, cy, rx, ry, 12, 9, 7, false);
+    for (const r of garden.rocks) {
+      g.save(); g.beginPath(); g.ellipse(r.x, r.y, r.r * 1.1 + 34, r.r * 0.9 + 34, 0, 0, TAU); g.clip();
+      gravelFill(g, 0, 0, W, H); g.restore();
+      rakeRings(g, r.x, r.y, r.r * 1.1, r.r * 0.9, 8, 5, 6.5, true);
+    }
+    for (const r of garden.rocks) {
+      if (r.moss) for (let k = 0; k < 4; k++) paintMoss(g, r.x + Math.cos(k * 1.7 + r.seed) * r.r, r.y + Math.sin(k * 1.7 + r.seed) * r.r * 0.8 + 4, r.r * 0.55, k / 4);
+      paintRock(g, r.x, r.y, r.r, r.seed, r.moss, 1);
+    }
+    // Pond space: moss bank, water, floor, shoreline rocks.
+    g.save();
+    g.translate(OX, OY); g.scale(S, S);
+    for (const m of shore.moss) paintMoss(g, m.x, m.y, m.r, m.c);
+    // dark wet rim just outside the water
+    g.strokeStyle = 'rgba(6,16,16,0.55)'; g.lineWidth = 7; g.stroke(waterPath);
+    g.save();
+    g.clip(waterPath);
+    const deep = g.createRadialGradient(PW * 0.48, pondH * 0.46, 10, PW / 2, pondH / 2, Math.max(PW, pondH) * 0.72);
+    deep.addColorStop(0, C.water0); deep.addColorStop(0.55, C.water1); deep.addColorStop(1, C.water2);
+    g.fillStyle = deep; g.fillRect(-WM - 20, -WM - 20, PW + 2 * WM + 40, pondH + 2 * WM + 40);
+    // pebbles on the pond floor
+    for (const p of shore.floor) { g.fillStyle = 'rgba(150,185,170,0.07)'; g.beginPath(); g.ellipse(p.x, p.y, p.r, p.r * 0.7, p.a, 0, TAU); g.fill(); }
+    for (const p of shore.pebbles) { g.fillStyle = p.c > 0.5 ? 'rgba(170,190,175,0.16)' : 'rgba(110,130,120,0.18)'; g.beginPath(); g.ellipse(p.x, p.y, p.r, p.r * 0.75, p.c * 3, 0, TAU); g.fill(); }
+    // dusk sky reflected on the surface: warm from the upper left, cool to the lower right
+    const sky = g.createLinearGradient(0, 0, PW, pondH);
+    sky.addColorStop(0, 'rgba(255,168,118,0.16)'); sky.addColorStop(0.35, 'rgba(255,190,150,0.04)');
+    sky.addColorStop(0.6, 'rgba(120,150,220,0.0)'); sky.addColorStop(1, 'rgba(110,130,230,0.10)');
+    g.fillStyle = sky; g.fillRect(-WM - 20, -WM - 20, PW + 2 * WM + 40, pondH + 2 * WM + 40);
+    // the moon's reflection
+    const mx = PW * 0.74, my = pondH * 0.17;
+    const moon = g.createRadialGradient(mx, my, 0, mx, my, 70);
+    moon.addColorStop(0, 'rgba(230,240,235,0.30)'); moon.addColorStop(0.18, 'rgba(220,235,232,0.20)'); moon.addColorStop(0.2, 'rgba(200,225,222,0.08)'); moon.addColorStop(1, 'rgba(200,225,222,0)');
+    g.fillStyle = moon; g.beginPath(); g.arc(mx, my, 70, 0, TAU); g.fill();
+    // depth: the water darkens under the bank
+    for (let k = 6; k >= 0; k--) { g.strokeStyle = `rgba(2,12,14,${0.075})`; g.lineWidth = 8 + k * 9; g.stroke(waterPath); }
+    g.restore();
+    g.strokeStyle = 'rgba(205,239,230,0.14)'; g.lineWidth = 1.4; g.stroke(waterPath);
+    for (const r of shore.rocks) paintRock(g, r.x, r.y, r.r, r.seed, r.moss, S);
+    g.restore();
+    // The stone lantern: a hexagonal roof seen from above, light leaking from its fire box.
+    const t = garden.toro, tr = t.r;
+    g.save(); g.translate(t.x, t.y);
+    for (let k = 3; k >= 1; k--) { g.save(); g.translate(k * 3, k * 4.5); g.globalAlpha = 0.16; g.fillStyle = '#020A0C'; hexPath(g, tr * 1.05); g.fill(); g.restore(); }
+    const rg = g.createLinearGradient(-tr, -tr, tr, tr); rg.addColorStop(0, '#9AA39C'); rg.addColorStop(1, '#3B4240');
+    g.fillStyle = rg; hexPath(g, tr); g.fill();
+    g.strokeStyle = 'rgba(20,26,26,0.45)'; g.lineWidth = 1.2;
+    for (let k = 0; k < 6; k++) { const a = k * TAU / 6 - Math.PI / 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * tr, Math.sin(a) * tr); g.stroke(); }
+    g.fillStyle = C.moss1; g.globalAlpha = 0.7; g.beginPath(); g.ellipse(-tr * 0.4, -tr * 0.3, tr * 0.45, tr * 0.25, -0.6, 0, TAU); g.fill(); g.globalAlpha = 1;
+    g.fillStyle = '#7E8782'; g.beginPath(); g.arc(0, 0, tr * 0.26, 0, TAU); g.fill();
+    g.fillStyle = '#B9C0BA'; g.beginPath(); g.arc(-tr * 0.06, -tr * 0.08, tr * 0.12, 0, TAU); g.fill();
     g.restore();
     bg = c;
   }
-  function drawPad(g, x, y, r, a) {
-    g.fillStyle = rgba(T.pad, 0.55);
+  function hexPath(g, r) {
     g.beginPath();
-    g.moveTo(x, y);
-    g.arc(x, y, r, a + 0.35, a + Math.PI * 2 - 0.35);
+    for (let k = 0; k < 6; k++) {
+      const a = k * TAU / 6 - Math.PI / 2, a2 = (k + 0.5) * TAU / 6 - Math.PI / 2;
+      const x = Math.cos(a) * r * 1.08, y = Math.sin(a) * r * 1.08;
+      k ? g.lineTo(x, y) : g.moveTo(x, y);
+      g.quadraticCurveTo(Math.cos(a2) * r * 0.8, Math.sin(a2) * r * 0.8, Math.cos(a + TAU / 6) * r * 1.08, Math.sin(a + TAU / 6) * r * 1.08);
+    }
     g.closePath();
-    g.fill();
-    g.strokeStyle = rgba(T.pad, 0.8);
-    g.lineWidth = 1;
-    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a + Math.PI) * r * 0.8, y + Math.sin(a + Math.PI) * r * 0.8); g.stroke();
   }
-  function round(g, x, y, w, h, r) {
-    g.beginPath();
-    if (g.roundRect) { g.roundRect(x, y, w, h, r); return; }
-    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+
+  // Sprites (CSS px, cached at the view's DPR).
+  const LAN = 30; // lantern sprite size in units
+  function lanternSprite(kind, px) {
+    px = Math.max(12, Math.round(px));
+    return gfx.sprite(`cw-lan-${kind}-${px}`, px, px, (g, w) => {
+      const u = w / 30, c = w / 2;
+      g.translate(c, c);
+      // wooden raft
+      g.fillStyle = '#2B1C12';
+      gfx.roundRect(g, -11 * u, -9 * u, 22 * u, 21 * u, 3 * u).fill();
+      g.fillStyle = '#4A3020';
+      gfx.roundRect(g, -10.5 * u, -9.5 * u, 21 * u, 19 * u, 3 * u).fill();
+      // paper box: the near face (a strip) and the top face
+      const lit = kind !== 'off';
+      const deep = kind === 'chain';
+      const face = g.createLinearGradient(0, 2 * u, 0, 10 * u);
+      if (lit) { face.addColorStop(0, deep ? '#FF9A63' : '#FFD27A'); face.addColorStop(1, deep ? '#C8331F' : '#E8862A'); }
+      else { face.addColorStop(0, '#D7CDB6'); face.addColorStop(1, '#A39780'); }
+      g.fillStyle = face;
+      gfx.roundRect(g, -8 * u, 0, 16 * u, 9.5 * u, 1.5 * u).fill();
+      const top = g.createRadialGradient(0, -3 * u, 0, 0, -3 * u, 10 * u);
+      if (lit) { top.addColorStop(0, '#FFFBEA'); top.addColorStop(0.45, deep ? '#FFB27A' : '#FFE29A'); top.addColorStop(1, deep ? '#F0643A' : '#F5A740'); }
+      else { top.addColorStop(0, '#F2EBDA'); top.addColorStop(1, '#C9BEA6'); }
+      g.fillStyle = top;
+      gfx.roundRect(g, -8 * u, -10 * u, 16 * u, 12 * u, 1.5 * u).fill();
+      // frame
+      g.strokeStyle = lit ? 'rgba(90,40,10,0.55)' : 'rgba(60,44,30,0.7)';
+      g.lineWidth = 1.1 * u;
+      gfx.roundRect(g, -8 * u, -10 * u, 16 * u, 19.5 * u, 1.5 * u).stroke();
+      g.beginPath(); g.moveTo(-8 * u, 2 * u); g.lineTo(8 * u, 2 * u); g.stroke();
+      // opening and wick
+      g.fillStyle = lit ? '#FFFFFF' : '#5B4A38';
+      g.beginPath(); g.arc(0, -4 * u, lit ? 2.2 * u : 2.4 * u, 0, TAU); g.fill();
+      // a brush mark on the near face
+      g.strokeStyle = lit ? 'rgba(150,30,10,0.55)' : 'rgba(170,50,30,0.65)';
+      g.lineWidth = 1.4 * u; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-2.5 * u, 4 * u); g.quadraticCurveTo(0, 6.5 * u, 2.8 * u, 4.5 * u); g.stroke();
+    });
+  }
+  function stoneSprite(px, mark) {
+    px = Math.max(10, Math.round(px));
+    return gfx.sprite(`cw-stone-${mark}-${px}`, px, px, (g, w) => {
+      const c = w / 2, r = w * 0.42;
+      const grd = g.createRadialGradient(c - r * 0.35, c - r * 0.4, r * 0.1, c, c, r * 1.1);
+      grd.addColorStop(0, '#A9B2AE'); grd.addColorStop(0.35, '#5E6866'); grd.addColorStop(1, '#22292A');
+      g.fillStyle = grd;
+      g.beginPath(); g.ellipse(c, c, r, r * 0.84, -0.25, 0, TAU); g.fill();
+      g.strokeStyle = 'rgba(220,235,230,0.25)'; g.lineWidth = Math.max(1, w / 30);
+      g.beginPath(); g.ellipse(c, c, r, r * 0.84, -0.25, Math.PI * 1.05, Math.PI * 1.7); g.stroke();
+      g.fillStyle = 'rgba(255,248,232,0.92)';
+      const d = w * 0.06;
+      if (mark === 1) { g.beginPath(); g.arc(c, c, d, 0, TAU); g.fill(); }
+      if (mark === 2) { g.beginPath(); g.arc(c - d * 1.7, c, d, 0, TAU); g.arc(c + d * 1.7, c, d, 0, TAU); g.fill(); }
+    });
+  }
+  function padSprite(px, flower) {
+    px = Math.max(10, Math.round(px));
+    return gfx.sprite(`cw-pad-${flower ? 1 : 0}-${px}`, px, px, (g, w) => {
+      const c = w / 2, r = w * 0.4;
+      g.fillStyle = 'rgba(2,12,14,0.35)';
+      g.beginPath(); g.ellipse(c + r * 0.12, c + r * 0.18, r, r * 0.95, 0, 0.35, TAU - 0.35); g.lineTo(c + r * 0.12, c + r * 0.18); g.fill();
+      const grd = g.createRadialGradient(c - r * 0.3, c - r * 0.3, 0, c, c, r);
+      grd.addColorStop(0, '#5E9446'); grd.addColorStop(0.7, '#37683A'); grd.addColorStop(1, '#244A2C');
+      g.fillStyle = grd;
+      g.beginPath(); g.moveTo(c, c); g.arc(c, c, r, 0.3, TAU - 0.3); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(160,210,140,0.28)'; g.lineWidth = Math.max(0.8, w / 50);
+      for (let k = 0; k < 7; k++) { const a = 0.6 + k * (TAU - 1.2) / 6; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(a) * r * 0.9, c + Math.sin(a) * r * 0.9); g.stroke(); }
+      g.strokeStyle = 'rgba(20,45,25,0.6)'; g.beginPath(); g.arc(c, c, r, 0.3, TAU - 0.3); g.stroke();
+      if (flower) {
+        const fx0 = c - r * 0.2, fy0 = c - r * 0.15, fr = r * 0.55;
+        for (let k = 0; k < 8; k++) {
+          const a = k * TAU / 8;
+          g.save(); g.translate(fx0, fy0); g.rotate(a);
+          const pg = g.createLinearGradient(0, 0, fr, 0); pg.addColorStop(0, '#FBE4EA'); pg.addColorStop(1, '#E58AA3');
+          g.fillStyle = pg; g.beginPath(); g.ellipse(fr * 0.5, 0, fr * 0.5, fr * 0.22, 0, 0, TAU); g.fill();
+          g.restore();
+        }
+        g.fillStyle = '#F7D36A'; g.beginPath(); g.arc(fx0, fy0, fr * 0.22, 0, TAU); g.fill();
+      }
+    });
+  }
+  function leafSprite(px, ci) {
+    px = Math.max(6, Math.round(px));
+    return gfx.sprite(`cw-leaf-${ci}-${px}`, px, px, (g, w) => {
+      g.translate(w / 2, w / 2);
+      g.fillStyle = C.maple[ci];
+      maplePath(g, w * 0.46); g.fill();
+      g.strokeStyle = 'rgba(60,10,5,0.45)'; g.lineWidth = Math.max(0.6, w / 24);
+      g.beginPath(); g.moveTo(0, w * 0.42); g.lineTo(0, -w * 0.4); g.moveTo(0, 0); g.lineTo(w * 0.36, -w * 0.12); g.moveTo(0, 0); g.lineTo(-w * 0.36, -w * 0.12); g.stroke();
+    });
+  }
+  // The maple canopy that overhangs a corner, painted once (for the top-left corner; mirrored for others).
+  function canopySprite(w, h, shadow) {
+    w = Math.round(w); h = Math.round(h);
+    return gfx.sprite(`cw-canopy-${shadow ? 's' : 'c'}-${w}x${h}`, w, h, g => {
+      const rng = mulberry32(77);
+      if (shadow && 'filter' in g) g.filter = 'blur(5px)';
+      const br = t => ({ x: -10 + t * w * 0.78, y: h * 0.1 + Math.sin(t * 2.4) * h * 0.22 + t * h * 0.32 });
+      if (!shadow) {
+        g.strokeStyle = '#24160F'; g.lineCap = 'round';
+        for (let k = 0; k < 2; k++) {
+          g.lineWidth = k ? 3 : 8;
+          g.beginPath();
+          for (let i = 0; i <= 20; i++) { const p = br(i / 20 * (k ? 1 : 0.8)); i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); }
+          g.stroke();
+        }
+      }
+      for (let i = 0; i < 130; i++) {
+        const t = Math.pow(rng(), 0.8), p = br(t);
+        const spread = (1 - t * 0.5) * Math.min(w, h) * 0.32;
+        const x = p.x + (rng() - 0.5) * spread * 2, y = p.y + (rng() - 0.5) * spread * 1.6;
+        const s = (8 + rng() * 9) * (w / 260);
+        const ci = i < 55 ? (rng() * 2) | 0 : 2 + ((rng() * 4) | 0);
+        g.save(); g.translate(x, y); g.rotate(rng() * TAU);
+        g.fillStyle = shadow ? '#000' : C.maple[ci];
+        maplePath(g, s); g.fill();
+        if (!shadow && ci >= 2) { g.fillStyle = 'rgba(255,215,160,0.16)'; g.beginPath(); g.ellipse(-s * 0.15, -s * 0.3, s * 0.35, s * 0.2, 0, 0, TAU); g.fill(); }
+        g.restore();
+      }
+    });
   }
 
   /* ---------- sound ---------- */
-  const settings = { sound: kiln.settings.sound, vib: kiln.settings.vibration };
-  const Sound = {
-    ctx: null, master: null, noise: null,
-    unlock() {
-      if (!settings.sound) return;
-      try {
-        if (!this.ctx) {
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (!AC) return;
-          this.ctx = new AC();
-          this.master = this.ctx.createGain(); this.master.gain.value = 0.5; this.master.connect(this.ctx.destination);
-          const len = (this.ctx.sampleRate * 0.4) | 0;
-          this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-          const d = this.noise.getChannelData(0);
-          for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-        }
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-      } catch (e) { /* no audio */ }
-    },
-    ok() { return settings.sound && this.ctx && this.ctx.state === 'running'; },
-    tone(f, dur, { type = 'sine', vol = 0.2, at = 0, slide = 0 } = {}) {
-      const c = this.ctx, t = c.currentTime + at;
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = type; o.frequency.setValueAtTime(f, t);
-      if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, t + dur);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
-    },
-    hiss(dur, { freq = 1200, q = 1, vol = 0.12, at = 0 } = {}) {
-      const c = this.ctx, t = c.currentTime + at;
-      const s = c.createBufferSource(); s.buffer = this.noise;
-      const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
-      const g = c.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.02);
-    },
-    // FM bell for lanterns, climbing with each lantern in a drop.
-    bell(i, depth) {
-      if (!this.ok()) return;
-      const scale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093];
-      const f = scale[Math.min(scale.length - 1, i + (depth - 1) * 2)];
-      const c = this.ctx, t = c.currentTime;
-      const car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain(), g = c.createGain();
-      car.frequency.value = f; mod.frequency.value = f * 2.4; mg.gain.value = f * 1.2;
-      mod.connect(mg); mg.connect(car.frequency);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
-      car.connect(g); g.connect(this.master);
-      car.start(t); mod.start(t); car.stop(t + 1.15); mod.stop(t + 1.15);
-    },
-    plop(k) { if (this.ok()) { this.tone(420 - k * 60, 0.22, { vol: 0.16, slide: 0.45 }); this.hiss(0.12, { freq: 900, vol: 0.06 }); } },
-    place() { if (this.ok()) this.tone(300, 0.06, { type: 'triangle', vol: 0.08, slide: 0.8 }); },
-    clear() { if (this.ok()) [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f, k) => this.tone(f, 0.7, { vol: 0.08, at: k * 0.08 })); },
-    fail() { if (this.ok()) [392, 329.63, 261.63].forEach((f, k) => this.tone(f, 0.7, { vol: 0.1, at: k * 0.18 })); },
+  const N = n => Kit.audio.note(n);
+  Kit.sfx.define('cw-place', [{ wave: 'triangle', freq: 540, to: 300, slide: 0.05, hold: 0.02, release: 0.08, vol: 0.2 }, { wave: 'noise', freq: 2600, filter: 'bandpass', q: 2, hold: 0.01, release: 0.04, vol: 0.07 }]);
+  Kit.sfx.define('cw-lift', { wave: 'sine', freq: 320, to: 760, slide: 0.12, hold: 0.05, release: 0.08, vol: 0.1 });
+  Kit.sfx.define('cw-tick', { wave: 'triangle', freq: 1400, hold: 0.004, release: 0.03, vol: 0.05 });
+  Kit.sfx.define('cw-deny', { wave: 'triangle', freq: 220, to: 170, slide: 0.12, hold: 0.04, release: 0.12, vol: 0.13 });
+  Kit.sfx.define('cw-fall', { wave: 'noise', freq: 3200, filter: 'bandpass', cut: 3200, cutTo: 700, q: 1.4, attack: 0.04, hold: 0.12, release: 0.06, vol: 0.08 });
+  Kit.sfx.define('cw-plop', [{ wave: 'sine', freq: 860, to: 170, slide: 0.13, hold: 0.04, release: 0.18, vol: 0.3, verb: 0.35 }, { wave: 'noise', freq: 1500, filter: 'lowpass', hold: 0.03, release: 0.2, vol: 0.12 }]);
+  Kit.sfx.define('cw-bell', [{ wave: 'sine', freq: N('D5'), hold: 0.02, release: 1.3, vol: 0.15, verb: 0.55 }, { wave: 'sine', freq: N('D5') * 2.76, hold: 0.01, release: 0.4, vol: 0.045 }, { wave: 'triangle', freq: N('D6'), hold: 0.004, release: 0.12, vol: 0.035 }]);
+  Kit.sfx.define('cw-gong', [{ wave: 'sine', freq: N('A4'), hold: 0.04, release: 1.7, vol: 0.17, verb: 0.65, vib: 0.12, vibRate: 5 }, { wave: 'sine', freq: N('A4') * 2.4, hold: 0.02, release: 0.6, vol: 0.06 }, { wave: 'sine', freq: N('A3'), hold: 0.03, release: 1.2, vol: 0.08 }]);
+  Kit.sfx.define('cw-spark', { wave: 'triangle', freq: N('D7'), arp: [0, 3, 7, 12], arpStep: 0.035, hold: 0.12, release: 0.25, vol: 0.05, verb: 0.6 });
+  Kit.sfx.define('cw-clear', [{ wave: 'sine', freq: N('D5'), arp: [0, 3, 5, 7, 10, 12, 15], arpStep: 0.075, hold: 0.55, release: 0.7, vol: 0.13, verb: 0.65 }, { wave: 'triangle', freq: N('D4'), hold: 0.3, release: 1, vol: 0.07, verb: 0.5 }]);
+  Kit.sfx.define('cw-pair', [{ wave: 'sine', freq: N('A5'), arp: [0, 2, 5, 7, 9, 12, 14, 17], arpStep: 0.06, hold: 0.6, release: 0.8, vol: 0.11, verb: 0.7 }, { wave: 'triangle', freq: N('D4'), arp: [0, 7, 12], arpStep: 0.12, hold: 0.5, release: 1, vol: 0.09, verb: 0.5 }]);
+  Kit.sfx.define('cw-miss', { wave: 'sine', freq: 330, to: 210, slide: 0.35, hold: 0.12, release: 0.45, vol: 0.12, verb: 0.35 });
+  Kit.sfx.define('cw-last', [{ wave: 'sine', freq: N('F5'), hold: 0.04, release: 0.7, vol: 0.1, verb: 0.5 }, { wave: 'sine', freq: N('D5'), at: 0.24, hold: 0.04, release: 0.8, vol: 0.09, verb: 0.5 }]);
+  Kit.sfx.define('cw-over', { wave: 'triangle', freq: N('A4'), arp: [0, -2, -5, -9, -12], arpStep: 0.24, hold: 1.1, release: 0.9, vol: 0.12, verb: 0.65 });
+  Kit.sfx.define('cw-pond', { wave: 'sine', freq: N('A5'), arp: [0, 3, 7, 10, 12], arpStep: 0.09, jitter: 0.6, hold: 0.4, release: 0.6, vol: 0.06, verb: 0.75 });
+  Kit.sfx.define('cw-hurry', { wave: 'noise', freq: 900, filter: 'bandpass', cut: 600, cutTo: 2600, q: 1.2, attack: 0.04, hold: 0.12, release: 0.1, vol: 0.07 });
+  Kit.sfx.define('cw-wait', { wave: 'sine', freq: N('A5'), hold: 0.01, release: 0.08, vol: 0.04 });
+  const PENTA = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27];
+  const SONG = {
+    bpm: 66, swing: 0.12, key: 'D', scale: 'minorPent', steps: 16,
+    chords: [0, 3, 2, 4],
+    tracks: [
+      { name: 'pad', inst: 'pad', chord: true, cutoff: 820, vol: 0.42, attack: 1.4, release: 2.4 },
+      { name: 'koto', inst: 'pluck', notes: '5 . 7 . 6 . . 5 . 3 . . 4 . . .', follow: true, vol: 0.34, verb: 0.5 },
+      { name: 'bass', inst: 'bass', notes: '0 - - - . . . . 0 - - . . . . .', follow: true, vol: 0.3, oct: -1 },
+      { name: 'bell', inst: 'bell', notes: '. . . . . . 7 . . . . . . . 9 .', vol: 0.28, verb: 0.7, on: false },
+    ],
   };
 
   /* ---------- state ---------- */
-  let best = store.get('best', 0) | 0;
   let taught = store.get('tutorial', 0) | 0; // ponds of the teaching set the player has cleared (0-3)
   let P = null;            // current pond
-  let run = null;          // { score, ponds, lanterns, pairs, started }
+  let run = null;          // { score, ponds, lanterns, pairs, started, seed }
   let lit = new Set();     // lit lantern indices in this pond
   let stonesLeft = 0;
   let placed = [];         // [{x, y}] chosen stone spots (0-2)
   let wait = 0;            // 0..1 slider share
-  let drop = null;         // the running drop: { sim, t0, speed, done, fired }
+  let drop = null;         // the running drop
   let phase = 'place';     // place | drop | cleared | over
-  let paused = false;
   let dragging = null;     // { idx, id, touch }
-  const texts = [];
-  const parts = [];
   let previewCache = null;
+  let manual = false;      // tests and scenes step the game themselves
+  let amb = 0;             // ambient clock (s): koi, leaves, fireflies, bobbing
+  let clearT = 0, pondBorn = -99, pondFirst = true;
+  let demo = null, demoNext = 1.2;
+  const demoRng = mulberry32(99);
+  let banners = [];
+  let hint = { text: '', a: 0 };
+  let hudPop = 0, shownScore = 0, lastTick = 0;
+  let resumeOnStart = true, nextSeed = null, scene = false;
 
   const delaySeconds = () => (placed.length === 2 ? (wait * MAX_WAIT * dist(placed[0], placed[1])) / V : 0);
+  const freshRun = seed => ({ score: 0, ponds: 0, lanterns: 0, pairs: 0, started: false, seed: seed == null ? (Math.random() * 1e9) | 0 : seed });
 
-  function newRun() {
-    if (Arcade.inRun()) Arcade.runEnd({ score: run ? run.score : 0, reason: 'restart', ponds: run ? run.ponds : 0 });
-    run = { score: 0, ponds: 0, lanterns: 0, pairs: 0, started: false, seed: (Math.random() * 1e9) | 0 };
+  function newRunInternal() {
+    run = freshRun(nextSeed);
+    nextSeed = null;
+    pondFirst = true;
     startPond(1);
-    overEl.hidden = true;
   }
   function startPond(n) {
     const teach = n <= 3 && taught < 3 ? n : 0;
@@ -682,122 +816,122 @@ input[type="range"]:disabled { opacity: 0.4; }
     wait = 0;
     drop = null;
     phase = 'place';
+    clearT = 0;
     previewCache = null;
+    banners = banners.filter(b => b.kind === 'word');
     layout();
+    buildShore();
+    pondBorn = amb;
+    if (!pondFirst) {
+      banners.push({ kind: 'pond', text: 'Pond ' + n, t: amb, dur: 1.5 });
+      Kit.sfx('cw-pond');
+    }
+    pondFirst = false;
     syncControls();
-    updateHud();
     save();
-  }
-  function pondHeightFor() {
-    const r = stage.getBoundingClientRect();
-    const ratio = r.width > 0 ? r.height / r.width : 1.4;
-    return clamp(PW * ratio, Arcade.keyart ? PW * 0.5 : PW * 1.0, PW * 1.9);
   }
 
   function hintText() {
-    if (phase === 'over') return '';
-    if (phase === 'drop') return '';
-    if (phase === 'cleared') return 'Pond cleared';
-    if (P && P.teach === 1) return placed.length < 2 ? 'Two stones dropped together spark a straight line halfway between them. Tap the two glowing spots.' : 'Now press Drop.';
-    if (P && P.teach === 2) return placed.length < 2 ? 'The lanterns curve. Place two stones, then make the second one wait.' : 'Drag the slider: the longer the second stone waits, the more the line bends around it.';
+    if (phase === 'over' || phase === 'drop' || phase === 'cleared') return '';
+    if (P && P.teach === 1) return placed.length < 2 ? 'Tap the two glowing spots. Stones dropped together spark a straight line between them.' : 'Now press Drop.';
+    if (P && P.teach === 2) return placed.length < 2 ? 'These lanterns curve. Place two stones, then make the second one wait.' : 'Slide the wait: the longer stone 2 waits, the more the line bends around it.';
     if (P && P.teach === 3) return 'A lit lantern ripples too. Its sparks fly straight out, away from each stone.';
-    if (placed.length === 0) return 'Tap the pond to place the first stone';
+    if (placed.length === 0) return stonesLeft === 2 && P.stones > 2 ? 'Last two stones. Read the lanterns, then place them.' : 'Tap the pond to place the first stone';
     if (placed.length === 1) return 'Tap again for the second stone';
+    if (P && P.n <= 5) return 'Drag a stone to move it. Drop when the gold line runs through the lanterns.';
     return '';
-  }
-  function updateHud() {
-    scoreEl.textContent = fmt(run ? run.score : 0);
-    bestEl.textContent = fmt(Math.max(best, run ? run.score : 0));
-    pondLabel.textContent = 'Pond ' + (P ? P.n : 1);
-    stonesEl.replaceChildren();
-    const total = P ? P.stones : 0;
-    for (let i = 0; i < total; i++) {
-      const d = document.createElement('i');
-      if (i >= stonesLeft) d.className = 'used';
-      stonesEl.append(d);
-    }
-    stonesEl.setAttribute('aria-label', `${stonesLeft} of ${total} stones left`);
-    hintEl.textContent = hintText();
   }
   function syncControls() {
     const ready = phase === 'place' && placed.length === 2 && stonesLeft >= 2;
     dropBtn.disabled = !ready;
+    dropBtn.classList.toggle('ready', ready && !dragging);
     delayEl.disabled = !(phase === 'place' && placed.length === 2);
     clearBtn.disabled = !(phase === 'place' && placed.length > 0);
     delayEl.value = String(Math.round(wait * 1000));
     delayVal.textContent = delaySeconds().toFixed(2) + ' s';
   }
+  function ensureStarted() { if (shell.phase === 'title') shell.start(); }
 
   /* ---------- a drop ---------- */
   function release() {
     if (phase !== 'place' || placed.length !== 2 || stonesLeft < 2) return;
-    Sound.unlock();
+    ensureStarted();
     startRunOnce();
     const d = delaySeconds();
     const sim = simulate([{ x: placed[0].x, y: placed[0].y, t: 0 }, { x: placed[1].x, y: placed[1].y, t: d }], P.lanterns, lit);
-    drop = { sim, t: 0, speed: 1, fired: 0, plopped: 0, stones: placed.slice(), delay: d };
+    drop = { sim, t: -FALL, speed: 1, fired: 0, plopped: 0, fell: 0, stones: placed.slice(), delay: d, chain: 0 };
     stonesLeft -= 2;
     phase = 'drop';
     placed = [];
     previewCache = null;
+    if (!manual) Kit.music.layer('bell', true);
     syncControls();
-    updateHud();
-    requestRender();
   }
-  // A run starts with the player's first move (the first stone placed).
-  function startRunOnce() {
-    if (run.started) return;
-    run.started = true;
-    Arcade.runStart({ pond: P.n });
-  }
+  // A saved run is worth resuming from the player's first move (the first stone placed).
+  function startRunOnce() { if (!run.started) { run.started = true; } }
   function finishDrop() {
     const gained = drop.sim.events.reduce((a, e) => a + 10 * e.depth, 0);
     const all = lit.size === P.lanterns.length;
     drop = null;
+    Kit.music.layer('bell', false);
     if (all) {
       let bonus = 0;
       const pair = P.stones - stonesLeft === 2;
-      if (pair && P.solution.length > 1) { bonus += 100; run.pairs++; texts.push({ kind: 'word', text: 'Pair clear!', sub: '+100', t: now(), dur: 1.4 }); }
+      const cx = sx(PW / 2), cy = sy(pondH * 0.45);
+      if (pair && P.solution.length > 1) {
+        bonus += 100; run.pairs++;
+        banners.push({ kind: 'word', text: 'Pair clear', sub: 'One drop, every lantern · +100', t: amb, dur: 1.6, big: true });
+        Kit.sfx('cw-pair');
+      } else Kit.sfx('cw-clear');
       bonus += stonesLeft * 50;
       run.score += bonus;
       run.ponds++;
       phase = 'cleared';
-      Sound.clear();
-      Arcade.haptic([20, 40, 30]);
+      clearT = 0;
+      fx.flash('#FFD9A0', 220, 0.22);
+      fx.shockwave(cx, cy, { radius: Math.max(W, H) * 0.7, color: '#FFE2A8', width: 3, ms: 900 });
+      fx.burst(cx, cy, { count: 40, color: [C.lit, '#FFF3CF', C.lit2], shape: 'star', speed: [80, 320], life: [0.6, 1.3], size: [2, 5], glow: true, drag: 2 });
+      Kit.music.duck(0.4, 900);
+      Kit.haptic([20, 40, 30]);
       Arcade.track('level_complete', { pond: P.n, stones_left: stonesLeft });
       if (P.teach) { taught = Math.max(taught, P.teach); store.set('tutorial', taught); if (P.teach === 3) Arcade.track('tutorial_complete'); }
-      if (!texts.some(t => t.kind === 'word')) texts.push({ kind: 'word', text: 'Pond cleared', sub: stonesLeft ? `${stonesLeft} spare ${stonesLeft === 1 ? 'stone' : 'stones'} · +${stonesLeft * 50}` : '', t: now(), dur: 1.4 });
-      bumpBest();
-      updateHud();
-      const id = P;
-      setTimeout(() => { if (P === id && phase === 'cleared') startPond(P.n + 1); }, 1700);
+      if (!banners.some(b => b.kind === 'word' && amb - b.t < b.dur)) banners.push({ kind: 'word', text: 'Pond cleared', sub: stonesLeft ? `${stonesLeft} spare ${stonesLeft === 1 ? 'stone' : 'stones'} · +${stonesLeft * 50}` : '', t: amb, dur: 1.5 });
+      if (stonesLeft) Kit.fx.float(`+${stonesLeft * 50}`, cx, cy + 56, { color: C.lit, size: 22 });
     } else if (stonesLeft < 2) {
-      phase = 'over';
-      const isBest = bumpBest();
-      Arcade.runEnd({ score: run.score, reason: 'out_of_stones', ponds: run.ponds, lanterns: run.lanterns, pair_clears: run.pairs, pond: P.n, new_best: isBest });
-      Sound.fail();
-      Arcade.haptic([40, 60, 40]);
-      $('overScore').textContent = fmt(run.score);
-      $('overPonds').textContent = fmt(run.ponds);
-      $('overLanterns').textContent = fmt(run.lanterns);
-      $('overPairs').textContent = fmt(run.pairs);
-      $('newBest').hidden = !isBest;
-      $('overTitle').textContent = isBest ? 'Your best yet' : 'Out of stones';
-      setTimeout(() => { if (phase === 'over') { overEl.hidden = false; $('againBtn').focus({ preventScroll: true }); } }, 1100);
-      store.del('run');
-      Arcade.progress(null);
-      updateHud();
+      gameOver('out_of_stones');
+      return;
     } else {
       phase = 'place';
-      if (gained === 0) texts.push({ kind: 'word', text: 'No lanterns that time', sub: '', t: now(), dur: 1.2, small: true });
-      updateHud();
+      if (gained === 0) { banners.push({ kind: 'word', text: 'No lanterns that time', sub: '', t: amb, dur: 1.3, small: true }); Kit.sfx('cw-miss'); }
+      if (stonesLeft === 2) { Kit.sfx('cw-last', { delay: 300 }); Kit.haptic([10, 60, 10]); }
     }
     syncControls();
     save();
   }
-  function bumpBest() {
-    if (run.score > best) { best = run.score; store.set('best', best); return true; }
-    return false;
+  function gameOver(reason) {
+    if (phase === 'over' || !run) return;
+    ensureStarted();
+    phase = 'over';
+    drop = null; placed = []; dragging = null;
+    previewCache = null;
+    syncControls();
+    store.del('run');
+    Arcade.progress(null);
+    Kit.sfx('cw-over');
+    Kit.music.duck(0.3, 1600);
+    Kit.haptic([40, 60, 40]);
+    shell.over({
+      reason: reason === 'lose' ? 'lose' : 'out_of_stones',
+      title: 'Out of stones',
+      delay: reason === 'lose' ? 300 : 1100,
+      stats: [
+        { label: 'Reached', value: 'Pond ' + P.n },
+        { label: 'Ponds cleared', value: Kit.fmt(run.ponds) },
+        { label: 'Lanterns lit', value: Kit.fmt(run.lanterns) },
+        { label: 'Pair clears', value: Kit.fmt(run.pairs) },
+      ],
+      props: { ponds: run.ponds, lanterns: run.lanterns, pair_clears: run.pairs, pond: P.n },
+    });
   }
   function save() {
     if (!run || phase === 'over') return;
@@ -808,43 +942,32 @@ input[type="range"]:disabled { opacity: 0.4; }
     const d = store.get('run', null);
     if (!d || d.v !== 1) return false;
     run = { score: d.score | 0, ponds: d.ponds | 0, lanterns: d.lanterns | 0, pairs: d.pairs | 0, started: !!d.started, seed: d.seed | 0 };
-    pondH = d.ph > 0 ? clamp(+d.ph, PW, PW * 1.9) : pondHeightFor();
+    pondH = d.ph > 0 ? clamp(+d.ph, PW * 0.5, PW * 1.9) : pondHeightFor();
     P = makePond(d.n, d.teach ? 1000 + d.n * 17 : run.seed + d.n * 104729, d.teach);
     if (!P) return false;
     P.teach = d.teach;
     lit = new Set((d.lit || []).filter(i => i < P.lanterns.length));
+    for (const i of lit) { P.lanterns[i].litAt = -99; P.lanterns[i].depth = 1; }
     stonesLeft = clamp(d.stones | 0, 0, P.stones);
     if (stonesLeft < 2 && lit.size < P.lanterns.length) return false;
     placed = []; wait = 0; drop = null; phase = 'place';
-    if (run.started) Arcade.runStart({ resumed: true, pond: P.n });
+    pondFirst = false;
     layout();
+    buildShore();
     syncControls();
-    updateHud();
     return true;
   }
 
-  /* ---------- frame ---------- */
-  const now = () => performance.now() / 1000;
-  let raf = 0, last = 0, manual = false;
-  function requestRender() { if (!raf && !manual) raf = requestAnimationFrame(frame); }
-  function frame(ts) {
-    raf = 0;
-    const dt = last ? Math.min(0.05, (ts - last) / 1000) : 1 / 60;
-    last = ts;
-    if (!paused) step(dt);
-    render();
-    const busy = drop || parts.length || texts.length || dragging || (P && P.teach === 1 && placed.length < 2) || phase === 'cleared';
-    if (busy && !paused && !manual) raf = requestAnimationFrame(frame);
-    else last = 0;
-  }
-  function step(dt) {
+  /* ---------- simulation step ---------- */
+  function stepGame(dt) {
     if (drop) {
       drop.t += dt * drop.speed;
+      // stones fall, then hit the water
+      while (drop.fell < 2 && drop.t >= (drop.fell === 0 ? 0 : drop.delay) - FALL) { drop.fell++; if (!manual) Kit.sfx('cw-fall', { pitch: drop.fell === 2 ? 2 : 0 }); }
       while (drop.plopped < 2 && drop.t >= (drop.plopped === 0 ? 0 : drop.delay)) {
         const s = drop.stones[drop.plopped];
-        Sound.plop(drop.plopped);
-        Arcade.haptic(10);
-        splash(s.x, s.y, T.ripple, 8);
+        if (!manual) { Kit.sfx('cw-plop', { pitch: drop.plopped ? -3 : 0 }); Kit.haptic(10); }
+        splash(sx(s.x), sy(s.y));
         drop.plopped++;
       }
       const evs = drop.sim.events;
@@ -854,33 +977,40 @@ input[type="range"]:disabled { opacity: 0.4; }
         run.lanterns++;
         run.score += 10 * e.depth;
         const L = P.lanterns[e.i];
-        L.litAt = now(); L.depth = e.depth;
-        Sound.bell(drop.fired, e.depth);
-        Arcade.haptic(12);
-        splash(L.x, L.y, e.depth > 1 ? T.lit2 : T.lit, 14);
-        texts.push({ kind: 'pts', text: '+' + 10 * e.depth, x: L.x, y: L.y - 22, t: now(), dur: 0.9 });
+        L.litAt = amb; L.depth = e.depth;
+        lightBurst(L, e.depth, drop.fired);
         drop.fired++;
-        updateHud();
       }
-      // Spark trail
-      if (!reduceMotion.matches) for (const p of sparkPoints(drop.sim.rings, drop.t)) if (parts.length < 600) parts.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.55, age: 0, size: 2.2, color: T.spark });
+      // the gold seam leaves a trail of sparks
+      if (drop.t > 0 && !reduced()) {
+        for (const p of sparkPoints(drop.sim.rings, drop.t)) fx.burst(sx(p.x), sy(p.y), { count: 1, color: [C.spark, '#FFF2C4'], shape: 'glow', speed: [4, 24], life: [0.35, 0.75], size: [2.5, 5], glow: true, drag: 3 });
+      }
       if (drop.t >= drop.sim.end) finishDrop();
     }
-    for (let i = parts.length - 1; i >= 0; i--) {
-      const p = parts[i];
-      p.age += dt;
-      if (p.age >= p.life) { parts.splice(i, 1); continue; }
-      p.x += p.vx * dt; p.y += p.vy * dt;
-    }
-    const t = now();
-    for (let i = texts.length - 1; i >= 0; i--) if (t - texts[i].t > texts[i].dur) texts.splice(i, 1);
+    stepTimers(dt);
   }
-  function splash(x, y, color, n) {
-    if (reduceMotion.matches) n = Math.ceil(n / 3);
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 30 + Math.random() * 70;
-      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.4 + Math.random() * 0.4, age: 0, size: 1.6 + Math.random() * 2, color });
+  function stepTimers(dt) {
+    if (phase === 'cleared') {
+      clearT += dt;
+      if (clearT >= 1.7) startPond(P.n + 1);
     }
+  }
+  function splash(x, y) {
+    fx.burst(x, y, { count: 18, color: ['#E9F7F2', '#A8DCD0', '#CDEFE6'], speed: [50 * S, 170 * S], life: [0.25, 0.6], size: [1.4, 3.4], drag: 3.2 });
+    fx.shockwave(x, y, { radius: 30 * S, color: '#E9F7F2', width: 2.2, ms: 420 });
+    fx.shake(2.5, 140);
+  }
+  function lightBurst(L, depth, order) {
+    const x = sx(L.x), y = sy(L.y), col = depth > 1 ? C.lit2 : C.lit;
+    fx.burst(x, y, { count: depth > 1 ? 30 : 20, color: [col, '#FFF3CF'], shape: 'spark', speed: [60, 220], life: [0.3, 0.75], size: [1.6, 3.6], glow: true, drag: 2.4 });
+    fx.shockwave(x, y, { radius: (depth > 1 ? 52 : 40) * S, color: col, width: 2.4, ms: 520 });
+    fx.float('+' + 10 * depth, x, y - 26 * S, { color: depth > 1 ? '#FFB08A' : '#FFE3A8', size: depth > 1 ? 22 : 18, stroke: 'rgba(20,10,4,0.55)' });
+    hudPop = 1;
+    if (manual) return;
+    if (order === 0) Kit.sfx('cw-spark');
+    if (depth > 1) { Kit.sfx('cw-gong', { pitch: PENTA[Math.min(order, 6)] - 12 }); loop.hitstop(45); fx.shake(4, 160); }
+    Kit.sfx('cw-bell', { pitch: PENTA[Math.min(PENTA.length - 1, order + (depth - 1) * 2)], force: true });
+    Kit.haptic(depth > 1 ? 22 : 12);
   }
   // Where the sparks are at time t: chain ripples run straight out along the rays from their parents.
   function sparkPoints(rings, t) {
@@ -901,7 +1031,21 @@ input[type="range"]:disabled { opacity: 0.4; }
         for (const p of circleX(a, V * (t - a.t), b, V * (t - b.t))) pts.push(p);
       }
     }
-    return pts.filter(p => p.x > -10 && p.x < PW + 10 && p.y > -10 && p.y < pondH + 10);
+    return pts.filter(p => p.x > -WM && p.x < PW + WM && p.y > -WM && p.y < pondH + WM);
+  }
+  // The title's attract mode: ghost stones drop on the real pond and their seams sweep it (no lanterns light).
+  function stepDemo(dt) {
+    if (demo) { demo.t += dt; if (demo.t > demo.sim.end) demo = null; }
+    if (!demo && (demoNext -= dt) <= 0 && P) {
+      demoNext = 1.4 + demoRng() * 1.2;
+      const A = { x: 60 + demoRng() * (PW - 120), y: 60 + demoRng() * (pondH - 120) };
+      let B = A;
+      for (let k = 0; k < 20 && dist(A, B) < PW * 0.35; k++) B = { x: 60 + demoRng() * (PW - 120), y: 60 + demoRng() * (pondH - 120) };
+      const d = demoRng() < 0.5 ? 0 : demoRng() * 0.9;
+      demo = { sim: simulate([{ x: A.x, y: A.y, t: 0 }, { x: B.x, y: B.y, t: d }], [], new Set()), t: -0.05, stones: [A, B], delay: d, plopped: 0 };
+    }
+    if (demo) while (demo.plopped < 2 && demo.t >= (demo.plopped ? demo.delay : 0)) { const s = demo.stones[demo.plopped++]; fx.shockwave(sx(s.x), sy(s.y), { radius: 22 * S, color: '#E9F7F2', width: 1.6, ms: 380 }); }
+    if (demo && demo.t > 0 && !reduced() && !Kit.keyart) for (const p of sparkPoints(demo.sim.rings, demo.t)) fx.burst(sx(p.x), sy(p.y), { count: 1, color: [C.spark, '#FFF2C4'], shape: 'glow', speed: [4, 20], life: [0.3, 0.6], size: [2, 4], glow: true, drag: 3 });
   }
 
   function preview() {
@@ -911,334 +1055,716 @@ input[type="range"]:disabled { opacity: 0.4; }
     const d = delaySeconds();
     const A = placed[0], B = placed[1];
     const path = sparkPath(A, 0, R_STONE, B, d, R_STONE);
-    // First-order chain rays: from each stone through every unlit lantern the main curve touches.
     const a = { x: A.x, y: A.y, t: 0, R: R_STONE }, b = { x: B.x, y: B.y, t: d, R: R_STONE };
-    const rays = [];
+    const rays = [], hits = [];
     P.lanterns.forEach((L, i) => {
       if (lit.has(i) || crossingAt(a, b, L) == null) return;
+      hits.push(i);
       for (const s of [A, B]) {
         const dd = dist(s, L) || 1;
         const len = Math.min(R_LANTERN, R_STONE - dd);
         if (len > 4) rays.push({ x1: L.x, y1: L.y, x2: L.x + ((L.x - s.x) / dd) * len, y2: L.y + ((L.y - s.y) / dd) * len });
       }
     });
-    previewCache = { key, path, rays };
+    // Dots along the curve, evenly spaced, for the shimmering preview.
+    const dots = [];
+    for (const br of path) {
+      let acc = 0, s = 0;
+      for (let i = 1; i < br.length; i++) {
+        const seg = dist(br[i - 1], br[i]);
+        acc += seg; s += seg;
+        if (acc >= 7) { acc = 0; const q = br[i]; if (q.x > -WM && q.x < PW + WM && q.y > -WM && q.y < pondH + WM) dots.push({ x: q.x, y: q.y, s }); }
+      }
+    }
+    previewCache = { key, path, rays, hits: new Set(hits), dots };
     return previewCache;
   }
 
-  function render() {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    if (!P) return;
-    if (!bg) buildBg();
-    ctx.drawImage(bg, 0, 0, W, H);
-    ctx.save();
-    ctx.translate(OX, OY);
-    ctx.scale(S, S);
-    round(ctx, 0, 0, PW, pondH, 26);
-    ctx.clip();
-    const t = now();
-
-    // Ripples
-    if (drop) {
-      for (const r of drop.sim.rings) {
-        const age = drop.t - r.t;
-        if (age < 0) continue;
-        const rad = V * age;
-        if (rad > r.R) continue;
-        const k = 1 - rad / r.R;
-        ctx.strokeStyle = r.parents ? rgba(T.lit, 0.65 * k) : rgba(T.ripple, 0.55 * k);
-        ctx.lineWidth = r.parents ? 1.6 : 2.2;
-        ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, Math.PI * 2); ctx.stroke();
-        if (!r.parents && rad > 14) {
-          ctx.strokeStyle = rgba(T.ripple, 0.22 * k);
-          ctx.lineWidth = 1.2;
-          ctx.beginPath(); ctx.arc(r.x, r.y, rad - 9, 0, Math.PI * 2); ctx.stroke();
-        }
-      }
+  /* ---------- drawing ---------- */
+  let pdpr = 1, shx = 0, shy = 0;
+  const pondT = () => ctx.setTransform(pdpr * S, 0, 0, pdpr * S, pdpr * (OX + shx), pdpr * (OY + shy));
+  const screenT = () => ctx.setTransform(pdpr, 0, 0, pdpr, pdpr * shx, pdpr * shy);
+  // Koi: three fish swimming lazy figure-eights under the surface.
+  const KOI = [
+    { ax: 0.34, ay: 0.36, w1: 0.17, w2: 0.11, p1: 0.4, p2: 2.1, len: 46, kind: 0 },
+    { ax: 0.3, ay: 0.3, w1: 0.13, w2: 0.19, p1: 2.6, p2: 0.7, len: 38, kind: 1 },
+    { ax: 0.38, ay: 0.4, w1: 0.09, w2: 0.14, p1: 4.4, p2: 3.9, len: 42, kind: 2 },
+  ];
+  const koiPos = (k, t) => ({ x: PW * (0.5 + k.ax * Math.sin(k.w1 * t + k.p1)), y: pondH * (0.5 + k.ay * Math.sin(k.w2 * t + k.p2)) });
+  function drawKoi(k, t) {
+    const n = 9;
+    const a = koiPos(k, t), b = koiPos(k, t - 0.05);
+    const sp = Math.max(6, dist(a, b) / 0.05);
+    const dtk = k.len / n / sp;
+    const sp2 = [];
+    for (let i = 0; i <= n; i++) sp2.push(koiPos(k, t - i * dtk));
+    const L = [], R = [];
+    for (let i = 0; i <= n; i++) {
+      const p = sp2[i], q = sp2[Math.min(n, i + 1)], o = sp2[Math.max(0, i - 1)];
+      let dx = o.x - q.x, dy = o.y - q.y; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+      const wig = Math.sin(t * 7 - i * 0.9) * i * 0.32;
+      const px = p.x - dy * wig, py = p.y + dx * wig;
+      const u = i / n;
+      const w = k.len * 0.13 * Math.pow(Math.sin(Math.PI * Math.min(1, (u + 0.16) / 1.1)), 0.8);
+      L.push({ x: px - dy * w, y: py + dx * w, cx: px, cy: py, dx, dy });
+      R.push({ x: px + dy * w, y: py - dx * w });
     }
-
-    // Preview: the spark's path for the current stones and delay
-    const pv = phase === 'place' ? preview() : null;
-    if (pv) {
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = rgba(T.spark, 0.95);
-      ctx.lineWidth = 2.4;
-      ctx.setLineDash([7, 7]);
-      for (const br of pv.path) {
-        if (br.length < 2) continue;
-        ctx.beginPath();
-        br.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-        ctx.stroke();
-      }
-      ctx.setLineDash([2, 6]);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = rgba(T.lit2, 0.7);
-      for (const r of pv.rays) { ctx.beginPath(); ctx.moveTo(r.x1, r.y1); ctx.lineTo(r.x2, r.y2); ctx.stroke(); }
-      ctx.setLineDash([]);
-    }
-
-    // Lanterns
-    P.lanterns.forEach((L, i) => drawLantern(L, lit.has(i), t));
-
-    // Teaching hint: where the stones go on the first pond
-    if (P.teach === 1 && phase === 'place' && placed.length < 2) {
-      const sol = P.solution[0];
-      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
-      for (const s of [sol.A, sol.B]) {
-        if (placed.some(p => dist(p, s) < 20)) continue;
-        ctx.strokeStyle = rgba(T.ink, 0.25 + 0.3 * pulse);
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 5]);
-        ctx.beginPath(); ctx.arc(s.x, s.y, 16 + 4 * pulse, 0, Math.PI * 2); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
-
-    // Stones
-    const stonesShown = phase === 'drop' && drop ? drop.stones.filter((_, k) => drop.t < (k === 0 ? 0 : drop.delay)) : placed;
-    stonesShown.forEach((s, k) => drawStone(s.x, s.y, phase === 'place' ? (k === 0 ? '1' : '2') : '', dragging && dragging.idx === k));
-
-    // Sparks
-    if (drop) {
-      for (const p of sparkPoints(drop.sim.rings, drop.t)) {
-        ctx.fillStyle = rgba(T.spark, 0.3);
-        ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = T.spark;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 3.6, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-    for (const p of parts) {
-      ctx.globalAlpha = 1 - p.age / p.life;
-      ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * (1 - p.age / p.life * 0.5)), 0, Math.PI * 2); ctx.fill();
+    const body = new Path2D();
+    body.moveTo(L[0].x, L[0].y);
+    for (let i = 1; i <= n; i++) body.lineTo(L[i].x, L[i].y);
+    for (let i = n; i >= 0; i--) body.lineTo(R[i].x, R[i].y);
+    const h = L[0];
+    body.quadraticCurveTo(h.cx + h.dx * k.len * 0.12, h.cy + h.dy * k.len * 0.12, L[0].x, L[0].y);
+    // tail fin
+    const tl = L[n], tw = Math.sin(t * 7 - n * 0.9) * 0.5;
+    const ta = Math.atan2(-tl.dy, -tl.dx) + tw;
+    const fin = new Path2D();
+    fin.moveTo(tl.cx, tl.cy);
+    fin.quadraticCurveTo(tl.cx + Math.cos(ta - 0.5) * k.len * 0.3, tl.cy + Math.sin(ta - 0.5) * k.len * 0.3, tl.cx + Math.cos(ta) * k.len * 0.2, tl.cy + Math.sin(ta) * k.len * 0.2);
+    fin.quadraticCurveTo(tl.cx + Math.cos(ta + 0.5) * k.len * 0.3, tl.cy + Math.sin(ta + 0.5) * k.len * 0.3, tl.cx, tl.cy);
+    // shadow on the pond floor
+    ctx.save(); ctx.translate(5, 8); ctx.globalAlpha = 0.18; ctx.fillStyle = '#01080A'; ctx.fill(body); ctx.fill(fin); ctx.restore();
+    ctx.globalAlpha = 0.62;
+    const base = k.kind === 1 ? '#F0B347' : k.kind === 2 ? '#25201E' : '#F3EFE7';
+    ctx.fillStyle = k.kind === 1 ? 'rgba(250,200,110,0.8)' : 'rgba(240,235,225,0.7)';
+    ctx.fill(fin);
+    ctx.fillStyle = base; ctx.fill(body);
+    ctx.save(); ctx.clip(body);
+    if (k.kind !== 1) {
+      ctx.fillStyle = '#E0482A';
+      for (const i of [1, 4, 6]) { const p = L[i]; ctx.beginPath(); ctx.ellipse(p.cx + p.dy * 2, p.cy - p.dx * 2, k.len * 0.11, k.len * 0.08, 0, 0, TAU); ctx.fill(); }
+      if (k.kind === 2) { ctx.fillStyle = '#F3EFE7'; const p = L[3]; ctx.beginPath(); ctx.arc(p.cx, p.cy, k.len * 0.07, 0, TAU); ctx.fill(); }
+    } else { ctx.fillStyle = 'rgba(255,240,190,0.5)'; const p = L[2]; ctx.beginPath(); ctx.ellipse(p.cx, p.cy, k.len * 0.08, k.len * 0.05, 0, 0, TAU); ctx.fill(); }
+    ctx.restore();
+    // pectoral fins
+    ctx.fillStyle = k.kind === 2 ? 'rgba(60,50,45,0.9)' : 'rgba(245,240,230,0.8)';
+    const pf = L[2], fa = Math.sin(t * 3) * 0.3;
+    for (const sgn of [-1, 1]) {
+      ctx.beginPath(); ctx.ellipse(pf.cx - pf.dy * sgn * k.len * 0.13, pf.cy + pf.dx * sgn * k.len * 0.13, k.len * 0.08, k.len * 0.035, Math.atan2(pf.dy, pf.dx) + sgn * (0.9 + fa), 0, TAU); ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
+  function rippleBump(x, y) {
+    let b = 0;
+    for (const d of [drop, demo]) {
+      if (!d || d.t <= 0) continue;
+      for (const r of d.sim.rings) {
+        const age = d.t - r.t; if (age < 0) continue;
+        const rad = V * age; if (rad > r.R) continue;
+        const k = 1 - Math.abs(Math.hypot(x - r.x, y - r.y) - rad) / 12;
+        if (k > 0) b += k * (1 - rad / r.R);
+      }
+    }
+    return Math.min(1.2, b);
+  }
+  function drawRings(d, ghost) {
+    if (!d || d.t <= 0) return;
+    for (const r of d.sim.rings) {
+      const age = d.t - r.t;
+      if (age < 0) continue;
+      const rad = V * age;
+      if (rad > r.R) continue;
+      const k = (1 - rad / r.R) * (ghost ? 0.7 : 1);
+      if (r.parents) {
+        ctx.strokeStyle = `rgba(255,199,101,${0.75 * k})`; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = `rgba(255,170,90,${0.25 * k})`; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(r.x, r.y, Math.max(0, rad - 3), 0, TAU); ctx.stroke();
+        continue;
+      }
+      ctx.strokeStyle = `rgba(1,12,14,${0.3 * k})`; ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.arc(r.x, r.y, Math.max(0, rad - 3.4), 0, TAU); ctx.stroke();
+      ctx.strokeStyle = `rgba(205,239,230,${0.62 * k})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, TAU); ctx.stroke();
+      if (rad > 16) {
+        ctx.strokeStyle = `rgba(205,239,230,${0.24 * k})`; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(r.x, r.y, rad - 11, 0, TAU); ctx.stroke();
+      }
+      if (rad > 30) {
+        ctx.strokeStyle = `rgba(205,239,230,${0.1 * k})`; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(r.x, r.y, rad - 22, 0, TAU); ctx.stroke();
+      }
+    }
+  }
+  function drawSparks(d, ghost) {
+    if (!d || d.t <= 0) return;
+    for (const p of sparkPoints(d.sim.rings, d.t)) {
+      gfx.light(ctx, p.x, p.y, ghost ? 22 : 30, C.lit, ghost ? 0.5 : 0.85);
+      gfx.light(ctx, p.x, p.y, 9, '#FFFFFF', ghost ? 0.6 : 0.95);
+    }
+  }
+  // Falling maple leaves: closed-form so every frame (and every capture) is reproducible.
+  const LEAVES = 9;
+  function leafState(i, t) {
+    const per = 9 + (i % 4) * 1.7, off = i * 3.37;
+    const c = (t + off) % per, cyc = Math.floor((t + off) / per);
+    const r = mulberry32(i * 977 + cyc * 131);
+    const lx = -WM + r() * (PW + 2 * WM), ly = -WM + r() * (pondH + 2 * WM);
+    const ci = 2 + ((r() * 4) | 0), rot0 = r() * TAU, drift = (r() - 0.5) * 40;
+    return { c, per, lx, ly, ci, rot0, drift };
+  }
+  function drawFloatingLeaves(t) {
+    for (let i = 0; i < (reduced() ? 4 : LEAVES); i++) {
+      const L = leafState(i, t);
+      if (L.c < 2.4) continue;
+      const f = L.c - 2.4;
+      const a = Math.min(1, (L.per - L.c) / 1.4);
+      const x = L.lx + L.drift * f * 0.05 + Math.sin(f * 0.6 + i) * 3, y = L.ly + f * 1.6;
+      const rr = f * 30;
+      if (f < 1.2) { ctx.strokeStyle = `rgba(205,239,230,${0.35 * (1 - f / 1.2)})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(L.lx, L.ly, rr * 0.8, 0, TAU); ctx.stroke(); }
+      ctx.save(); ctx.translate(x, y); ctx.rotate(L.rot0 + f * 0.05); ctx.globalAlpha = 0.85 * a;
+      gfx.blit(ctx, leafSprite(12 * S, L.ci), 0, 0, 1 / S);
+      ctx.restore();
+    }
+  }
+  function drawFallingLeaves(t) {
+    for (let i = 0; i < (reduced() ? 4 : LEAVES); i++) {
+      const L = leafState(i, t);
+      if (L.c >= 2.4) continue;
+      const f = L.c / 2.4;           // 0 high above the pond .. 1 on the water
+      const sc = 1 + (1 - f) * 1.4;  // nearer the camera is bigger
+      const x = sx(L.lx - L.drift * (1 - f) + Math.sin(f * 7 + i) * 14), y = sy(L.ly - (1 - f) * 60);
+      const a = Math.min(1, f * 4);
+      gfx.softShadow(ctx, sx(L.lx), sy(L.ly), 5 * S, 4 * S, 0.25 * f);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(L.rot0 + f * 5); ctx.scale(1, 0.6 + 0.4 * Math.abs(Math.cos(f * 6 + i))); ctx.globalAlpha = a;
+      gfx.blit(ctx, leafSprite(12 * S * sc, L.ci), 0, 0, 1);
+      ctx.restore();
+    }
+  }
+  const FIREFLIES = 12;
+  function drawFireflies(t) {
+    const n = reduced() ? 5 : FIREFLIES;
+    for (let i = 0; i < n; i++) {
+      const r = mulberry32(i * 31 + 7);
+      const bx = r() * W, by = r() * H, ax = 30 + r() * 60, ay = 20 + r() * 50, w1 = 0.1 + r() * 0.15, w2 = 0.12 + r() * 0.2, ph = r() * TAU;
+      const x = bx + Math.sin(t * w1 + ph) * ax + Math.sin(t * 0.7 + i) * 6, y = by + Math.sin(t * w2 + ph * 1.3) * ay;
+      const blink = Math.pow(Math.max(0, Math.sin(t * (0.6 + r() * 0.5) + ph)), 3);
+      if (blink < 0.02) continue;
+      gfx.light(ctx, x, y, 16, '#D9F27A', 0.55 * blink);
+      ctx.fillStyle = `rgba(250,255,210,${0.9 * blink})`;
+      ctx.beginPath(); ctx.arc(x, y, 1.4, 0, TAU); ctx.fill();
+    }
+  }
+
+  function draw() {
+    pdpr = view.dpr || 1;
+    view.clear('#0A1D21');
+    if (!P) return;
+    if (W !== view.w || H !== view.h) layout();
+    if (!shore) buildShore();
+    if (!bg) buildBg();
+    const t = amb;
+    shx = fx.shakeX || 0; shy = fx.shakeY || 0;
+    screenT();
+    ctx.drawImage(bg, 0, 0, W, H);
+
+    // --- under and on the water (clipped to the shoreline) ---
+    ctx.save();
+    pondT();
+    ctx.clip(waterPath);
+    // glints of the dusk sky
+    for (let i = 0; i < 30; i++) {
+      const r = mulberry32(i * 53 + 1);
+      const gx = ((r() * (PW + 80) + t * (3 + r() * 4)) % (PW + 80)) - 40, gy = r() * pondH;
+      const a = Math.pow(0.5 + 0.5 * Math.sin(t * (0.8 + r()) + i), 3) * 0.35;
+      ctx.strokeStyle = `rgba(215,240,235,${a})`; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx + 6 + r() * 10, gy); ctx.stroke();
+    }
+    const mx = PW * 0.74, my = pondH * 0.17;
+    for (let i = 0; i < 6; i++) {
+      const w = 14 + Math.sin(t * 1.3 + i * 1.7) * 7;
+      ctx.strokeStyle = `rgba(235,245,240,${0.22 + 0.1 * Math.sin(t * 2 + i)})`; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(mx - w + Math.sin(t + i) * 3, my - 12 + i * 5); ctx.lineTo(mx + w + Math.sin(t + i) * 3, my - 12 + i * 5); ctx.stroke();
+    }
+    for (const k of KOI) drawKoi(k, t);
+    // the maples' shade on the water
+    screenT();
+    drawCanopies(t, true);
+    pondT();
+    for (const p of shore.pads) {
+      const bump = rippleBump(p.x, p.y);
+      const rot = p.a + Math.sin(t * 0.4 + p.ph) * 0.06 + bump * 0.08;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(rot); const sc = 1 + bump * 0.06;
+      gfx.blit(ctx, padSprite(p.r * 2.6 * S, p.flower), 0, 0, sc / S);
+      ctx.restore();
+    }
+    drawFloatingLeaves(t);
+    drawRings(demo, true);
+    drawRings(drop, false);
+    // lantern light on the water / shadows
+    P.lanterns.forEach((L, i) => {
+      if (lit.has(i)) {
+        const fl = 0.85 + 0.15 * Math.sin(t * 11 + i * 1.7) * Math.sin(t * 7.3 + i);
+        gfx.light(ctx, L.x + 2, L.y + 8, 78, (L.depth || 1) > 1 ? C.lit2 : C.lit, 0.42 * fl);
+      } else gfx.softShadow(ctx, L.x + 3, L.y + 7, 15, 11, 0.45);
+    });
     ctx.restore();
 
-    if (!Arcade.keyart) for (const tx of texts) {
-      const k = (t - tx.t) / tx.dur;
-      if (k < 0) continue;
-      if (tx.kind === 'pts') floatText(tx, k);
-      else plaque(tx, k);
+    pondT();
+    drawPreview(t);
+    drawLanterns(t);
+    drawTeach(t);
+    drawStones(t);
+    drawSparks(demo, true);
+    drawSparks(drop, false);
+
+    screenT();
+    fx.draw(ctx);
+    drawFallingLeaves(t);
+    const tr = garden.toro, fl = 0.8 + 0.2 * Math.sin(t * 9) * Math.sin(t * 5.3);
+    gfx.light(ctx, tr.x, tr.y, tr.r * 4.2, '#FFB04A', 0.32 * fl);
+    gfx.light(ctx, tr.x, tr.y, tr.r * 1.2, '#FFE0A0', 0.45 * fl);
+    drawCanopies(t, false);
+    drawFireflies(t);
+    gfx.vignette(ctx, 0.5, '#01090B');
+    shx = shy = 0; screenT();
+    if (!Kit.keyart) { drawBanners(t); drawHud(t); }
+    syncBodyClass();
+  }
+  function drawCanopies(t, shadow) {
+    const u = garden ? garden.u : 1;
+    const cw = 270 * u, ch = 210 * u;
+    const spr = canopySprite(cw, ch, shadow);
+    const corners = garden && garden.wide ? [[1, 1, 0, 0], [-1, 1, W, 0], [-1, -1, W, H]] : [[-1, 1, W, 0], [1, -1, 0, H]];
+    for (const [fxs, fys, x, y] of corners) {
+      const sway = Math.sin(t * 0.5 + x * 0.01) * 0.015 + Math.sin(t * 1.3 + y) * 0.005;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(fxs, fys);
+      ctx.rotate(sway);
+      if (shadow) { ctx.globalAlpha = 0.3; ctx.drawImage(spr, 22 * u - 30, 34 * u - 30, cw, ch); }
+      else ctx.drawImage(spr, -30, -30, cw, ch);
+      ctx.restore();
     }
   }
-  function drawLantern(L, isLit, t) {
-    const w = 20, h = 25;
-    const litAge = isLit && L.litAt ? t - L.litAt : 99;
-    const pop = litAge < 0.35 ? 1 + 0.25 * Math.sin((litAge / 0.35) * Math.PI) : 1;
-    ctx.save();
-    ctx.translate(L.x, L.y);
-    ctx.scale(pop, pop);
-    if (isLit) {
-      const col = (L.depth || 1) > 1 ? T.lit2 : T.lit;
-      const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 38);
-      g.addColorStop(0, rgba(col, 0.55));
-      g.addColorStop(1, rgba(col, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = col;
-    } else {
-      ctx.fillStyle = T.paper;
+  function drawPreview(t) {
+    const pv = phase === 'place' ? preview() : null;
+    if (!pv) return;
+    ctx.lineCap = 'round';
+    for (const br of pv.path) {
+      if (br.length < 2) continue;
+      ctx.strokeStyle = 'rgba(255,200,110,0.14)'; ctx.lineWidth = 9;
+      ctx.beginPath(); br.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
     }
-    // paper body
-    round(ctx, -w / 2, -h / 2, w, h, 8);
-    ctx.fill();
-    ctx.strokeStyle = rgba(T.ink, isLit ? 0.35 : 0.6);
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-    // ribs
-    ctx.strokeStyle = rgba(T.ink, isLit ? 0.18 : 0.25);
-    ctx.lineWidth = 1;
-    for (const yy of [-4.5, 4.5]) { ctx.beginPath(); ctx.moveTo(-w / 2 + 2, yy); ctx.lineTo(w / 2 - 2, yy); ctx.stroke(); }
-    // caps
-    ctx.fillStyle = rgba(T.ink, 0.7);
-    ctx.fillRect(-5, -h / 2 - 3, 10, 3);
-    ctx.fillRect(-5, h / 2, 10, 3);
-    if (isLit) {
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.beginPath(); ctx.ellipse(0, 1, 3, 4.6, 0, 0, Math.PI * 2); ctx.fill();
+    for (const d of pv.dots) {
+      const k = 0.5 + 0.5 * Math.sin(d.s / 7 * 0.9 - t * 5);
+      ctx.fillStyle = `rgba(255,${210 + 40 * k | 0},${120 + 90 * k | 0},${0.55 + 0.45 * k})`;
+      ctx.beginPath(); ctx.arc(d.x, d.y, 1.7 + 0.9 * k, 0, TAU); ctx.fill();
     }
+    ctx.strokeStyle = 'rgba(255,140,100,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([2, 6]); ctx.lineDashOffset = -t * 18;
+    for (const r of pv.rays) { ctx.beginPath(); ctx.moveTo(r.x1, r.y1); ctx.lineTo(r.x2, r.y2); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
+  }
+  function drawLanterns(t) {
+    const pv = phase === 'place' ? preview() : null;
+    const sprOff = lanternSprite('off', LAN * S), sprOn = lanternSprite('on', LAN * S), sprChain = lanternSprite('chain', LAN * S);
+    const calm = reduced() ? 0.3 : 1;
+    P.lanterns.forEach((L, i) => {
+      const isLit = lit.has(i);
+      const born = clamp((amb - pondBorn - 0.12 - i * 0.05) / 0.45, 0, 1);
+      if (born <= 0) return;
+      const bornS = Kit.ease.backOut(born);
+      const litAge = isLit && L.litAt != null ? amb - L.litAt : 99;
+      const pop = litAge < 0.45 ? 1 + 0.4 * Math.sin((litAge / 0.45) * Math.PI) * (1 - litAge / 0.45 * 0.5) : 1;
+      const bump = rippleBump(L.x, L.y);
+      const rot = (((i * 7919) % 100) / 100 - 0.5) * 0.5 + Math.sin(t * 1.1 + i * 2.1) * 0.05 * calm + bump * 0.08;
+      const sc = bornS * pop * (1 + Math.sin(t * 1.6 + i) * 0.015 * calm + bump * 0.05);
+      const willLight = pv && pv.hits.has(i);
+      if (willLight) {
+        const k = 0.5 + 0.5 * Math.sin(t * 6 + i);
+        gfx.light(ctx, L.x, L.y, 30, C.lit, 0.35 + 0.25 * k);
+        ctx.strokeStyle = `rgba(255,214,140,${0.55 + 0.35 * k})`; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(L.x, L.y, 18 + 2 * k, 0, TAU); ctx.stroke();
+      }
+      ctx.save(); ctx.translate(L.x, L.y); ctx.rotate(rot); ctx.scale(sc / S, sc / S);
+      ctx.drawImage(isLit ? ((L.depth || 1) > 1 ? sprChain : sprOn) : sprOff, -LAN * S / 2, -LAN * S / 2, LAN * S, LAN * S);
+      ctx.restore();
+      if (isLit) {
+        const fl = 0.85 + 0.15 * Math.sin(t * 11 + i * 1.7) * Math.sin(t * 7.3 + i);
+        gfx.light(ctx, L.x, L.y - 2, 26 * pop, (L.depth || 1) > 1 ? C.lit2 : C.lit, 0.55 * fl);
+        if (litAge < 0.6) gfx.light(ctx, L.x, L.y, 60 * (1 - litAge / 0.6) + 10, '#FFF3CF', 0.8 * (1 - litAge / 0.6));
+      }
+    });
+  }
+  function drawTeach(t) {
+    if (!P.teach || P.teach !== 1 || phase !== 'place' || placed.length >= 2 || shell.phase !== 'play') return;
+    const sol = P.solution[0];
+    const todo = [sol.A, sol.B].filter(s => !placed.some(p => dist(p, s) < 20));
+    for (const s of todo) {
+      const k = 0.5 + 0.5 * Math.sin(t * 4);
+      gfx.light(ctx, s.x, s.y, 34, '#CDEFE6', 0.25 + 0.2 * k);
+      ctx.strokeStyle = `rgba(243,234,215,${0.45 + 0.35 * k})`; ctx.lineWidth = 2; ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.arc(s.x, s.y, 16 + 4 * k, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // a ghost hand taps the next spot
+    const s = todo[0];
+    if (!s) return;
+    const c = (t % 1.8) / 1.8;
+    const press = c > 0.45 && c < 0.65 ? 1 : 0;
+    const hx = s.x + 26 * (1 - Math.min(1, c / 0.45)) + 8, hy = s.y + 34 * (1 - Math.min(1, c / 0.45)) + 12;
+    const a = c < 0.1 ? c / 0.1 : c > 0.85 ? (1 - c) / 0.15 : 1;
+    ctx.save(); ctx.translate(hx, hy); ctx.scale(press ? 0.9 : 1, press ? 0.9 : 1); ctx.globalAlpha = 0.85 * a;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(4, 6, 11, 15, -0.4, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#F6EFE2';
+    ctx.beginPath(); ctx.ellipse(0, 0, 5, 9, -0.35, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6, 13, 10, 11, -0.35, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (press) { ctx.strokeStyle = 'rgba(243,234,215,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(s.x, s.y, 8 + (c - 0.45) * 60, 0, TAU); ctx.stroke(); }
+  }
+  function drawStoneAt(x, y, mark, hov, active, t) {
+    // the shadow marks the exact spot it will drop on
+    const r = 15;
+    gfx.softShadow(ctx, x, y, r * 1.05, r * 0.8, 0.5 - Math.min(0.25, hov * 0.012));
+    ctx.strokeStyle = 'rgba(205,239,230,0.35)'; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.arc(x, y, r + 3, 0, TAU); ctx.stroke();
+    const spr = stoneSprite(34 * S, mark);
+    const sc = (active ? 1.15 : 1) * (1 + hov * 0.012);
+    ctx.save(); ctx.translate(x - hov * 0.45, y - hov * 0.9); ctx.scale(sc / S, sc / S);
+    ctx.drawImage(spr, -17 * S, -17 * S, 34 * S, 34 * S);
     ctx.restore();
   }
-  function drawStone(x, y, label, active) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.beginPath(); ctx.ellipse(x + 2, y + 4, 17, 13, 0, 0, Math.PI * 2); ctx.fill();
-    const g = ctx.createRadialGradient(x - 5, y - 5, 1, x, y, 18);
-    g.addColorStop(0, rgba('#FFFFFF', 0.45));
-    g.addColorStop(0.35, T.stone);
-    g.addColorStop(1, T.stone);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.ellipse(x, y, active ? 18 : 16, active ? 14 : 12.5, -0.2, 0, Math.PI * 2); ctx.fill();
-    if (label) {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = `800 13px ${'"Unbounded", "Arial Black", system-ui, sans-serif'}`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(label, x, y + 0.5);
+  function drawStones(t) {
+    const bob = k => 7 + 1.6 * Math.sin(t * 2.4 + k * 1.3) * (reduced() ? 0.2 : 1);
+    if (phase === 'place') {
+      placed.forEach((s, k) => drawStoneAt(s.x, s.y, k + 1, bob(k), dragging && dragging.idx === k, t));
+      if (placed.length === 2 && wait > 0) {
+        const s = placed[1];
+        ctx.strokeStyle = 'rgba(255,214,140,0.9)'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(s.x, s.y, 23, -Math.PI / 2, -Math.PI / 2 + TAU * wait); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,214,140,0.22)';
+        ctx.beginPath(); ctx.arc(s.x, s.y, 23, 0, TAU); ctx.stroke();
+      }
+    } else if (drop) {
+      drop.stones.forEach((s, k) => {
+        const hit = k ? drop.delay : 0;
+        if (drop.t >= hit) return;
+        const f = clamp((drop.t - (hit - FALL)) / FALL, 0, 1);
+        drawStoneAt(s.x, s.y, k + 1, bob(k) * (1 - f * f), false, t);
+        if (k === 1 && drop.delay > 0 && f === 0) {
+          const left = clamp((hit - FALL - drop.t) / Math.max(0.01, drop.delay), 0, 1);
+          ctx.strokeStyle = 'rgba(255,214,140,0.9)'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(s.x, s.y, 23, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.stroke();
+        }
+      });
     }
   }
-  const FONT_D = '"Unbounded", "Arial Black", system-ui, sans-serif';
-  const FONT_B = '"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  function floatText(tx, k) {
-    const x = sx(tx.x), y = sy(tx.y) - 24 * k;
-    const fs = Math.max(13, 15 * S);
-    ctx.save();
-    ctx.globalAlpha = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
-    ctx.font = `800 ${fs}px ${FONT_D}`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round'; ctx.lineWidth = fs * 0.3; ctx.strokeStyle = T.plaster;
-    ctx.strokeText(tx.text, x, y);
-    ctx.fillStyle = T.ink;
-    ctx.fillText(tx.text, x, y);
-    ctx.restore();
+  function wrapLines(text, maxW) {
+    const words = text.split(' '), lines = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    return lines;
   }
-  function plaque(tx, k) {
-    const fs = Math.max(tx.small ? 13 : 18, (tx.small ? 14 : 22) * S), ss = Math.max(12, 13 * S);
-    const sc = k < 0.15 ? Math.max(0.01, easeOutBack(k / 0.15)) : 1;
-    const a = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, a);
-    ctx.translate(W / 2, H * 0.42);
-    ctx.scale(sc, sc);
-    ctx.font = `${tx.small ? 700 : 800} ${fs}px ${tx.small ? FONT_B : FONT_D}`;
-    const w1 = ctx.measureText(tx.text).width;
-    ctx.font = `700 ${ss}px ${FONT_B}`;
-    const w2 = tx.sub ? ctx.measureText(tx.sub).width : 0;
-    const w = Math.max(w1, w2) + fs * 1.5, h = fs * 1.9 + (tx.sub ? ss * 1.5 : 0);
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    round(ctx, -w / 2, -h / 2 + 4, w, h, Math.min(h / 2, 22)); ctx.fill();
-    ctx.fillStyle = T.card;
-    round(ctx, -w / 2, -h / 2, w, h, Math.min(h / 2, 22)); ctx.fill();
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = tx.small ? T.ink : T.accent;
-    ctx.font = `${tx.small ? 700 : 800} ${fs}px ${tx.small ? FONT_B : FONT_D}`;
-    ctx.fillText(tx.text, 0, tx.sub ? -ss * 0.65 : 1);
-    if (tx.sub) { ctx.fillStyle = T.inkSoft; ctx.font = `700 ${ss}px ${FONT_B}`; ctx.fillText(tx.sub, 0, fs * 0.6); }
+  const FD = gfx.fonts.display, FB = gfx.fonts.body;
+  function drawHud(t) {
+    if (shell.phase === 'title' || !run) return;
+    // shade behind the HUD and the tray
+    const g1 = ctx.createLinearGradient(0, 0, 0, safe.t + hud.h + 40);
+    g1.addColorStop(0, 'rgba(2,10,12,0.62)'); g1.addColorStop(1, 'rgba(2,10,12,0)');
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, safe.t + hud.h + 40);
+    const x0 = hud.x0, y0 = safe.t + (H < 650 ? 22 : 26);
+    ctx.letterSpacing = '2px';
+    gfx.text(ctx, 'POND ' + P.n, x0, y0, { size: 12, weight: 800, font: FB, color: 'rgba(243,234,215,0.8)', align: 'left' });
+    ctx.letterSpacing = '0px';
+    // stones left, as pebbles in pairs
+    const total = P.stones, spr = stoneSprite(16, 0);
+    const warn = phase !== 'over' && stonesLeft === 2 && total > 2 ? 0.5 + 0.5 * Math.sin(t * 5) : 0;
+    for (let i = 0; i < total; i++) {
+      const x = x0 + 8 + i * 17 + Math.floor(i / 2) * 6, y = y0 + 22;
+      if (i < stonesLeft) {
+        if (warn) gfx.light(ctx, x, y, 14, C.seal, 0.5 * warn);
+        ctx.drawImage(spr, x - 8, y - 8, 16, 16);
+      } else { ctx.strokeStyle = 'rgba(243,234,215,0.28)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x, y, 6, 5, -0.25, 0, TAU); ctx.stroke(); }
+    }
+    // score
+    const sc = run.score;
+    if (shownScore !== sc) { shownScore += Math.ceil((sc - shownScore) * 0.25); if (Math.abs(sc - shownScore) < 1) shownScore = sc; }
+    const pop = 1 + hudPop * 0.22;
+    ctx.save(); ctx.translate(W / 2, y0 + 4); ctx.scale(pop, pop);
+    gfx.text(ctx, Kit.fmt(shownScore), 0, 0, { size: H < 650 ? 26 : 30, weight: 600, font: FD, color: C.ink, shadow: 'rgba(0,0,0,0.6)', shadowBlur: 10 });
     ctx.restore();
+    ctx.letterSpacing = '1.5px';
+    gfx.text(ctx, 'BEST ' + Kit.fmt(Math.max(shell.best, sc)), W / 2, y0 + 27, { size: 10.5, weight: 800, font: FB, color: 'rgba(243,234,215,0.62)' });
+    ctx.letterSpacing = '0px';
+    // the hint, on a strip of washi paper
+    const want = hintText();
+    if (want !== hint.text) { if (hint.a <= 0.02) { hint.text = want; } hint.a = Math.max(0, hint.a - 0.12); }
+    else hint.a = Math.min(1, hint.a + 0.08);
+    if (hint.text && hint.a > 0) {
+      ctx.font = `600 ${H < 650 ? 12.5 : 13.5}px ${FB}`;
+      const maxW = Math.min(W - 40, 460);
+      const lines = wrapLines(hint.text, maxW - 30);
+      const lh = H < 650 ? 16 : 17.5;
+      const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 34), bh = lines.length * lh + 14;
+      const bx = W / 2 - bw / 2, by = hud.hintY - 4;
+      ctx.save(); ctx.globalAlpha = hint.a; ctx.translate(0, (1 - hint.a) * -6);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; gfx.roundRect(ctx, bx + 2, by + 3, bw, bh, 7).fill();
+      ctx.fillStyle = 'rgba(241,231,211,0.94)'; gfx.roundRect(ctx, bx, by, bw, bh, 7).fill();
+      ctx.fillStyle = C.seal; ctx.beginPath(); ctx.arc(bx + 12, by + bh / 2, 3.2, 0, TAU); ctx.fill();
+      lines.forEach((l, i) => gfx.text(ctx, l, W / 2 + 7, by + 7 + lh / 2 + i * lh, { size: H < 650 ? 12.5 : 13.5, weight: 600, font: FB, color: C.paperInk }));
+      ctx.restore();
+    }
   }
+  function drawBanners(t) {
+    for (const b of banners) {
+      const k = (t - b.t) / b.dur;
+      if (k < 0 || k > 1) continue;
+      const sc = k < 0.18 ? Math.max(0.01, Kit.ease.backOut(k / 0.18)) : 1;
+      const a = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+      const cx = W / 2, cy = sy(pondH * 0.45);
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.scale(sc, sc);
+      if (b.kind === 'pond') {
+        ctx.letterSpacing = '6px';
+        gfx.text(ctx, b.text.toUpperCase(), 0, 0, { size: 26, weight: 600, font: FD, color: C.ink, shadow: 'rgba(0,0,0,0.7)', shadowBlur: 16 });
+        ctx.letterSpacing = '0px';
+        ctx.restore();
+        continue;
+      }
+      const fs = b.small ? 15 : b.big ? 24 : 21, ss = 12.5;
+      ctx.font = `${b.small ? 700 : 600} ${fs}px ${b.small ? FB : FD}`;
+      const w1 = ctx.measureText(b.text).width;
+      ctx.font = `700 ${ss}px ${FB}`;
+      const w2 = b.sub ? ctx.measureText(b.sub).width : 0;
+      const w = Math.max(w1, w2) + (b.small ? 34 : 70), h = fs * 1.9 + (b.sub ? ss * 1.6 : 0);
+      ctx.rotate(-0.012);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; gfx.roundRect(ctx, -w / 2 + 3, -h / 2 + 5, w, h, 6).fill();
+      ctx.fillStyle = C.paper; gfx.roundRect(ctx, -w / 2, -h / 2, w, h, 6).fill();
+      ctx.strokeStyle = 'rgba(43,33,24,0.15)'; ctx.lineWidth = 1; gfx.roundRect(ctx, -w / 2 + 4, -h / 2 + 4, w - 8, h - 8, 4).stroke();
+      if (!b.small) {
+        // the seal
+        ctx.save(); ctx.translate(w / 2 - 18, -h / 2 + 2); ctx.rotate(0.12);
+        ctx.fillStyle = C.seal; gfx.roundRect(ctx, -11, -11, 22, 22, 4).fill();
+        ctx.strokeStyle = '#FFF6E8'; ctx.lineWidth = 1.4;
+        for (const r of [3, 7]) { ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke(); }
+        ctx.restore();
+      }
+      gfx.text(ctx, b.text, 0, b.sub ? -ss * 0.75 : 1, { size: fs, weight: b.small ? 700 : 600, font: b.small ? FB : FD, color: b.small ? C.paperInk : C.seal });
+      if (b.sub) gfx.text(ctx, b.sub, 0, fs * 0.62, { size: ss, weight: 700, font: FB, color: '#6B5A48' });
+      ctx.restore();
+    }
+  }
+  let bodyHidden = null;
+  function syncBodyClass() {
+    const hide = Kit.keyart || shell.phase === 'title' || shell.phase === 'over' || phase === 'over';
+    if (hide !== bodyHidden) { bodyHidden = hide; document.body.classList.toggle('cw-hide', hide); }
+  }
+
+  /* ---------- loop ---------- */
+  function update(dt) {
+    amb += dt;
+    if (hudPop > 0) hudPop = Math.max(0, hudPop - dt * 4);
+    if (shell.phase === 'title' && !scene) stepDemo(dt);
+    else if (demo) { demo.t += dt; if (demo.t > demo.sim.end) demo = null; }
+    if (!manual) stepGame(dt); else stepTimers(dt);
+    banners = banners.filter(b => amb - b.t < b.dur + 0.1);
+  }
+  const loop = Kit.loop({ view, update, draw });
 
   /* ---------- input ---------- */
   function inPond(p) { return p.x >= 14 && p.x <= PW - 14 && p.y >= 14 && p.y <= pondH - 14; }
-  function local(e) { const r = cv.getBoundingClientRect(); return toPond(e.clientX - r.left, e.clientY - r.top); }
-  cv.addEventListener('pointerdown', e => {
-    Sound.unlock();
-    if (paused || !P) return;
-    if (phase === 'drop' && drop) { drop.speed = 3; return; }  // tap to hurry the ripples
+  function local(e) { const r = canvas.getBoundingClientRect(); return toPond(e.clientX - r.left, e.clientY - r.top); }
+  canvas.addEventListener('pointerdown', e => {
+    if (shell.phase !== 'play' || !P) return;
+    if (phase === 'drop' && drop) { if (drop.speed < 3) { drop.speed = 3; Kit.sfx('cw-hurry'); } return; }
     if (phase !== 'place') return;
     const p = local(e);
     e.preventDefault();
-    const near = placed.findIndex(s => dist(s, p) < 30);
+    const near = placed.findIndex(s => dist(s, p) < 32);
     if (near >= 0) {
       dragging = { idx: near, id: e.pointerId, touch: e.pointerType !== 'mouse' };
-      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-      requestRender();
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      Kit.sfx('cw-lift');
+      syncControls();
       return;
     }
     if (placed.length < 2 && inPond(p) && placed.every(s => dist(s, p) >= STONE_GAP)) {
       placed.push(p);
       startRunOnce();
-      Sound.place();
-      Arcade.haptic(8);
+      Kit.sfx('cw-place', { pitch: placed.length === 2 ? 3 : 0 });
+      Kit.haptic(8);
+      fx.burst(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top, { count: 8, color: ['#CDEFE6', '#FFFFFF'], speed: [20, 70], life: [0.2, 0.45], size: [1, 2.4] });
       previewCache = null;
-      // A new stone can be nudged right away.
       dragging = { idx: placed.length - 1, id: e.pointerId, touch: e.pointerType !== 'mouse', fresh: true, start: p };
-      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
       syncControls();
-      updateHud();
-      requestRender();
+      save();
+    } else if (placed.length < 2 || !inPond(p)) {
+      Kit.sfx('cw-deny');
+    } else {
+      Kit.sfx('cw-deny');
+      banners.push({ kind: 'word', text: 'Drag a stone to move it', sub: '', t: amb, dur: 1.1, small: true });
     }
   });
-  cv.addEventListener('pointermove', e => {
-    if (!dragging || e.pointerId !== dragging.id) return;
+  canvas.addEventListener('pointermove', e => {
+    if (!dragging || e.pointerId !== dragging.id || phase !== 'place') return;
     const p = local(e);
     // On touch, hold the stone above the finger once it moves, so it stays visible.
     const lift = dragging.touch && !(dragging.fresh && dist(p, dragging.start) < 10) ? 40 / S : 0;
     const q = { x: clamp(p.x, 14, PW - 14), y: clamp(p.y - lift, 14, pondH - 14) };
     const other = placed[1 - dragging.idx];
     if (other && dist(other, q) < STONE_GAP) return;
+    if (!placed[dragging.idx]) return;
+    if (dist(placed[dragging.idx], q) > 6 && performance.now() - lastTick > 70) { lastTick = performance.now(); Kit.sfx('cw-tick', { pitch: (q.y / pondH) * -6 + 3, vol: 0.6 }); }
     placed[dragging.idx] = q;
     previewCache = null;
-    requestRender();
   });
-  const endDrag = e => { if (dragging && e.pointerId === dragging.id) { dragging = null; syncControls(); requestRender(); } };
-  cv.addEventListener('pointerup', endDrag);
-  cv.addEventListener('pointercancel', endDrag);
-  cv.addEventListener('contextmenu', e => e.preventDefault());
-  delayEl.addEventListener('input', () => { wait = (+delayEl.value || 0) / 1000; previewCache = null; delayVal.textContent = delaySeconds().toFixed(2) + ' s'; requestRender(); });
-  dropBtn.addEventListener('click', release);
-  clearBtn.addEventListener('click', () => { placed = []; wait = 0; previewCache = null; syncControls(); updateHud(); requestRender(); });
+  const endDrag = e => { if (dragging && e.pointerId === dragging.id) { dragging = null; syncControls(); } };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  delayEl.addEventListener('input', () => {
+    wait = (+delayEl.value || 0) / 1000; previewCache = null;
+    delayVal.textContent = delaySeconds().toFixed(2) + ' s';
+    if (performance.now() - lastTick > 60) { lastTick = performance.now(); Kit.sfx('cw-wait', { pitch: wait * 12 }); }
+  });
+  dropBtn.addEventListener('click', () => { if (shell.phase === 'play') release(); });
+  clearBtn.addEventListener('click', () => {
+    if (shell.phase !== 'play' || phase !== 'place') return;
+    placed.forEach(s => fx.burst(sx(s.x), sy(s.y), { count: 8, color: ['#CDEFE6', '#FFFFFF'], speed: [20, 80], life: [0.2, 0.4], size: [1, 2.4] }));
+    placed = []; wait = 0; previewCache = null; Kit.sfx('cw-lift', { pitch: -4 }); syncControls();
+  });
   document.addEventListener('keydown', e => {
-    if (!overEl.hidden) return;
-    if (!pauseEl.hidden) { if (e.key === 'Escape') { e.preventDefault(); closePause(); } return; }
-    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { e.preventDefault(); openPause(); return; }
-    if (phase !== 'place' || e.target === delayEl) return;
-    if (e.key === 'Enter') { e.preventDefault(); release(); }
-    else if (e.key === '[' || e.key === ']') { wait = clamp(wait + (e.key === ']' ? 0.05 : -0.05), 0, 1); previewCache = null; syncControls(); requestRender(); }
+    if (shell.phase !== 'play' || phase !== 'place' || e.target === delayEl) return;
+    if (e.key === 'Enter' && e.target !== dropBtn && e.target !== clearBtn) { e.preventDefault(); release(); }
+    else if (e.key === '[' || e.key === ']') { wait = clamp(wait + (e.key === ']' ? 0.05 : -0.05), 0, 1); previewCache = null; syncControls(); Kit.sfx('cw-wait', { pitch: wait * 12 }); }
   });
 
-  /* ---------- menus ---------- */
-  function syncSwitches() {
-    $('sndSw').setAttribute('aria-checked', String(settings.sound));
-    $('vibSw').setAttribute('aria-checked', String(settings.vib));
-  }
-  function openPause() {
-    if (phase === 'over') return;
-    paused = true;
-    syncSwitches();
-    pauseEl.hidden = false;
-    $('resumeBtn').focus({ preventScroll: true });
-  }
-  function closePause() { pauseEl.hidden = true; paused = false; last = 0; requestRender(); cv.focus({ preventScroll: true }); }
-  $('menuBtn').addEventListener('click', () => { Sound.unlock(); openPause(); });
-  $('resumeBtn').addEventListener('click', closePause);
-  $('restartBtn').addEventListener('click', () => { pauseEl.hidden = true; paused = false; newRun(); });
-  $('againBtn').addEventListener('click', () => { Sound.unlock(); newRun(); cv.focus({ preventScroll: true }); });
-  pauseEl.addEventListener('click', e => { if (e.target === pauseEl) closePause(); });
-  $('sndSw').addEventListener('click', () => { Arcade.setSetting('sound', !settings.sound); if (settings.sound) Sound.unlock(); });
-  $('vibSw').addEventListener('click', () => { Arcade.setSetting('vibration', !settings.vib); Arcade.haptic(20); });
-  if (Arcade.embedded) {
-    $('exitBtn').hidden = false;
-    $('exitBtn').addEventListener('click', () => { pauseEl.hidden = true; save(); Arcade.exit(); });
-  }
-  Arcade.on('settings', s => { settings.sound = s.sound; settings.vib = s.vibration; syncSwitches(); });
-  Arcade.on('pause', () => { save(); if (phase === 'drop' && !paused) openPause(); });
+  /* ---------- shell ---------- */
+  if (!restore()) { run = freshRun(); startPond(1); }
+  const savedRun = run.started;
+  const shell = Kit.shell({
+    title: 'Crosswake',
+    kicker: savedRun ? `Pond ${P.n} · saved` : 'A lantern pond at dusk',
+    tagline: 'Drop two stones. Where their ripples cross, lanterns light.',
+    playLabel: savedRun ? 'Continue' : 'Play',
+    how: [
+      'Tap the pond twice to place two stones, then press Drop.',
+      'Where the two ripples cross, a spark runs over the water and lights every lantern it touches.',
+      'Dropped together, the spark runs straight, halfway between the stones. Make the second stone wait and the line bends around it.',
+      'A lit lantern ripples too: its sparks fly straight out, away from each stone.',
+      'Each drop costs two stones. Light every lantern to clear the pond; spare stones score 50 each.',
+    ],
+    loop,
+    score: () => (run ? run.score : 0),
+    lose: () => gameOver('lose'),
+    theme: {
+      panel: 'paper', layout: 'center', button: 'rounded', titleStyle: 'solid', radius: 20,
+      font: { display: gfx.fonts.display, body: gfx.fonts.body },
+      colors: { ink: '#2A2019', inkSoft: '#6B5A48', panel: 'var(--paper)', accent: '#CF4128', accentInk: '#FFF6E8', scrim: 'var(--scrim)', line: 'rgba(43,33,24,0.55)' },
+    },
+    onStart() {
+      if (resumeOnStart) resumeOnStart = false;
+      else newRunInternal();
+      Kit.music.play(SONG);
+      Kit.music.layer('bell', false);
+      syncControls();
+    },
+    onPause() { save(); },
+  });
+  Arcade.on('pause', () => save());
 
-  function onTheme() { readTheme(); requestRender(); }
-  const dq = window.matchMedia('(prefers-color-scheme: dark)');
-  if (dq.addEventListener) dq.addEventListener('change', onTheme);
-  new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  if (window.ResizeObserver) new ResizeObserver(() => layout()).observe(stage);
-  else window.addEventListener('resize', layout);
-
-  function boot() {
-    readTheme();
-    syncSwitches();
-    bestEl.textContent = fmt(best);
-    if (!restore()) {
-      run = { score: 0, ponds: 0, lanterns: 0, pairs: 0, started: false, seed: (Math.random() * 1e9) | 0 };
-      startPond(1);
+  /* ---------- tests and capture scenes ---------- */
+  function solvePair(sol) {
+    placed = [{ x: sol.A.x, y: sol.A.y }, { x: sol.B.x, y: sol.B.y }];
+    wait = clamp((sol.delay * V) / (MAX_WAIT * dist(sol.A, sol.B)), 0, 1);
+    previewCache = null;
+    release();
+    let g = 0; while (drop && g++ < 4000) stepGame(1 / 30);
+  }
+  function autoplayTo(n) {
+    while (P.n < n && phase !== 'over') {
+      for (const sol of P.solution) if (phase === 'place') solvePair(sol);
+      if (phase === 'cleared') startPond(P.n + 1);
     }
-    render();
-    requestRender();
-    requestAnimationFrame(() => Arcade.ready());
   }
+  function sceneRun(seed, t0) {
+    scene = true; manual = true;
+    Kit.fx.seed(seed);
+    nextSeed = seed; resumeOnStart = false;
+    if (shell.phase === 'play') newRunInternal(); else shell.start();
+    amb = t0; demo = null;
+  }
+  function hold() { Kit.fx.update(0); loop.render(); loop.stop(); }
+  const steps = (sec) => { const n = Math.max(1, Math.round(sec * 60)); for (let i = 0; i < n; i++) { stepGame(1 / 60); fx.update(1 / 60); amb += 1 / 60; } };
+  Arcade.scenes({
+    art: () => {
+      taught = 3;
+      sceneRun(41, 20);
+      autoplayTo(7);
+      fx.clear();
+      pondBorn = -99; banners = [];
+      solvePair(P.solution[1] || P.solution[0]);
+      fx.clear();
+      const s = P.solution[0];
+      placed = [{ x: s.A.x, y: s.A.y }, { x: s.B.x, y: s.B.y }];
+      wait = clamp((s.delay * V) / (MAX_WAIT * dist(s.A, s.B)), 0, 1);
+      release();
+      steps(1.6 + FALL);
+      hold();
+    },
+    shot1: () => {
+      sceneRun(12, 8);
+      autoplayTo(2);
+      pondBorn = -99; banners = [];
+      const s = P.solution[0];
+      placed = [{ x: s.A.x, y: s.A.y }, { x: s.B.x, y: s.B.y }];
+      wait = clamp((s.delay * V) / (MAX_WAIT * dist(s.A, s.B)), 0, 1) * 0.8;
+      previewCache = null; syncControls();
+      hint.text = hintText(); hint.a = 1; shownScore = run.score;
+      steps(0.5);
+      hold();
+    },
+    shot2: () => {
+      taught = 3;
+      sceneRun(29, 33);
+      autoplayTo(9);
+      fx.clear();
+      pondBorn = -99; banners = [];
+      solvePair(P.solution[2] || P.solution[0]);
+      fx.clear();
+      const s = P.solution[0];
+      placed = [{ x: s.A.x, y: s.A.y }, { x: s.B.x, y: s.B.y }];
+      wait = clamp((s.delay * V) / (MAX_WAIT * dist(s.A, s.B)), 0, 1);
+      release();
+      steps(1.75 + FALL);
+      shownScore = run.score; hint.text = ''; hint.a = 0;
+      hold();
+    },
+  });
+  Arcade.test({
+    seed(n) { nextSeed = n; resumeOnStart = false; },
+    pond(n) { ensureStarted(); startPond(n); },
+    win() { ensureStarted(); for (const sol of P.solution) if (phase === 'place') solvePair(sol); },
+    step(sec) { steps(sec); loop.render(); },
+    info: () => ({ pond: P.n, phase, stones: stonesLeft, lanterns: P.lanterns.length, lit: lit.size, score: run.score }),
+  });
 
-  if (/[?&]debug\b/.test(location.search)) {
+  if (Kit.debug) {
     window.__crosswake = {
       get P() { return P; }, get run() { return run; }, get lit() { return lit; }, get phase() { return phase; },
-      get stonesLeft() { return stonesLeft; }, get placed() { return placed; }, get best() { return best; },
-      get drop() { return drop; }, get paused() { return paused; }, get pondH() { return pondH; },
-      manual(on) { manual = !!on; if (!on) { last = 0; requestRender(); } },
-      place(A, B, w) { placed = [{ x: A.x, y: A.y }, { x: B.x, y: B.y }]; wait = w || 0; previewCache = null; syncControls(); updateHud(); },
+      get stonesLeft() { return stonesLeft; }, get placed() { return placed; }, get best() { return shell.best; },
+      get drop() { return drop; }, get paused() { return shell.phase === 'paused'; }, get pondH() { return pondH; },
+      get shell() { return shell; },
+      manual(on) { manual = !!on; },
+      place(A, B, w) { ensureStarted(); placed = [{ x: A.x, y: A.y }, { x: B.x, y: B.y }]; wait = w || 0; previewCache = null; syncControls(); },
       placeDelay(A, B, delay) { const sep = dist(A, B); this.place(A, B, clamp((delay * V) / (MAX_WAIT * sep), 0, 1)); },
-      release, finish() { let g = 0; while (drop && g++ < 2000) step(1 / 30); render(); },
-      advance(sec) { const n = Math.max(1, Math.round(sec * 60)); for (let i = 0; i < n; i++) if (!paused) step(1 / 60); render(); },
-      makePond, simulate, sparkPath, crossingAt, startPond, newRun, openPause, closePause,
-      toScreen(p) { const r = cv.getBoundingClientRect(); return { x: r.left + sx(p.x), y: r.top + sy(p.y) }; },
+      release, finish() { let g = 0; while (drop && g++ < 2000) stepGame(1 / 30); loop.render(); },
+      advance(sec) { const n = Math.max(1, Math.round(sec * 60)); for (let i = 0; i < n; i++) if (shell.phase !== 'paused') { stepGame(1 / 60); fx.update(1 / 60); amb += 1 / 60; } loop.render(); },
+      makePond, simulate, sparkPath, crossingAt,
+      startPond(n) { ensureStarted(); startPond(n); },
+      newRun() { resumeOnStart = false; if (shell.phase === 'play' || shell.phase === 'paused') shell.restart(); else shell.start(); },
+      toScreen(p) { const r = canvas.getBoundingClientRect(); return { x: r.left + sx(p.x), y: r.top + sy(p.y) }; },
       V, R_STONE, R_LANTERN, MAX_WAIT,
     };
   }
-  boot();
+
+  layout();
+  loop.step(1);
+  Kit.music.play(SONG);
+  loop.start(); // the first frame calls Arcade.ready()
 })();
 </script>
 </body>
