@@ -122,7 +122,7 @@
         E.addLine(hitX[k - 1], hitY[k - 1], HIT.x, HIT.y, ta, c);
         memPush(hitX[k - 1], hitY[k - 1], HIT.x, HIT.y, ta, c);
       } else memPush(HIT.x, HIT.y, -1e6, 0, ta, c);
-      PP.gen.surveyMark(L, HIT.x - dx * 4, HIT.y - dy * 4);
+      if (d < 220) PP.gen.surveyMark(L, HIT.x - dx * 4, HIT.y - dy * 4);
       if (c === CH.CRYS && kind !== 'crystal') {
         for (const cl of L.crystals) if (G.t - cl.lit > 1.2 && dist(HIT.x, HIT.y, cl.x, cl.y) < cl.r + 12) { cl.lit = ta; G.reechoes.push({ cl, at: ta + 0.42 }); }
       }

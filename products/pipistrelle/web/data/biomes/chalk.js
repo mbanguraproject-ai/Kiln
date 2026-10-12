@@ -20,8 +20,66 @@
       sil: ['#0b0f1d', '#10141f'], silLit: ['#173a3e', '#24585a'], glowworm: '#9fe8ff', fg: '#010206', vignette: '#04060f',
       moon: '#dfe8ff', arch: ['#0b1a3e', '#27427a', '#3b5a94'], water: ['#0b2150', '#040a1c'], accent: '#d9b77a',
     },
-    // chalk: pale bands with rows of dark flint nodules, and (High and Ultra) fossil urchins and claw marks
-    painter: 'chalk',
+    // chalk: pale bands with rows of dark flint nodules, and (High and Ultra) fossil urchins, ammonites and claw marks.
+    // painter(g, P) paints one 256 px chunk inside the rock (source-atop); P: { x0, y0, x1, y1, lv, pal, tier, d,
+    // rng, near(fn(rng, cx, cy)) for decorations that cross chunk edges, minW(w) }
+    painter(g, P) {
+      const S = P.pal.strata, TAU = Math.PI * 2;
+      // strata: long wavy bands, continuous across chunks because they are functions of world x
+      for (let k = Math.floor(P.y0 / 46) - 1; k <= Math.ceil(P.y1 / 46) + 1; k++) {
+        const base = k * 46 + Math.sin(k * 12.9898) * 14, w = 5 + Math.abs(Math.sin(k * 3.7)) * 12;
+        g.strokeStyle = k % 3 === 0 ? S.band : 'rgba(0,0,0,0.18)';
+        g.lineWidth = w;
+        g.beginPath();
+        for (let x = P.x0 - 16; x <= P.x1 + 16; x += 16) g.lineTo(x, base + Math.sin(x * 0.004 + k) * 14 + Math.sin(x * 0.017 + k * 2.1) * 4);
+        g.stroke();
+      }
+      P.near((r, cx, cy) => {
+        // soft light and dark blotches
+        for (let k = 0; k < 4; k++) {
+          const x = cx + r.range(0, 256), y = cy + r.range(0, 256), rad = r.range(40, 150), lite = r.chance(0.5);
+          const bg = g.createRadialGradient(x, y, 0, x, y, rad);
+          bg.addColorStop(0, lite ? S.light : S.dark); bg.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = bg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+        }
+        // a row of flint nodules along a band
+        if (r.chance(0.7)) {
+          const y = cy + r.range(20, 236), x = cx + r.range(0, 120), n = r.int(3, 7);
+          for (let k = 0; k < n; k++) {
+            const fx = x + k * r.range(18, 34), fy = y + Math.sin(fx * 0.004) * 14 + r.range(-4, 4), rx = r.range(5, 12), ry = rx * r.range(0.5, 0.8);
+            g.fillStyle = S.flint; g.beginPath(); g.ellipse(fx, fy, rx, ry, r.range(-0.3, 0.3), 0, TAU); g.fill();
+            g.strokeStyle = S.flintHi; g.lineWidth = P.minW(1.2); g.beginPath(); g.ellipse(fx, fy, rx, ry, 0, Math.PI * 1.1, Math.PI * 1.7); g.stroke();
+          }
+        }
+        // hairline cracks
+        g.lineCap = 'round';
+        for (let k = 0; k < 5; k++) {
+          const x = cx + r.range(0, 256), y = cy + r.range(0, 256), len = r.range(20, 90), a = r.range(-0.4, 0.4) + (r.chance(0.3) ? 1.4 : 0);
+          g.lineWidth = P.minW(r.range(1, 2.4));
+          g.strokeStyle = r.chance(0.5) ? S.light : S.dark;
+          g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a) * len * 0.5 + r.range(-6, 6), y + Math.sin(a) * len * 0.5, x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
+        }
+        // fossils and old claw marks (High and Ultra)
+        if (P.tier.decals && r.chance(0.45)) {
+          const x = cx + r.range(20, 236), y = cy + r.range(20, 236), kind = r.int(0, 2);
+          g.strokeStyle = 'rgba(232,224,200,0.16)'; g.fillStyle = 'rgba(232,224,200,0.12)'; g.lineWidth = P.minW(1.4);
+          if (kind === 0) { // a shepherd's crown (fossil urchin)
+            const rr = r.range(7, 11);
+            g.beginPath(); g.arc(x, y, rr, 0, TAU); g.stroke();
+            for (let a = 0; a < 5; a++) { const an = a / 5 * TAU; for (let q = 1; q <= 3; q++) { g.beginPath(); g.arc(x + Math.cos(an) * rr * q / 3.6, y + Math.sin(an) * rr * q / 3.6, P.minW(0.9), 0, TAU); g.fill(); } }
+          } else if (kind === 1) { // an ammonite
+            g.beginPath();
+            for (let t = 0; t < 14; t += 0.25) { const rr = 1.2 + t * 0.9; g.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr); }
+            g.stroke();
+          } else { // claw marks
+            const a = r.range(-0.6, 0.6);
+            g.beginPath();
+            for (let c = 0; c < 3; c++) { const ox = c * 5; g.moveTo(x + ox, y); g.lineTo(x + ox + Math.sin(a) * 22, y + Math.cos(a) * 22); }
+            g.stroke();
+          }
+        }
+      });
+    },
     parallax: [
       { seed: 11, tw: 560, th: 520, depth: 0.22, band: 0.42, spikes: 24, columns: 2 },
       { seed: 23, tw: 720, th: 640, depth: 0.45, band: 0.42, spikes: 34, columns: 1 },
@@ -52,7 +110,7 @@
     caves: [
       {
         id: '1-1', name: 'First Flight', seed: 1101, mission: 'homing',
-        screens: 8, H: 1040, rad: 120, moths: 24, drain: 1.5, branches: 2, loops: 0,
+        screens: 9, H: 1040, rad: 120, moths: 24, drain: 1.5, branches: 2, loops: 0,
         pups: [{ at: 0.36 }],
         hazards: {},
         moons: [{ type: 'home' }, { type: 'pups', n: 1 }, { type: 'time', max: 75 }],
@@ -61,7 +119,7 @@
       },
       {
         id: '1-2', name: 'Little Voices', seed: 1202, mission: 'kin',
-        screens: 8, H: 1080, rad: 116, moths: 23, drain: 1.52, branches: 3, loops: 0,
+        screens: 9, H: 1080, rad: 116, moths: 23, drain: 1.52, branches: 3, loops: 0,
         pups: [{ at: 'chamber' }, { at: 'chamber' }, { at: 'chamber' }],
         hazards: {},
         moons: [{ type: 'pups', n: 2 }, { type: 'pups', all: true }, { type: 'bumps', max: 3 }],
@@ -70,7 +128,7 @@
       },
       {
         id: '1-3', name: 'The Loud Dark', seed: 1303, mission: 'kin',
-        screens: 9, H: 1120, rad: 112, moths: 22, drain: 1.55, branches: 3, loops: 0,
+        screens: 10, H: 1120, rad: 112, moths: 22, drain: 1.55, branches: 3, loops: 0,
         pups: [{ at: 'chamber' }, { at: 'chamber', deep: true }, { at: 0.56 }],
         hazards: { stals: { n: 6, from: 0.6, to: 0.94, stage: 0.17 } },
         moons: [{ type: 'home' }, { type: 'pups', all: true }, { type: 'calls', max: 12 }],
@@ -79,16 +137,16 @@
       },
       {
         id: '1-4', name: 'Chalk Map', seed: 1404, mission: 'homing',
-        screens: 9, H: 1180, rad: 110, moths: 23, drain: 1.6, branches: 4, loops: 0.3,
+        screens: 10, H: 1180, rad: 110, moths: 23, drain: 1.6, branches: 4, loops: 0.3,
         pups: [{ at: 'chamber' }, { at: 'chamber' }],
         hazards: { stals: { n: 4, from: 0.3, to: 0.92 } },
-        moons: [{ type: 'home' }, { type: 'pups', all: true }, { type: 'survey', pct: 60 }],
+        moons: [{ type: 'home' }, { type: 'pups', all: true }, { type: 'survey', pct: 80 }],
         intro: 'Every wall you hear is drawn on your map', heardWell: ['gale'],
         scratch: { at: 'chamber', text: 'Every wall you hear is a wall you will not hit.' },
       },
       {
         id: '1-5', name: 'Silk Gallery', seed: 1505, mission: 'homing',
-        screens: 9, H: 1200, rad: 106, moths: 32, drain: 1.65, branches: 3, loops: 0.2,
+        screens: 10, H: 1200, rad: 106, moths: 32, drain: 1.65, branches: 3, loops: 0.2,
         pups: [{ at: 'chamber' }, { at: 0.45 }, { at: 'chamber' }],
         hazards: { webs: { n: 5, from: 0.5, to: 0.95, stage: 0.14 }, drips: { n: 5, from: 0.2, to: 0.75 } },
         moons: [{ type: 'home' }, { type: 'pups', all: true }, { type: 'larder', n: 25 }],
@@ -97,7 +155,7 @@
       },
       {
         id: '1-6', name: 'The Chalk Stair Falls', seed: 1606, mission: 'escape', setPiece: true,
-        screens: 14, H: 1180, rad: 116, moths: 26, drain: 1.6, branches: 1, loops: 0,
+        screens: 15, H: 1180, rad: 116, moths: 26, drain: 1.6, branches: 1, loops: 0,
         pups: [{ at: 0.3, ledge: true }, { at: 0.55, ledge: true }, { at: 0.8, ledge: true }],
         hazards: { collapse: { delay: 4, x0: -240, v0: 90, v1: 140, ramp: 50 }, stals: { n: 3, from: 0.4, to: 0.9 }, webs: { n: 2, from: 0.55, to: 0.9 } },
         moons: [{ type: 'escape' }, { type: 'pups', all: true }, { type: 'untouched' }],

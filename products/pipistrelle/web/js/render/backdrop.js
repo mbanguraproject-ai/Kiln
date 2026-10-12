@@ -1,0 +1,182 @@
+/* The backdrop behind the cave: the biome's sky, two parallax layers of silhouettes (painted in world units at a
+ * density matched to the screen, so they are as crisp at 4K as on a phone), glowworms, the relight of each passing
+ * echo ring, the near foreground tips, moon shafts and drifting motes. */
+(function () {
+  'use strict';
+  const PP = window.PP, Kit = window.Kit, R = PP.R, TAU = PP.TAU;
+  const BD = R.backdrop = { biome: null, layers: [] };
+
+  function bgTile(seed, tw, th, color, rim, depth, db, def) {
+    const c = Kit.gfx.offscreen(Math.ceil(tw * db), Math.ceil(th * db)), g = c.getContext('2d'), r = Kit.rng(seed);
+    g.scale(db, db);
+    const band = th * 0.36;
+    const wrapX = (x, rad, fn) => { fn(x); if (x - rad < 0) fn(x + tw); if (x + rad > tw) fn(x - tw); };
+    g.fillStyle = color;
+    const ridge = top => {
+      g.beginPath();
+      const base = top ? 0 : th, dir = top ? 1 : -1;
+      g.moveTo(0, base);
+      for (let x = 0; x <= tw; x += 8) g.lineTo(x, base + dir * (th * 0.05 + Math.sin(x / tw * TAU * 2 + seed) * th * 0.025 + Math.sin(x / tw * TAU * 5 + seed * 2) * th * 0.012));
+      g.lineTo(tw, base); g.closePath(); g.fill();
+    };
+    ridge(true); ridge(false);
+    const n = Math.round(tw / (def.spikes || (depth > 0.4 ? 34 : 24)));
+    for (let k = 0; k < n; k++) {
+      const x = r.range(0, tw), len = r.range(0.25, 1) * band * (r.chance(0.2) ? 1.12 : 0.8), w = r.range(6, 16) * (len / band + 0.4);
+      wrapX(x, w, xx => { g.beginPath(); g.moveTo(xx - w, th * 0.04); g.quadraticCurveTo(xx - w * 0.3, len * 0.55, xx, len); g.quadraticCurveTo(xx + w * 0.3, len * 0.55, xx + w, th * 0.04); g.closePath(); g.fill(); });
+      if (r.chance(0.7)) {
+        const x2 = r.range(0, tw), l2 = r.range(0.2, 0.7) * band, w2 = r.range(8, 18);
+        wrapX(x2, w2, xx => { g.beginPath(); g.moveTo(xx - w2, th * 0.97); g.quadraticCurveTo(xx - w2 * 0.25, th - l2 * 0.6, xx, th - l2); g.quadraticCurveTo(xx + w2 * 0.25, th - l2 * 0.6, xx + w2, th * 0.97); g.closePath(); g.fill(); });
+      }
+    }
+    for (let k = 0; k < (def.columns === undefined ? 1 : def.columns); k++) {
+      const x = r.range(0, tw), w = r.range(14, 26);
+      wrapX(x, w * 2, xx => {
+        g.beginPath(); g.moveTo(xx - w * 1.8, 0); g.quadraticCurveTo(xx - w * 0.4, th * 0.4, xx - w * 0.45, th * 0.5); g.quadraticCurveTo(xx - w * 0.4, th * 0.6, xx - w * 1.8, th);
+        g.lineTo(xx + w * 1.8, th); g.quadraticCurveTo(xx + w * 0.4, th * 0.6, xx + w * 0.45, th * 0.5); g.quadraticCurveTo(xx + w * 0.4, th * 0.4, xx + w * 1.8, 0); g.closePath(); g.fill();
+      });
+    }
+    if (rim) {
+      g.globalCompositeOperation = 'source-atop';
+      const gr = g.createLinearGradient(0, 0, 0, th);
+      gr.addColorStop(0, Kit.gfx.alpha(rim, 0)); gr.addColorStop(0.5, Kit.gfx.alpha(rim, 0.25)); gr.addColorStop(1, Kit.gfx.alpha(rim, 0));
+      g.fillStyle = gr; g.fillRect(0, 0, tw, th);
+    }
+    return c;
+  }
+
+  BD.setBiome = function (id) {
+    const B = PP.biome(id);
+    if (BD.biome === B) return;
+    BD.biome = B;
+    BD.layers = (B.parallax || []).map((d, i) => {
+      const r = Kit.rng(d.seed * 3), worms = [];
+      for (let k = 0; k < (d.depth < 0.3 ? 46 : 18); k++) worms.push({ x: r.range(0, d.tw), y: r.range(d.th * 0.06, d.th * 0.3), len: r.range(4, 22), ph: r.range(0, 6), sp: r.range(0.5, 1.6) });
+      return { def: d, i, worms, db: 0, dark: null, lit: null };
+    });
+    const fr = Kit.rng(91);
+    BD.tips = [];
+    for (let k = 0; k < 9; k++) BD.tips.push({ x: fr.range(0, 900), w: fr.range(16, 40), len: fr.range(40, 130) });
+  };
+
+  function tiles(l, db) {
+    if (l.db === db && l.dark) return;
+    const d = l.def, pal = BD.biome.palette;
+    l.db = db;
+    l.dark = bgTile(d.seed, d.tw, d.th, pal.sil[l.i] || pal.sil[0], null, d.depth, db, d);
+    l.lit = bgTile(d.seed, d.tw, d.th, pal.silLit[l.i] || pal.silLit[0], PP.P.teal, d.depth, db, d);
+  }
+  function tileDraw(ctx, img, tw, th, ox, oy, w, h, band, db) {
+    const bh = Math.ceil(th * band);
+    for (let y = oy; y < h; y += th) {
+      if (y + th < 0) continue;
+      for (let x = ox; x < w; x += tw) {
+        ctx.drawImage(img, 0, 0, img.width, bh * db, x, y, tw, bh);
+        ctx.drawImage(img, 0, img.height - bh * db, img.width, bh * db, x, y + th - bh, tw, bh);
+      }
+    }
+  }
+
+  // screen-space draw (ctx in CSS px); V = { w, h, zoom, k (device px per CSS px), camX, camY, t, rings }
+  BD.draw = function (ctx, V) {
+    const B = BD.biome, pal = B.palette, tier = R.quality.tier;
+    Kit.gfx.sky(ctx, pal.sky);
+    const z = V.zoom;
+    for (const l of BD.layers) {
+      const d = l.def, tw = d.tw * z, th = d.th * z;
+      const want = Math.min(2048 / Math.max(d.tw, d.th), z * V.k);
+      const db = want <= 0.75 ? 0.75 : want <= 1 ? 1 : want <= 1.5 ? 1.5 : want <= 2 ? 2 : Math.min(2048 / Math.max(d.tw, d.th), 2.8);
+      tiles(l, db / z * z);
+      const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
+      ctx.globalAlpha = 0.85;
+      tileDraw(ctx, l.dark, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.db / z);
+      ctx.globalAlpha = 1;
+      if (B.ambient && B.ambient.glowworms) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = pal.glowworm;
+        const ww = Math.max(z, 2 / V.k);
+        for (let y = oy; y < V.h; y += th) for (let x = ox; x < V.w; x += tw) {
+          for (const wm of l.worms) {
+            const px = x + wm.x * z, py = y + wm.y * z, len = wm.len * (d.depth < 0.3 ? 0.6 : 1) * z;
+            if (px < -4 || px > V.w + 4 || py < -30 * z || py > V.h) continue;
+            ctx.globalAlpha = (d.depth < 0.3 ? 0.18 : 0.3) * (0.55 + 0.45 * Math.sin(V.t * wm.sp + wm.ph));
+            ctx.fillRect(px, py, ww, len);
+            ctx.fillRect(px - ww * 0.5, py + len, ww * 2, ww * 2);
+          }
+        }
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+    // passing echo rings light up the silhouettes they sweep over
+    if (!tier.relight || !V.rings || !V.rings.length) return;
+    const TMP = BD._tmp || (BD._tmp = { x: 0, y: 0 });
+    for (const rg of V.rings) {
+      const age = V.t - rg.t0, rad = age * PP.data.tuning.ringSpeed;
+      if (rad > rg.R || rad < 30 || rg.kind === 'drip') continue;
+      const k = 1 - rad / rg.R;
+      Kit.cam.toScreen(rg.x, rg.y, TMP);
+      const ro = rad * z + 12 * z, ri = Math.max(0, rad * z - 70 * z);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(TMP.x, TMP.y, ro, 0, TAU); ctx.arc(TMP.x, TMP.y, ri, 0, TAU, true); ctx.clip();
+      for (const l of BD.layers) {
+        const d = l.def, tw = d.tw * z, th = d.th * z;
+        const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
+        ctx.globalAlpha = Math.min(1, k * 1.1) * (d.depth < 0.3 ? 0.45 : 0.7) * (rg.kind === 'shriek' ? 0.7 : 1);
+        tileDraw(ctx, l.lit, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.db / z);
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  // near foreground: hanging tips at the top edge, darker than everything (vectors, so always crisp)
+  BD.drawForeground = function (ctx, V) {
+    const z = V.zoom, pal = BD.biome.palette, TW = 900 * z;
+    const fo = -Kit.wrap(V.camX * z * 1.3, 0, TW), oy = -10 * z - Kit.wrap(V.camY * z * 0.05, 0, 30 * z);
+    ctx.fillStyle = pal.fg || '#010206';
+    ctx.beginPath();
+    for (let x0 = fo; x0 < V.w; x0 += TW) for (const tp of BD.tips) {
+      const xx = x0 + tp.x * z, w = tp.w * z, len = tp.len * z;
+      if (xx + w < 0 || xx - w > V.w) continue;
+      ctx.moveTo(xx - w, oy); ctx.quadraticCurveTo(xx - w * 0.3, oy + len * 0.6, xx, oy + len); ctx.quadraticCurveTo(xx + w * 0.3, oy + len * 0.6, xx + w, oy); ctx.closePath();
+    }
+    ctx.fill();
+  };
+
+  // moon shafts through roof fissures near the mouth, and motes drifting in any light (world space)
+  BD.drawLightWorld = function (ctx, Vw, t) {
+    const L = PP.L, B = BD.biome, amb = B.ambient || {};
+    if (amb.shafts && !L.shafts) {
+      L.shafts = [];
+      for (let k = 0; k < amb.shafts; k++) {
+        const p = L.path[Math.floor(L.path.length * (0.05 + k * 0.11))];
+        let y = p.y;
+        while (y > 0 && PP.world.fieldAt(p.x, y) < 0.5) y -= 6;
+        L.shafts.push({ x: p.x + 20, y: y + 4, a: 0.9 - k * 0.3 });
+      }
+    }
+    if (L.shafts) for (const s of L.shafts) {
+      if (s.x < Vw.x0 - 400 || s.x > Vw.x1 + 400) continue;
+      Kit.gfx.lightRays(ctx, s.x, s.y, { count: 4, length: 380, spread: 0.32, angle: Math.PI / 2 + 0.12 + Math.sin(t * 0.03 + s.x) * 0.07, width: 0.06, color: B.palette.moon || PP.P.moon, alpha: 0.05 * s.a, t });
+      R.glow(ctx, s.x, s.y + 6, 40, B.palette.moon || PP.P.moon, 0.18 * s.a);
+    }
+    if (!amb.motes) return;
+    const G = PP.G, b = G.bat, n = Math.min(900, R.quality.tier.ambient);
+    const vw = Vw.x1 - Vw.x0, vh = Vw.y1 - Vw.y0, drift = amb.motes.drift || -12;
+    if (!BD.motes || BD.motes.length !== n) { const r = Kit.rng(5); BD.motes = []; for (let k = 0; k < n; k++) BD.motes.push([r.next(), r.next(), r.range(0.4, 1.2), r.range(0, 6)]); }
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = amb.motes.color || '#dfe8ff';
+    const sz = Vw.minW(1.6), ex = L.W, ey = L.exitY;
+    for (const m of BD.motes) {
+      const x = Vw.x0 + Kit.wrap(m[0] * vw + t * drift * m[2], 0, vw), y = Vw.y0 + Kit.wrap(m[1] * vh + Math.sin(t * 0.5 + m[3]) * 10, 0, vh);
+      const db = (x - b.x) * (x - b.x) + (y - b.y) * (y - b.y), de = (x - ex) * (x - ex) + (y - ey) * (y - ey);
+      const a = Math.max(db < 25600 ? 1 - db / 25600 : 0, de < 250000 ? (1 - de / 250000) * 0.8 : 0);
+      if (a < 0.03) continue;
+      ctx.globalAlpha = a * 0.45 * (0.5 + 0.5 * Math.sin(t * 2 + m[3]));
+      ctx.fillRect(x, y, sz, sz);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  };
+})();

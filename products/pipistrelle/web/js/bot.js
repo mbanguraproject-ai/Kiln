@@ -39,14 +39,14 @@
         const w = bot.wps[bot.i];
         const done = (w.kind === 'pup' && w.ref.state !== 'hang') || (w.kind === 'moth' && w.ref.dead) || (w.kind === 'spot' && dist(b.x, b.y, w.x, w.y) < 60) || w.giveUp;
         if (!done) break;
-        bot.i++;
+        bot.i++; bot.lastProg = 0; bot.stuckT = 0;
       }
       // chirping: steady by default, rare on a call budget
       const gl = bot.goals;
       bot.chirpT -= dt;
       if (bot.chirpT <= 0) {
         if (gl.calls) { bot.chirpT = gl.callEvery || 9; if (G.stats.calls < gl.calls - 1) PP.bat.chirp(); }
-        else { bot.chirpT = gl.survey ? 0.62 : 0.9; PP.bat.chirp(); }
+        else { bot.chirpT = gl.survey ? 0.4 : 0.9; PP.bat.chirp(); }
       }
       // wiggle out of webs
       if (b.web) return { x: (Math.floor(G.t * 8) % 2 ? 1 : -1), y: 0 };
@@ -63,7 +63,15 @@
       } else {
         inp = PP.bat.autoSteer(L.flow, { k, noDetour: !gl.larder && !gl.detour, mothR: 110 });
       }
+      // feel for the walls ahead: steer off them and brake (fewer bumps; careful mode looks further)
+      const W = PP.world, sp = Math.hypot(b.vx, b.vy) || 1, look = gl.careful ? 0.2 : 0.12;
+      const px = b.x + b.vx * look, py = b.y + b.vy * look;
+      if (W.hitsWall(px, py, b.r + (gl.careful ? 8 : 4))) {
+        const n = W.normalAt(px, py, NRM);
+        if (n.ok) { inp = { x: inp.x + n.x * 0.9 - b.vx / sp * 0.4, y: inp.y + n.y * 0.9 - b.vy / sp * 0.4 }; const m = Math.hypot(inp.x, inp.y); if (m > 1) { inp.x /= m; inp.y /= m; } }
+      }
       return inp;
     },
   };
+  const NRM = { x: 0, y: 0, ok: false };
 })();
