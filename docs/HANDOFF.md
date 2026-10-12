@@ -22,8 +22,9 @@ Keep this file current: update the status table at the end of every task.
    the download link.
 4. Games are immersive: they fill the whole screen edge to edge with no hub bar, and the Android system bars hide
    while one plays. A game's own pause menu holds Back to games, Sound and Vibration.
-5. Speed matters: one agent per game builds and self-tests it end to end, and the assistant does the final check
-   and ships it as soon as it passes; no separate review round unless something fails.
+5. Speed matters, and so does usage: one agent per game builds and self-tests it end to end, and the assistant does
+   the final check and ships it as soon as it passes. No critic, judge or review rounds unless something fails;
+   use as few agents as the work needs (the owner, 12 October: "are they necessary, they eat up usage").
 6. **Never leave work only in the chat or its container.** Commit and push work in progress to the working branch
    (use `[skip ci]` in the message for unfinished checkpoints, so the published APK is not replaced by a broken
    build). Anything that matters (specs, plans, workflow scripts, status) goes into the repo.
