@@ -48,7 +48,9 @@ Every push to `main` (or a `claude/*` branch) also publishes
 
 New games are built with `.claude/workflows/kiln-games-fast.js` (one agent per game, end to end; args
 `{ games: [{ id, title, category }], portBase }`, with a `portBase` other runs are not using). Ship each game as soon
-as it passes.
+as it passes. The overhaul uses `.claude/workflows/kiln-legacy-overhaul.js` (args `{ games: [{ id, title, note? }],
+portBase }`). After a usage-limit stop, rerun either one with a `note` telling the agent to continue from the files
+already in its game folder.
 
 **Shipping a new game while a live game is mid-overhaul**: the working branch may hold half-edited live games from
 the checkpoints. Stop the checkpoint loop, then stage the live game folders back to `main`'s version without
