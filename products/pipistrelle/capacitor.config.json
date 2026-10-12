@@ -1,0 +1,15 @@
+{
+  "appId": "com.mbanguraproject.pipistrelle",
+  "appName": "Pipistrelle",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#05060D"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}
