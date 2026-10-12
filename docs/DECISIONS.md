@@ -106,6 +106,21 @@ with no image or audio files, but shares engine code with the others.
 - The kit gives engine pieces, not a look: each game chooses its own palette, fonts, panel style and music.
 - Every new game must pass `tools/game-check.cjs` and a playtest review before it is listed.
 
+## D14. Pipistrelle becomes a full game (decided 12 October 2026)
+
+The owner, on 12 October: "Pipistrelle has the potential of being an original product, high quality. The idea of
+trapping these high quality games like this is wrong. Stop, let's rethink this. Pipistrelle needs the full suite:
+full 4K, different caves, atmosphere, missions, different bats you can purchase and lots more."
+
+- Pipistrelle is now the priority. The 60-game catalogue plan (D12) and the overhaul of the four original games are
+  paused, not cancelled; their drafts stay on the working branch.
+- Pipistrelle is built as a complete, standalone-quality game: its own title screen, world map of distinct caves,
+  missions, a hangar of bats to buy, a persistent profile, and art that stays crisp at native resolution up to
+  3840x2160. It stays playable inside Kiln (same folder and SDK contract, old saves migrate), so it could later ship
+  as its own app as well.
+- Bats are bought with currency earned by playing. No real money, no ads, no energy timers, no dark patterns.
+- The design and build plan live in `docs/pipistrelle/` (`DESIGN.md`, `BUILD_PLAN.md`).
+
 ## Open items
 
 - App name and package ID. `com.mbanguraproject.kiln` is a placeholder and becomes permanent on the first Play upload.

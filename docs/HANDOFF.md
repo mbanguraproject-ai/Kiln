@@ -8,7 +8,10 @@ Keep this file current: update the status table at the end of every task.
 
 ## The owner's standing instructions
 
-1. Goals: 60 new games, 10 in each category (Action, Adventure, Racing, Puzzle, Sports, Arcade), with space and
+1. **Current priority (12 October, D14): Pipistrelle as a full game**: full 4K, different caves, atmosphere,
+   missions, bats to buy with earned currency, and lots more. Its design and build plan are in `docs/pipistrelle/`.
+   The goals below are paused while it is built.
+1. Earlier goals (paused): 60 new games, 10 in each category (Action, Adventure, Racing, Puzzle, Sports, Arcade), with space and
    animal games among them, all high quality and fun; and a visual overhaul of the four existing games, which look
    templated and unfinished. The hub follows the owner's mockup; Continue playing cards have no Play button.
 2. Ship in batches. Each batch gets its own pull request, which the assistant merges once its checks and the APK
@@ -40,10 +43,11 @@ Every push to `main` (or a `claude/*` branch) also publishes
 
 | Work | State |
 | --- | --- |
+| **Pipistrelle full game (D14)** | **In progress**: design run (code map, player assessment, three proposals, judges, design and build plan, critics) writing `docs/pipistrelle/`; the build follows the plan's work packages. Workflows: `.claude/workflows/pipistrelle-full-design.js` |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
 | Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |
-| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | In progress, two at a time: Crosswake and Tessera first, then Lariat and Goldmend. A pair ships together |
-| Batch 2: Riposte, Thimblekeep, Bramble Cup, Orrery, Swellrider, Sunken Bell | In progress: Riposte and Thimblekeep building, the other four next |
+| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Paused (D14). Crosswake is part-rewritten on the working branch (not shippable yet); the others untouched |
+| Batch 2: Riposte, Thimblekeep, Bramble Cup, Orrery, Swellrider, Sunken Bell | Paused (D14). Riposte and Thimblekeep have first drafts on the working branch, not in the registry |
 | Batches 3 to 10 | Not started; line-ups in `docs/CATALOGUE.md` |
 
 New games are built with `.claude/workflows/kiln-games-fast.js` (one agent per game, end to end; args
