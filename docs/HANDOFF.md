@@ -46,7 +46,7 @@ Every push to `main` (or a `claude/*` branch) also publishes
 
 | Work | State |
 | --- | --- |
-| **Pipistrelle product (D14)** | **In progress**: design run (code map, player assessment, three proposals, judges, design and build plan, critics) writing `docs/pipistrelle/` and `docs/PRODUCTS.md`; then the build of `products/pipistrelle/` follows the plan's work packages. Workflow: `.claude/workflows/pipistrelle-full-design.js` |
+| **Pipistrelle product (D14)** | **In progress**: scope in `docs/pipistrelle/BRIEF.md` (research in `docs/pipistrelle/research/`). Step 1, foundation and first playable in `products/pipistrelle/`, is being built by one agent; its progress log is `products/pipistrelle/STATUS.md`. Then two agents add the other biomes, then a pull request |
 | Napwalk product | Next, after Pipistrelle ships |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
 | Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |
