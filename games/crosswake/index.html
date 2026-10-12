@@ -65,6 +65,9 @@ body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(
 .cw-round:disabled { opacity: 0.35; cursor: default; transform: none; }
 .wait { display: grid; gap: 4px; min-width: 0; }
 .wait label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font: 800 10.5px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(243, 234, 215, 0.62); white-space: nowrap; }
+.wl-short { display: none; }
+@media (max-width: 400px) { .wl-long { display: none; } .wl-short { display: inline; } }
+.wait label span { overflow: hidden; text-overflow: ellipsis; }
 .wait label b { font: 600 13px/1 var(--font-display); letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
 #delay { -webkit-appearance: none; appearance: none; width: 100%; height: 34px; margin: 0; background: transparent; cursor: pointer; }
 #delay::-webkit-slider-runnable-track {
@@ -89,7 +92,8 @@ body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(
   transition: transform 0.08s, filter 0.2s;
 }
 #dropBtn:active { transform: translateY(2px) scale(0.97); }
-#dropBtn:disabled { cursor: default; filter: grayscale(0.85) brightness(0.62); transform: none; }
+#dropBtn:disabled { cursor: default; color: rgba(255, 236, 214, 0.55); background: radial-gradient(circle at 40% 25%, #6E3A2E, #4A2620 60%, #33191A); box-shadow: inset 0 0 0 2px rgba(255, 236, 214, 0.22), inset 0 -3px 0 rgba(0, 0, 0, 0.25); transform: none; }
+body.cw-still #controls { transition: none; }
 #dropBtn.ready { animation: seal 1.6s ease-in-out infinite; }
 #dropBtn:focus-visible, .cw-round:focus-visible { outline: 3px solid var(--brass); outline-offset: 3px; }
 @keyframes seal { 0%, 100% { box-shadow: inset 0 0 0 3px rgba(255, 236, 214, 0.9), inset 0 0 0 5px var(--seal), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 8px 18px -8px rgba(207, 65, 40, 0.9); }
@@ -105,6 +109,7 @@ body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(
 /* ---------- the kit shell, dressed as washi paper and ink ---------- */
 .k-shell { --k-radius: 20px; }
 .k-shell .k-title { background: radial-gradient(130% 60% at 50% 42%, rgba(4, 14, 16, 0.55), transparent 72%), linear-gradient(to bottom, rgba(4, 14, 16, 0.25), transparent 30%, transparent 62%, rgba(4, 14, 16, 0.6)); }
+body .k-shell[data-title-style] .k-title-h { color: var(--ink); }
 .k-shell .k-title-h { font: 600 clamp(34px, 10vw, 64px)/1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 190, 110, 0.25); padding-left: 0.12em; }
 .k-shell .k-title-head::before {
   content: ""; width: 54px; height: 54px; border-radius: 12px; margin: 0 auto 4px;
@@ -145,7 +150,7 @@ body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/></svg>
   </button>
   <div class="wait">
-    <label for="delay"><span>Second stone waits</span><b id="delayVal">0.00 s</b></label>
+    <label for="delay"><span class="wl-long">Second stone waits</span><span class="wl-short">Stone 2 waits</span><b id="delayVal">0.00 s</b></label>
     <input type="range" id="delay" min="0" max="1000" step="1" value="0" disabled>
   </div>
   <button id="dropBtn" type="button" disabled>Drop</button>
@@ -1682,6 +1687,7 @@ body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(
   }
   function sceneRun(seed, t0) {
     scene = true; manual = true;
+    document.body.classList.add('cw-still');
     Kit.fx.seed(seed);
     nextSeed = seed; resumeOnStart = false;
     if (shell.phase === 'play') newRunInternal(); else shell.start();
@@ -1708,10 +1714,11 @@ body.cw-hide #controls { opacity: 0; pointer-events: none; transform: translate(
     shot1: () => {
       sceneRun(12, 8);
       autoplayTo(2);
+      fx.clear();
       pondBorn = -99; banners = [];
       const s = P.solution[0];
       placed = [{ x: s.A.x, y: s.A.y }, { x: s.B.x, y: s.B.y }];
-      wait = clamp((s.delay * V) / (MAX_WAIT * dist(s.A, s.B)), 0, 1) * 0.8;
+      wait = clamp((s.delay * V) / (MAX_WAIT * dist(s.A, s.B)), 0, 1);
       previewCache = null; syncControls();
       hint.text = hintText(); hint.a = 1; shownScore = run.score;
       steps(0.5);
