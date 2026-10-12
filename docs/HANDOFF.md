@@ -8,10 +8,12 @@ Keep this file current: update the status table at the end of every task.
 
 ## The owner's standing instructions
 
-1. **Current priority (12 October, D14): Pipistrelle as a full game**: full 4K, different caves, atmosphere,
-   missions, bats to buy with earned currency, and lots more. Its design and build plan are in `docs/pipistrelle/`.
-   The goals below are paused while it is built.
-1. Earlier goals (paused): 60 new games, 10 in each category (Action, Adventure, Racing, Puzzle, Sports, Arcade), with space and
+1. **Current priority (12 October, D14)**: games start in Kiln, and the good ones graduate into standalone
+   products in `products/<id>/` (own Android app, build, tests and CI; nothing outside its folder). First
+   **Pipistrelle as a full product**: full 4K, different caves, atmosphere, missions, bats to buy with earned
+   currency, and lots more (design and build plan in `docs/pipistrelle/`). Next, **Napwalk's full rollout**. Then
+   the rest of the 60 catalogue games are built in Kiln, and the owner reviews each to pick the next graduates.
+1. Catalogue goals (resume after Pipistrelle and Napwalk): 60 new games, 10 in each category (Action, Adventure, Racing, Puzzle, Sports, Arcade), with space and
    animal games among them, all high quality and fun; and a visual overhaul of the four existing games, which look
    templated and unfinished. The hub follows the owner's mockup; Continue playing cards have no Play button.
 2. Ship in batches. Each batch gets its own pull request, which the assistant merges once its checks and the APK
@@ -43,7 +45,8 @@ Every push to `main` (or a `claude/*` branch) also publishes
 
 | Work | State |
 | --- | --- |
-| **Pipistrelle full game (D14)** | **In progress**: design run (code map, player assessment, three proposals, judges, design and build plan, critics) writing `docs/pipistrelle/`; the build follows the plan's work packages. Workflows: `.claude/workflows/pipistrelle-full-design.js` |
+| **Pipistrelle product (D14)** | **In progress**: design run (code map, player assessment, three proposals, judges, design and build plan, critics) writing `docs/pipistrelle/` and `docs/PRODUCTS.md`; then the build of `products/pipistrelle/` follows the plan's work packages. Workflow: `.claude/workflows/pipistrelle-full-design.js` |
+| Napwalk product | Next, after Pipistrelle ships |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
 | Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |
 | Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Paused (D14). Crosswake is part-rewritten on the working branch (not shippable yet); the others untouched |

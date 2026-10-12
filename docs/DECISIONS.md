@@ -106,20 +106,27 @@ with no image or audio files, but shares engine code with the others.
 - The kit gives engine pieces, not a look: each game chooses its own palette, fonts, panel style and music.
 - Every new game must pass `tools/game-check.cjs` and a playtest review before it is listed.
 
-## D14. Pipistrelle becomes a full game (decided 12 October 2026)
+## D14. Kiln is where games start; the best become standalone products (decided 12 October 2026)
 
-The owner, on 12 October: "Pipistrelle has the potential of being an original product, high quality. The idea of
-trapping these high quality games like this is wrong. Stop, let's rethink this. Pipistrelle needs the full suite:
-full 4K, different caves, atmosphere, missions, different bats you can purchase and lots more."
+The owner, on 12 October: "Pipistrelle has the potential of being an original product, high quality ... Pipistrelle
+needs the full suite: full 4K, different caves, atmosphere, missions, different bats you can purchase and lots
+more." Then: "Pipistrelle should be its own sub repo in Kiln. It's a roll out. Picture this: all high quality
+original games in Kiln ... After we have pushed Pipistrelle, the next is Napwalk full rollout. And the rest of the
+60 games we will build them in Kiln and I'll look at each; if I spot any good one, it's getting out."
 
-- Pipistrelle is now the priority. The 60-game catalogue plan (D12) and the overhaul of the four original games are
-  paused, not cancelled; their drafts stay on the working branch.
-- Pipistrelle is built as a complete, standalone-quality game: its own title screen, world map of distinct caves,
-  missions, a hangar of bats to buy, a persistent profile, and art that stays crisp at native resolution up to
-  3840x2160. It stays playable inside Kiln (same folder and SDK contract, old saves migrate), so it could later ship
-  as its own app as well.
-- Bats are bought with currency earned by playing. No real money, no ads, no energy timers, no dark patterns.
-- The design and build plan live in `docs/pipistrelle/` (`DESIGN.md`, `BUILD_PLAN.md`).
+- **The model**: every game starts in Kiln. The owner looks at each one; the good ones graduate into standalone
+  products with a full rollout.
+- **A product** lives in its own self-contained folder of this repo, `products/<id>/`, with its own Android app
+  (own app ID, name, icon), web root, build, tests, README and CI workflow that publishes its own APK. It depends on
+  nothing outside its folder, so it can later move to its own git repository unchanged. `docs/PRODUCTS.md`
+  describes the layout.
+- **Order**: Pipistrelle first (full 4K, distinct caves, atmosphere, missions, bats bought with earned currency,
+  and more), then Napwalk's full rollout, then the remaining catalogue games are built in Kiln (D12) for the owner
+  to review. The overhaul of the four original games is paused until then; drafts stay on the working branch.
+- The pilot version of a graduated game stays in the Kiln hub unchanged.
+- Bats and other unlocks are bought with currency earned by playing. No real money, no ads, no energy timers, no
+  dark patterns.
+- Pipistrelle's design and build plan live in `docs/pipistrelle/` (`DESIGN.md`, `BUILD_PLAN.md`).
 
 ## Open items
 
