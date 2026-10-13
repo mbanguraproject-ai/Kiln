@@ -13,7 +13,7 @@
       caves: {}, roost: {}, bats: { owned: ['pip'], selected: 'pip' },
       requests: { done: {} }, journal: { scratches: {} }, nightly: { last: '' }, longNight: { best: 0, bestCave: 0, runs: 0 },
       flights: {}, seen: { bats: {}, requests: {}, night: false }, tutorial: { taught: false },
-      settings: { sound: true, music: 0.8, sfx: 1, echo: 1, vibration: true, quality: 'auto', gentle: false, shapes: false, captions: true, adsPersonal: false },
+      settings: { sound: true, music: 0.8, sfx: 1, echo: 1, vibration: true, quality: 'native', gentle: false, shapes: false, captions: true, adsPersonal: false },
       legacy: { gift: 0 },
     };
   }
@@ -50,6 +50,8 @@
     const f = fresh();
     for (const k in f) if (p[k] === undefined) p[k] = f[k];
     for (const k of ['stats', 'settings', 'seen', 'longNight', 'bats', 'requests', 'journal']) for (const kk in f[k]) if (p[k][kk] === undefined) p[k][kk] = f[k][kk];
+    // the old quality tiers are gone: everything draws at native resolution now, unless Battery saver is on
+    if (p.settings.quality !== 'saver') p.settings.quality = 'native';
     p.v = VERSION;
     return p;
   }

@@ -1,6 +1,6 @@
 // Pipistrelle's tests (docs/pipistrelle/BRIEF.md, Engineering): the economy simulator, save migration, every cave
 // generates, the bot finishes every cave and earns every Moon with Pip, The Long Night runs, every screen opens,
-// and the frame-time budget at phone, laptop and 4K sizes.
+// native resolution up to 4K, the pixels a frame covers, the frame-time budget and the safety net.
 // Usage: node tests/test.cjs [--only=economy,caves,moons,screens,rescue,frames] [--port=8920]
 //        node tests/test.cjs --unit    (no browser: economy, saves and campaign data; what CI runs)
 // Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally), except for --unit.
@@ -184,27 +184,84 @@ const GOALS = {
   }
 
   if (want('frames')) {
-    // CPU time per frame (simulation plus drawing) while flying. Headless Chromium draws canvases on the CPU with
-    // no GPU, so these numbers are a stress test, not a phone's: High must fit the budget at every size, and on
-    // Auto the governor must bring a 4K screen within it by itself (lowering resolution, then the tier).
-    const fly = (tier, ms) => async () => {
-      __ppTest.quality(tier === 'auto' ? 'auto' : tier);
-      __ppTest.startCave('1-3');
-      __ppTest.autopilot(true, {});
-      await new Promise(r => setTimeout(r, ms));
-      const c = document.getElementById('game');
-      return Object.assign(__ppTest.frameStats(), { px: c.width + 'x' + c.height });
-    };
-    for (const [w, h, d] of [[390, 844, 3], [1280, 800, 1], [3840, 2160, 1]]) {
+    // Native resolution by default, up to 4K, with no tiers to pick (js/render/quality.js). Headless Chromium has no
+    // GPU: it draws through a software GPU roughly a hundred times slower than a phone's, so a 4K frame cannot reach
+    // 60 fps here. What is checked is what carries over to a real device: the resolution, how many screens of
+    // pixels a frame covers, the CPU budget where this machine keeps up, and that the safety net sheds effects
+    // before it touches resolution and never goes below 75%.
+    const canvasAt = async (w, h, d, setting) => {
       const p = await open(w, h, d);
-      const st = await p.evaluate(`(${fly.toString()})('high', 4000)()`);
-      check(st.work < 12, `frame budget on High at ${w}x${h}@${d}x`, `${st.work} ms of work per frame at ${st.px}`);
+      const r = await p.evaluate(async s => { __ppTest.quality(s); PP.R.quality.frame = () => {}; __ppTest.startCave('1-3'); await new Promise(r => setTimeout(r, 500)); const c = document.getElementById('game'); return [c.width, c.height, PP.R.quality.tier.id]; }, setting);
+      await p.close();
+      return r;
+    };
+    const ph = await canvasAt(390, 844, 3, 'native');
+    check(ph[0] === 1170 && ph[1] === 2532 && ph[2] === 'ultra', 'a phone draws at its full native resolution with every effect on', ph.join(' '));
+    const k4 = await canvasAt(3840, 2160, 1, 'native');
+    check(k4[0] === 3840 && k4[1] === 2160 && k4[2] === 'ultra', 'a 4K screen draws at 3840 x 2160 with every effect on', k4.join(' '));
+    const k5 = await canvasAt(5120, 2880, 1, 'native');
+    check(k5[0] * k5[1] <= 3840 * 2160 * 1.07 && k5[0] * k5[1] >= 3840 * 2160 * 0.95, 'a screen bigger than 4K draws at 4K\'s pixel count', k5.join(' '));
+    const sv = await canvasAt(3840, 2160, 1, 'saver');
+    check(sv[0] * sv[1] <= 2.15e6 && sv[2] === 'medium', 'Battery saver draws at about 1080p with lighter effects', sv.join(' '));
+
+    // screens of pixels a frame covers (image and rectangle fills on the main canvas), at native 4K
+    const fill = async (w, h, d) => {
+      const p = await open(w, h, d);
+      const r = await p.evaluate(async () => {
+        __ppTest.quality('native'); PP.R.quality.frame = () => {};
+        __ppTest.startCave('1-3'); __ppTest.autopilot(true, {});
+        await new Promise(r => setTimeout(r, 1500));
+        const ctx = PP.R.ctx, CW = ctx.canvas.width, CH = ctx.canvas.height;
+        let area = 0, frames = 0;
+        const add = (x, y, w, h) => {
+          const m = ctx.getTransform();
+          if (Math.abs(m.b) > 1e-6 || Math.abs(m.c) > 1e-6) { area += Math.abs(w * h * (m.a * m.d - m.b * m.c)); return; }
+          let x0 = m.a * x + m.e, y0 = m.d * y + m.f, x1 = m.a * (x + w) + m.e, y1 = m.d * (y + h) + m.f;
+          if (x0 > x1) [x0, x1] = [x1, x0]; if (y0 > y1) [y0, y1] = [y1, y0];
+          area += Math.max(0, Math.min(CW, x1) - Math.max(0, x0)) * Math.max(0, Math.min(CH, y1) - Math.max(0, y0));
+        };
+        const di = ctx.drawImage, fr = ctx.fillRect, f0 = PP.R.frame;
+        ctx.drawImage = function (img, ...a) { if (a.length === 2) add(a[0], a[1], img.width, img.height); else if (a.length === 4) add(...a); else add(a[4], a[5], a[6], a[7]); return di.call(this, img, ...a); };
+        ctx.fillRect = function (x, y, w, h) { add(x, y, w, h); return fr.call(this, x, y, w, h); };
+        PP.R.frame = function () { frames++; return f0.apply(this, arguments); };
+        await new Promise(r => setTimeout(r, 2500));
+        ctx.drawImage = di; ctx.fillRect = fr; PP.R.frame = f0;
+        return { screens: +(area / Math.max(1, frames) / (CW * CH)).toFixed(2), frames };
+      });
+      await p.close();
+      return r;
+    };
+    for (const [w, h, d] of [[390, 844, 3], [3840, 2160, 1]]) {
+      const r = await fill(w, h, d);
+      check(r.screens <= 4.2, `a frame at ${w}x${h}@${d}x covers at most 4.2 screens of pixels`, `${r.screens} screens over ${r.frames} frames`);
+    }
+
+    // CPU time per frame with every effect on, in a small window where this machine's drawing keeps up, so what
+    // is measured is the game's own work (the pixel side is the screens-covered check above)
+    for (const cave of ['1-3', '2-6', '3-5']) {
+      const p = await open(640, 360, 1);
+      const st = await p.evaluate(async id => {
+        __ppTest.quality('ultra'); __ppTest.startCave(id); __ppTest.autopilot(true, {});
+        await new Promise(r => setTimeout(r, 4000));
+        return __ppTest.frameStats();
+      }, cave);
+      check(st.work < 10, `frame budget with every effect on (cave ${cave})`, `${st.work} ms of work per frame, ${st.avg} ms between frames`);
       await p.close();
     }
-    const p = await open(3840, 2160, 1);
-    const st = await p.evaluate(`(${fly.toString()})('auto', 12000)()`);
-    check(st.work < 16, 'on Auto, the governor brings 4K within the frame budget', `${st.work} ms at ${st.px}, tier ${st.tier}, scale ${st.g}`);
-    await p.close();
+
+    // the safety net, on a 4K screen this machine cannot keep up with: effects go first, then resolution, and
+    // never below 75%
+    const q = await open(3840, 2160, 1);
+    const sn = await q.evaluate(async () => {
+      __ppTest.quality('native'); __ppTest.startCave('1-3'); __ppTest.autopilot(true, {});
+      await new Promise(r => setTimeout(r, 14000));
+      const Q = PP.R.quality, c = document.getElementById('game');
+      return { steps: Q.steps.slice(), g: Q.g, tier: Q.tier.id, px: c.width + 'x' + c.height };
+    });
+    const firstScale = sn.steps.findIndex(x => x.startsWith('scale')), lastLevel = sn.steps.lastIndexOf('level:low');
+    check(sn.steps.length > 0 && (firstScale < 0 || (lastLevel >= 0 && lastLevel < firstScale)), 'the safety net sheds every effect level before it lowers the resolution', sn.steps.join(' '));
+    check(sn.g >= 0.75 - 1e-6, 'the safety net never draws below 75% of native', `scale ${sn.g.toFixed(2)} at ${sn.px}, level ${sn.tier}`);
+    await q.close();
   }
 
   check(errors.length === 0, 'no errors in the console', errors.slice(0, 5).join(' | '));

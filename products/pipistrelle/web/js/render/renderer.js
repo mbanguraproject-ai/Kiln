@@ -140,12 +140,14 @@
     cam.apply(ctx);
     R.ppu = V.ppu;
     const d = R.pickDensity(V.ppu);
-    R.drawRock(ctx, V.x0, V.y0, V.x1, V.y1, d, R.firstFrame ? 99 : 3);
+    const bt = G.bat, ahead = R._ahead || (R._ahead = { x: 0, y: 0 });
+    ahead.x = bt.x + bt.vx * 1.4; ahead.y = bt.y + bt.vy * 1.4;
+    R.drawRock(ctx, V.x0, V.y0, V.x1, V.y1, d, R.firstFrame ? 99 : 1, ahead);
     R.drawRims(ctx, V.x0, V.y0, V.x1, V.y1);
     R.firstFrame = false;
     cam.restore(ctx);
     R.ppu = k;
-    drawDark(w, h, t);
+    R.drawDark(w, h, t);
     cam.apply(ctx);
     R.ppu = V.ppu;
     ctx.globalCompositeOperation = 'lighter';
@@ -173,7 +175,7 @@
 
   // Darkness: a mask in world-relative resolution (the tier sets the texel size) with holes cut for the bat's glow,
   // the moonlit mouth, lit crystals and each echo ring as it sweeps; the vignette is folded into it.
-  function drawDark(w, h, t) {
+  R.drawDark = function (w, h, t) {
     const G = PP.G, L = PP.L, z = R.zoom, step = R.quality.tier.mask, pal = PP.biome(L.biome).palette;
     const q = step * z, dw = Math.ceil(w / q) + 1, dh = Math.ceil(h / q) + 1;
     if (!darkC || darkC.width !== dw || darkC.height !== dh) { if (darkC) { darkC.width = 0; darkC.height = 0; } darkC = Kit.gfx.offscreen(dw, dh); darkG = darkC.getContext('2d'); darkC.vig = null; }
@@ -226,7 +228,7 @@
     g.fillRect(0, 0, dw, dh);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(darkC, 0, 0, dw, dh, 0, 0, dw * q, dh * q);
-  }
+  };
 
   function overlays(w, h) {
     const G = PP.G;

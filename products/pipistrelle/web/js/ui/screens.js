@@ -112,9 +112,10 @@
   function batPicker(onPick) {
     const p = PP.profile.get(), row = h('div.batpick');
     for (const id of p.bats.owned) {
-      const bat = PP.batById(id), cv = h('canvas', { width: 64, height: 64 });
-      cv.style.width = '3.2rem'; cv.style.height = '3.2rem';
-      PP.hangar.paintBat(cv, bat, 0.6);
+      const bat = PP.batById(id), cv = h('canvas', { width: 64, height: 64, 'data-w': 72, 'data-h': 48, 'aria-hidden': 'true' });
+      cv.style.width = '4.5rem'; cv.style.height = '3rem';
+      PP.hangar.paintBat(cv, bat);
+      requestAnimationFrame(() => PP.hangar.paintBat(cv, bat));
       row.appendChild(h('button' + (p.bats.selected === id ? '.on' : ''), { onclick: () => { PP.uiSfx(); PP.profile.select(id); if (onPick) onPick(); } }, [cv, bat.name]));
     }
     return row;
@@ -356,15 +357,31 @@
       r.addEventListener('change', () => PP.uiSfx());
       return h('div.toggle', null, [h('span', { text: label }), r]);
     };
-    const q = h('div.seg');
-    for (const id of ['auto', 'low', 'medium', 'high', 'ultra']) q.appendChild(h('button' + (S.get('quality') === id ? '.on' : ''), { text: id === 'auto' ? 'Auto' : PP.R.TIERS[id].name, onclick: () => { S.set('quality', id); PP.uiSfx(); U.refresh(); } }));
+    // Display: native resolution up to 4K, always; Battery saver is the one choice
+    const res = () => {
+      const c = document.getElementById('game'), saver = S.get('quality') === 'saver', Q = PP.R.quality;
+      const W = c ? c.width : 0, H = c ? c.height : 0, dpr = devicePixelRatio || 1, full = Math.round(innerWidth * dpr) * Math.round(innerHeight * dpr);
+      const k4 = W * H >= 3840 * 2160 * 0.97, at = 'Drawing at ' + W + ' × ' + H;
+      if (saver) return { title: 'Battery saver', line: at + ' to save power.' };
+      if (Q.g < 1) return { title: 'Native resolution, up to 4K', line: at + ' for now: this device asked for a lighter frame.' };
+      if (W * H >= full * 0.97) return { title: k4 ? '4K · native resolution' : 'Native resolution', line: at + ', every pixel of your screen.' };
+      return { title: '4K', line: at + ', scaled to your screen.' };
+    };
+    const r0 = res(), resT = h('b.res-title', { text: r0.title }), resL = h('p.muted', { text: r0.line });
+    const saverSw = h('button.switch' + (S.get('quality') === 'saver' ? '.on' : ''), { role: 'switch', 'aria-checked': String(S.get('quality') === 'saver'), 'aria-label': 'Battery saver' });
+    saverSw.addEventListener('click', () => {
+      const on = S.get('quality') !== 'saver';
+      S.set('quality', on ? 'saver' : 'native');
+      saverSw.classList.toggle('on', on); saverSw.setAttribute('aria-checked', String(on)); PP.uiSfx();
+      setTimeout(() => { PP.R.frame(); const r = res(); resT.textContent = r.title; resL.textContent = r.line; }, 60);
+    });
     const code = h('textarea', { readonly: true, 'aria-label': 'Save code' });
     code.hidden = true;
     const imp = h('textarea', { placeholder: 'Paste a save code here', 'aria-label': 'Import save code' });
     imp.hidden = true;
     const el = h('div.scr.scrim-strong', null, [U.top('Settings', { larder: false }), h('div.body', null, h('div.wrap', null, [
       h('div.card', null, [toggle('sound', 'Sound'), slider('music', 'Music'), slider('sfx', 'Effects'), slider('echo', 'Echo volume'), toggle('vibration', 'Vibration')]),
-      h('div.card', null, [h('div.eyebrow', { text: 'Quality' }), q, h('p.muted', { text: 'Auto keeps the frame rate smooth by adjusting resolution. Quality never changes what you can hear or see in the echoes.' })]),
+      h('div.card', null, [h('div.eyebrow', { text: 'Display' }), resT, resL, h('div.toggle', null, [h('span', null, ['Battery saver', h('small', { text: 'Draws at about 1080p with lighter effects. What you hear and see in the echoes never changes.' })]), saverSw])]),
       h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
       h('div.card', null, [toggle('gentle', 'Gentle Wings', 'Bumps cost nothing; other knocks and the dark’s hunger are softer.'), toggle('shapes', 'Echo shapes', 'Each echo colour also gets its own mark: rock dots, food diamonds, pup hearts, danger triangles.'), toggle('captions', 'Sound captions', 'Show what you hear at the edge of the screen.')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Save' }), h('div.row', null, [
