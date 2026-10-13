@@ -1,12 +1,14 @@
 // Pipistrelle's tests (docs/pipistrelle/BRIEF.md, Engineering): the economy simulator, save migration, every cave
 // generates, the bot finishes every cave and earns every Moon with Pip, The Long Night runs, every screen opens,
 // and the frame-time budget at phone, laptop and 4K sizes.
-// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,frames] [--port=8920]
-// Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally).
+// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,rescue,frames] [--port=8920]
+//        node tests/test.cjs --unit    (no browser: economy, saves and campaign data; what CI runs)
+// Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally), except for --unit.
+const args = process.argv.slice(2);
+if (args.includes('--unit')) { require('./unit.cjs'); return; }
 const { chromium } = require('playwright');
 const { serve } = require('../tools/serve.cjs');
 
-const args = process.argv.slice(2);
 const only = (args.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const port = +((args.find(a => a.startsWith('--port=')) || '').slice(7)) || 8920;
 const want = name => !only.length || only.includes(name);
@@ -120,6 +122,65 @@ const GOALS = {
       const cur = await page.evaluate(id => __ppTest.show('brief', { id }), c.id);
       check(cur === 'brief', `brief for ${c.id} opens`);
     }
+  }
+
+  if (want('rescue')) {
+    // The Last Echo: the Second Wind heartbeat, then the rewarded "Fly on" (the browser's stand-in test ad)
+    const r = await page.evaluate(async () => {
+      const out = {};
+      window.__ppFastAds = true;
+      const until = (fn, max) => { for (let i = 0; i < (max || 600) && !fn(); i++) __ppTest.step(1 / 60); return fn(); };
+      __ppTest.reset();
+      __ppTest.startCave('1-2');
+      __ppTest.step(1);
+      __ppTest.energy(0.05);
+      out.rescue = until(() => PP.G.sub === 'rescue') && PP.G.rescue.stage;
+      // tap on every beat
+      for (let i = 0; i < 400 && PP.G.sub === 'rescue'; i++) {
+        const S = PP.G.rescue, due = 0.75 + S.beat * 0.95;
+        if (S.stage === 'beats' && S.beat < 4 && Math.abs(S.t - due) < 0.03) PP.rescue.tap();
+        __ppTest.step(1 / 60);
+      }
+      out.wind = { sub: PP.G.sub, energy: Math.round(PP.G.energy), shield: PP.G.shield > 0, used: !!PP.G.secondWindUsed };
+      // lose again: straight to the offer
+      __ppTest.step(2);
+      __ppTest.energy(0.05);
+      until(() => PP.G.sub === 'rescue');
+      out.offerStage = PP.G.rescue && PP.G.rescue.stage;
+      out.offerShown = !document.querySelector('.offer').hidden;
+      PP.rescue.watch();
+      await new Promise(res => setTimeout(res, 700));
+      out.ad = { sub: PP.G.sub, energy: Math.round(PP.G.energy), adUsed: !!PP.G.adUsed, revives: PP.G.stats.revives };
+      // a third loss: both chances spent, so the run ends
+      __ppTest.step(3);
+      __ppTest.energy(0.05);
+      until(() => PP.G.sub === 'done' || PP.G.sub === 'rescue', 300);
+      out.third = PP.G.sub;
+      // missing the beats leads to the offer; letting the echoes fade ends the run
+      __ppTest.startCave('1-2');
+      __ppTest.step(1);
+      __ppTest.energy(0.05);
+      until(() => PP.G.sub === 'rescue');
+      until(() => !PP.G.rescue || PP.G.rescue.stage === 'offer', 400);
+      out.missed = PP.G.rescue && PP.G.rescue.stage;
+      PP.rescue.giveUp();
+      out.faded = PP.G.sub;
+      // practice never stops for this
+      __ppTest.startPractice('pip');
+      __ppTest.step(1);
+      PP.run.die();
+      until(() => PP.G.sub !== 'dead', 200);
+      out.practice = PP.G.sub;
+      window.__ppFastAds = false;
+      return out;
+    });
+    check(r.rescue === 'beats', 'losing opens the Last Echo with the Second Wind heartbeat', r.rescue);
+    check(r.wind.sub === 'cave' && r.wind.energy === 35 && r.wind.shield && r.wind.used, 'catching the heartbeats gives a second wind', JSON.stringify(r.wind));
+    check(r.offerStage === 'offer' && r.offerShown, 'once the second wind is spent, losing offers "Fly on?"');
+    check(r.ad.sub === 'cave' && r.ad.energy >= 64 && r.ad.adUsed && r.ad.revives === 2, 'a watched rewarded ad flies on with most of the energy', JSON.stringify(r.ad));
+    check(r.third === 'done', 'with both chances spent, losing ends the run', r.third);
+    check(r.missed === 'offer' && r.faded === 'done', 'missed heartbeats lead to the offer; letting the echoes fade ends the run', `${r.missed} / ${r.faded}`);
+    check(r.practice !== 'rescue', 'practice flights never stop for the Last Echo', r.practice);
   }
 
   if (want('frames')) {

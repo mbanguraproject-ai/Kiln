@@ -82,7 +82,47 @@
     drawCave(w, h, G.t);
     overlays(w, h);
     R.drawHud(ctx, w, h, R.safe, R.u);
+    if (G.rescue) drawRescue(w, h);
   };
+
+  // The Last Echo's heartbeats (js/rescue.js): the cave dims to the bat's heart; a ring closes on it with each
+  // beat, and four small hearts below fill pink for the beats you caught.
+  function drawRescue(w, h) {
+    const G = PP.G, S = G.rescue, b = G.bat, u = R.u;
+    const dim = S.stage === 'beats' ? Math.min(1, S.t / 0.5) : 1;
+    ctx.fillStyle = 'rgba(3,4,10,' + (0.45 * dim).toFixed(3) + ')';
+    ctx.fillRect(0, 0, w, h);
+    if (S.stage !== 'beats') return;
+    cam.toScreen(b.x, b.y, R._tmp);
+    const x = R._tmp.x, y = R._tmp.y, core = 22 * u * Math.max(0.8, R.zoom);
+    const pulse = Math.max(0, 1 - Math.abs(((S.t - 0.75) % 0.95) - 0) / 0.18);
+    ctx.globalCompositeOperation = 'lighter';
+    R.glow(ctx, x, y, core * (2.2 + pulse), PP.P.pink, 0.25 + 0.35 * pulse);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = PP.P.pink;
+    ctx.lineWidth = 2.5 * u;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.arc(x, y, core, 0, PP.TAU); ctx.stroke();
+    // the closing ring of the beat that is coming
+    if (S.beat < 4) {
+      const due = 0.75 + S.beat * 0.95, lead = due - S.t;
+      if (lead < 0.9 && lead > -0.18) {
+        const r = core + Math.max(0, lead) / 0.9 * core * 5;
+        ctx.globalAlpha = 0.35 + 0.65 * (1 - Math.max(0, lead) / 0.9);
+        ctx.lineWidth = (lead < 0.18 ? 4 : 2.5) * u;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, PP.TAU); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    // four hearts: caught, missed, still to come
+    const hy = Math.min(h - R.safe.b - 80 * u, y + 120 * u);
+    for (let k = 0; k < 4; k++) {
+      const hx = w / 2 + (k - 1.5) * 34 * u, mark = S.marks[k];
+      R.drawHeart(ctx, hx, hy, 9 * u, mark === true ? PP.P.pink : mark === false ? '#4a3a44' : 'rgba(255,156,207,0.35)', 1);
+    }
+    Kit.gfx.text(ctx, 'Tap with the heartbeat', w / 2, hy + 30 * u, { size: 15 * u, color: '#ffd1e6', font: 'body', weight: 700, align: 'center' });
+    Kit.gfx.text(ctx, '3 of 4 beats for a second wind', w / 2, hy + 50 * u, { size: 12 * u, color: 'rgba(233,251,255,0.6)', font: 'body', weight: 600, align: 'center' });
+  }
 
   function viewRect(pad) {
     const hw = R.w / 2 / R.zoom, hh = R.h / 2 / R.zoom;

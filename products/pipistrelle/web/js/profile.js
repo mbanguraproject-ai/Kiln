@@ -13,7 +13,7 @@
       caves: {}, roost: {}, bats: { owned: ['pip'], selected: 'pip' },
       requests: { done: {} }, journal: { scratches: {} }, nightly: { last: '' }, longNight: { best: 0, bestCave: 0, runs: 0 },
       flights: {}, seen: { bats: {}, requests: {}, night: false }, tutorial: { taught: false },
-      settings: { sound: true, music: 0.8, sfx: 1, echo: 1, vibration: true, quality: 'auto', gentle: false, shapes: false, captions: true },
+      settings: { sound: true, music: 0.8, sfx: 1, echo: 1, vibration: true, quality: 'auto', gentle: false, shapes: false, captions: true, adsPersonal: false },
       legacy: { gift: 0 },
     };
   }
@@ -216,6 +216,7 @@
     apply() {
       const s = PR.get().settings;
       PP.audio.applySettings(s);
+      if (PP.ads && PP.settings.adsPersonal !== s.adsPersonal) { PP.settings.adsPersonal = s.adsPersonal; PP.ads.privacy(s.adsPersonal); }
       if (PP.R && PP.R.quality && PP.R.quality.setting !== s.quality) PP.R.quality.set(s.quality);
     },
   };

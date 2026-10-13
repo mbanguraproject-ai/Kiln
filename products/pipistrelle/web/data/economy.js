@@ -1,5 +1,6 @@
 /* The economy: every number that touches moths lives here (one currency, earned only by playing).
- * Fairness charter: no real money, no ads, no timers, no streaks, no rotating or expiring stock, the exact
+ * Fairness charter: no real money, no ads except a rewarded one the player chooses at the Last Echo (D15), no
+ * timers, no streaks, no rotating or expiring stock, the exact
  * price next to the balance, banked moths are never lost, and the story is gated by skill alone.
  * tests/test.cjs runs PP.economy.simulate() over `model` and checks `targets` within `tolerance`. */
 (function () {

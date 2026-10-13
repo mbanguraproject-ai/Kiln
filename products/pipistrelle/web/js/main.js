@@ -28,10 +28,11 @@
     // input: a relative drag stick, taps and holds, keys
     const input = PP.input.kit = Kit.input(canvas);
     const canControl = () => { const G = PP.G; return !!(G && G.mode === 'play' && U.curName === 'flight' && !loop.paused); };
-    input.on('down', p => { if (canControl()) PP.input.down(p); });
+    input.on('down', p => { if (canControl()) PP.input.down(p); else if (PP.G && PP.G.sub === 'rescue' && !loop.paused) PP.rescue.tap(); });
     input.on('move', p => { if (canControl()) PP.input.move(p); });
     input.on('up', p => PP.input.up(p, canControl()));
     addEventListener('keydown', e => {
+      if (PP.G && PP.G.sub === 'rescue' && (e.key === ' ' || e.key === 'Enter') && !loop.paused) { PP.rescue.tap(); e.preventDefault(); return; }
       if (e.key === 'Escape' || e.key === 'Backspace') { if (U.curName === 'flight') PP.game.pause(); else U.back(); e.preventDefault(); }
       else if ((e.key === 'p' || e.key === 'P') && U.curName === 'flight') PP.game.pause();
       else if (e.key === 'Enter' && U.curName === 'flight' && PP.G && PP.G.sub === 'night') PP.night.skip();

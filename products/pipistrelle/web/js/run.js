@@ -120,14 +120,14 @@
   // energy loss from any source (bumps are free with Gentle Wings; other damage is halved)
   R.damage = function (amount, why, isBump) {
     const G = PP.G;
-    if (G.mode !== 'play' || safeFlag || G.kind === 'practice') return;
+    if (G.mode !== 'play' || safeFlag || G.kind === 'practice' || G.shield > 0) return;
     if (gentle()) amount = isBump ? 0 : amount * 0.5;
     G.energy -= amount;
     G.stats.damage += amount;
   };
   R.hurt = function (amount, sx, sy, why) {
     const G = PP.G, b = G.bat;
-    if (G.mode !== 'play') { b.stun = 0.2; return; }
+    if (G.mode !== 'play' || G.shield > 0) { b.stun = 0.2; return; }
     R.damage(amount, why);
     b.stun = 0.5;
     const d = Math.max(1, dist(b.x, b.y, sx, sy));
@@ -208,7 +208,7 @@
     PP.emit('death');
   }
   R.die = die;
-  R.overtaken = () => { const G = PP.G; G.overtaken = true; G.energy = 0; die(); };
+  R.overtaken = () => { const G = PP.G; if (G.shield > 0) return; G.overtaken = true; G.energy = 0; die(); };
 
   function finish(won) {
     const G = PP.G;
@@ -286,10 +286,13 @@
     PP.compact(G.rings, rg => G.t - rg.t0 < rg.R / T.ringSpeed + 0.4);
     PP.echo.updateAnswers(G);
 
+    if (G.sub === 'rescue') { PP.rescue.update(dt); PP.R.updateCam(dt); return; }
     if (G.sub === 'dead') {
       G.deadT += dt;
       b.vy += 380 * dt; b.vx *= Math.exp(-2 * dt);
       PP.bat.move(dt);
+      // the Last Echo: a heartbeat to win back, then the offer to fly on (js/rescue.js)
+      if (G.deadT > 0.75 && play && !G.overSent && PP.rescue.can(G)) { PP.rescue.start(G); return; }
       if (G.deadT > 1.6 && play) finish(false);
       if (!play && G.deadT > 2) R.start({ kind: 'attract', seed: G.runSeed + 1 });
       updateWorld(dt);
@@ -318,6 +321,7 @@
     }
 
     G.stats.time += dt; G.ct += dt;
+    if (G.shield > 0) G.shield = Math.max(0, G.shield - dt);
     // ---- steering ----
     const autop = G.auto || R.flags.autopilot;
     let inp = autop ? (G.bot ? PP.bot.steer(G.bot, dt) : PP.bat.autoSteer()) : PP.bat.steerInput();

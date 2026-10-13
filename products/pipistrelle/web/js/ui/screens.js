@@ -141,14 +141,33 @@
   /* ---------- Flight ---------- */
   U.def('flight', () => {
     const skip = h('button.btn.ghost.skip', { text: 'Skip', hidden: true, onclick: () => { PP.uiSfx(); PP.night.skip(); } });
+    // the Last Echo's offer: fly on with a rewarded ad, or let the echoes fade (js/rescue.js)
+    const ring = h('div.offer-ring'), why = h('p.muted'), note = h('p.offer-note');
+    const watch = h('button.btn.big.offer-watch', { onclick: () => { PP.uiSfx(); PP.rescue.watch(); } }, [h('span.ad-tag', { text: 'Ad' }), h('span', { text: 'Watch and fly on' })]);
+    const fade = h('button.btn.ghost', { text: 'Let the echoes fade', onclick: () => { PP.uiSfx(); PP.rescue.giveUp(); } });
+    const offer = h('div.offer', { hidden: true, role: 'dialog', 'aria-label': 'Fly on?' }, h('div.card', null, [ring, h('h2', { text: 'Fly on?' }), why, h('p', { text: 'Most of your energy back, and a moment of safety.' }), watch, note, fade]));
+    const syncOffer = () => {
+      const G = PP.G, S = G && G.rescue;
+      if (!S || S.stage !== 'offer') { offer.hidden = true; return; }
+      offer.hidden = false;
+      why.textContent = S.why + (G.kind === 'endless' ? ' · cave ' + G.cave : G.caveDef ? ' · ' + G.caveDef.name : '');
+      const ready = PP.ads.ready();
+      watch.disabled = !ready || S.busy;
+      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad is ready right now (are you online?).';
+      ring.style.setProperty('--k', String(Math.max(0, S.offerT) / 9));
+      ring.textContent = String(Math.ceil(Math.max(0, S.offerT)));
+    };
+    PP.on('offer', () => { syncOffer(); if (!offer.hidden) setTimeout(() => (PP.ads.ready() ? watch : fade).focus(), 50); });
+    PP.on('offerBusy', syncOffer);
+    PP.on('offerClose', () => { offer.hidden = true; });
     const el = h('div.scr.flight', null, [
       h('button.icon-btn.pause', { 'aria-label': 'Pause', html: U.icon.pause, onclick: () => { PP.uiSfx(); GM.pause(); } }),
-      skip,
+      skip, offer,
     ]);
     let timer = 0;
     return {
       el, scene: 'cave',
-      show() { U.bars('hide'); Kit.audio.hold(false); PP.loop.resume(); timer = setInterval(() => { const G = PP.G; skip.hidden = !(G && G.sub === 'night' && G.mode === 'play' && (G.kind === 'endless' || PP.profile.get().flights[G.flightBiome])); }, 250); },
+      show() { U.bars('hide'); Kit.audio.hold(false); PP.loop.resume(); timer = setInterval(() => { const G = PP.G; skip.hidden = !(G && G.sub === 'night' && G.mode === 'play' && (G.kind === 'endless' || PP.profile.get().flights[G.flightBiome])); syncOffer(); }, 200); },
       hide() { clearInterval(timer); },
       back() { GM.pause(); return true; },
     };
@@ -346,12 +365,13 @@
     const el = h('div.scr.scrim-strong', null, [U.top('Settings', { larder: false }), h('div.body', null, h('div.wrap', null, [
       h('div.card', null, [toggle('sound', 'Sound'), slider('music', 'Music'), slider('sfx', 'Effects'), slider('echo', 'Echo volume'), toggle('vibration', 'Vibration')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Quality' }), q, h('p.muted', { text: 'Auto keeps the frame rate smooth by adjusting resolution. Quality never changes what you can hear or see in the echoes.' })]),
+      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
       h('div.card', null, [toggle('gentle', 'Gentle Wings', 'Bumps cost nothing; other knocks and the dark’s hunger are softer.'), toggle('shapes', 'Echo shapes', 'Each echo colour also gets its own mark: rock dots, food diamonds, pup hearts, danger triangles.'), toggle('captions', 'Sound captions', 'Show what you hear at the edge of the screen.')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Save' }), h('div.row', null, [
         h('button.btn.ghost', { text: 'Export', onclick: () => { code.hidden = false; code.value = PP.profile.exportCode(); code.select(); try { navigator.clipboard.writeText(code.value); U.toast('Save code copied'); } catch (e) { /* select is enough */ } } }),
         h('button.btn.ghost', { text: 'Import', onclick: () => { if (imp.hidden) { imp.hidden = false; imp.focus(); return; } if (PP.profile.importCode(imp.value)) { PP.settings.apply(); U.toast('Save imported'); imp.value = ''; imp.hidden = true; } else U.toast('That code did not work'); } }),
       ]), code, imp]),
-      h('p.muted', { style: 'text-align:center', text: 'Pipistrelle ' + PP.version + ' · no ads, no purchases, no timers' }),
+      h('p.muted', { style: 'text-align:center', text: 'Pipistrelle ' + PP.version + ' · no purchases, no timers, ads only when you choose them' }),
     ]))]);
     return { el, scene: U.stack.some(s => s.name === 'pause') ? 'cave' : 'roost' };
   });
