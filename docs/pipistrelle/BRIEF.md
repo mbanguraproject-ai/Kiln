@@ -66,9 +66,10 @@ and on every tier.
   skipping banks the average yield), now one mode in the menu.
 - **No night flight between campaign caves**: the arch leads straight to Results. One short eventful flight at the
   end of each biome, skippable after the first viewing.
-- **Fairness charter**: earned currency only, no real money, no ads, no timers, no streaks, no rotating or expiring
+- **Fairness charter**: earned currency only, no real money, no timers, no streaks, no rotating or expiring
   stock, exact price shown next to the balance, a "new" dot that clears once seen, banked moths never lost, the
-  story gated by skill alone. Cosmetic coats come from Moons and Requests, never from a wallet.
+  story gated by skill alone. Cosmetic coats come from Moons and Requests, never from a wallet. One opt-in rewarded
+  ad at the Last Echo, once per attempt and never by itself; no other ads anywhere (D15).
 
 ## Screens
 

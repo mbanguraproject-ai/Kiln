@@ -42,11 +42,20 @@ its name in place of `main`, for example `git fetch origin && git checkout <bran
 Every push to `main` (or a `claude/*` branch) also publishes
 [kiln-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/android-preview/kiln-debug.apk).
 
+**Pipistrelle** (its own app, `products/pipistrelle/`):
+
+```sh
+git checkout main && git pull origin main && cd products/pipistrelle && npm ci && npm run android:apk
+```
+
+Its APK lands in `products/pipistrelle/android/app/build/outputs/apk/debug/app-debug.apk`, and every push publishes
+[pipistrelle-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/pipistrelle-preview/pipistrelle-debug.apk).
+
 ## Status
 
 | Work | State |
 | --- | --- |
-| **Pipistrelle product (D14)** | **In progress**: scope in `docs/pipistrelle/BRIEF.md` (research in `docs/pipistrelle/research/`). Step 1, foundation and first playable in `products/pipistrelle/`, is being built by one agent; its progress log is `products/pipistrelle/STATUS.md`. Then two agents add the other biomes, then a pull request |
+| **Pipistrelle product (D14, D15)** | **v1 done**: `products/pipistrelle/` (README, `docs/BIOMES.md`, build log `STATUS.md`). The Long Rain (25 caves in five biomes), missions and 20 Moon types, five bats bought with earned moths, the Nightly Cave and The Long Night, full 4K with an Auto governor, the Last Echo (Second Wind plus one opt-in Unity rewarded ad, D15), unit and browser tests, its own CI and APK. Before the Play listing: privacy policy, Data safety and ads declarations, 13+ audience, `app-ads.txt` (D15) |
 | Napwalk product | Next, after Pipistrelle ships |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
 | Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |

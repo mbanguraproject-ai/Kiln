@@ -1,6 +1,6 @@
 {
   "name": "pipistrelle",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Pipistrelle: fly a little bat through pitch-black caves, painting them with echoes. A standalone game, packaged for Android with Capacitor.",
   "scripts": {
