@@ -101,6 +101,7 @@
     R.ppu = V.ppu;
     const d = R.pickDensity(V.ppu);
     R.drawRock(ctx, V.x0, V.y0, V.x1, V.y1, d, R.firstFrame ? 99 : 3);
+    R.drawRims(ctx, V.x0, V.y0, V.x1, V.y1);
     R.firstFrame = false;
     cam.restore(ctx);
     R.ppu = k;
@@ -109,7 +110,7 @@
     R.ppu = V.ppu;
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.55;
-    R.drawMemory(ctx, V.x0, V.y0, V.x1, V.y1, d);
+    R.drawMemory(ctx, V.x0, V.y0, V.x1, V.y1);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     R.backdrop.drawLightWorld(ctx, V, t);
@@ -135,7 +136,7 @@
   function drawDark(w, h, t) {
     const G = PP.G, L = PP.L, z = R.zoom, step = R.quality.tier.mask, pal = PP.biome(L.biome).palette;
     const q = step * z, dw = Math.ceil(w / q) + 1, dh = Math.ceil(h / q) + 1;
-    if (!darkC || darkC.width !== dw || darkC.height !== dh) { darkC = Kit.gfx.offscreen(dw, dh); darkG = darkC.getContext('2d'); darkC.vig = null; }
+    if (!darkC || darkC.width !== dw || darkC.height !== dh) { if (darkC) { darkC.width = 0; darkC.height = 0; } darkC = Kit.gfx.offscreen(dw, dh); darkG = darkC.getContext('2d'); darkC.vig = null; }
     const g = darkG, hs = R.holeSprite(), TMP = R._tmp;
     g.globalCompositeOperation = 'source-over';
     g.clearRect(0, 0, dw, dh);

@@ -49,6 +49,7 @@
     const B = PP.biome(id);
     if (BD.biome === B) return;
     BD.biome = B;
+    for (const l of BD.layers || []) for (const old of [l.dark, l.lit]) if (old) { old.width = 0; old.height = 0; }
     BD.layers = (B.parallax || []).map((d, i) => {
       const r = Kit.rng(d.seed * 3), worms = [];
       for (let k = 0; k < (d.depth < 0.3 ? 46 : 18); k++) worms.push({ x: r.range(0, d.tw), y: r.range(d.th * 0.06, d.th * 0.3), len: r.range(4, 22), ph: r.range(0, 6), sp: r.range(0.5, 1.6) });
@@ -62,9 +63,11 @@
   function tiles(l, db) {
     if (l.db === db && l.dark) return;
     const d = l.def, pal = BD.biome.palette;
+    for (const old of [l.dark, l.lit]) if (old) { old.width = 0; old.height = 0; } // give the memory back now, not at GC
     l.db = db;
+    l.dbl = Math.min(db, 1); // the lit copy is only ever drawn into the low-resolution relight buffer
     l.dark = bgTile(d.seed, d.tw, d.th, pal.sil[l.i] || pal.sil[0], null, d.depth, db, d);
-    l.lit = bgTile(d.seed, d.tw, d.th, pal.silLit[l.i] || pal.silLit[0], PP.P.teal, d.depth, db, d);
+    l.lit = bgTile(d.seed, d.tw, d.th, pal.silLit[l.i] || pal.silLit[0], PP.P.teal, d.depth, l.dbl, d);
   }
   function tileDraw(ctx, img, tw, th, ox, oy, w, h, band, db) {
     const bh = Math.ceil(th * band);
@@ -84,7 +87,7 @@
     const z = V.zoom;
     for (const l of BD.layers) {
       const d = l.def, tw = d.tw * z, th = d.th * z;
-      const want = Math.min(2048 / Math.max(d.tw, d.th), z * V.k);
+      const want = Math.min(2048 / Math.max(d.tw, d.th), z * V.k, tier.bgMax || 1.5);
       const db = want <= 0.75 ? 0.75 : want <= 1 ? 1 : want <= 1.5 ? 1.5 : want <= 2 ? 2 : Math.min(2048 / Math.max(d.tw, d.th), 2.8);
       tiles(l, db / z * z);
       const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
@@ -108,26 +111,56 @@
         ctx.globalCompositeOperation = 'source-over';
       }
     }
-    // passing echo rings light up the silhouettes they sweep over
+    // passing echo rings light up the silhouettes they sweep over: the lit layers are drawn once into a
+    // low-resolution buffer, which is masked by every live ring at once and laid over the screen. (One pass
+    // whatever the number of rings; no clip paths, which are slow to rasterise.)
     if (!tier.relight || !V.rings || !V.rings.length) return;
-    const TMP = BD._tmp || (BD._tmp = { x: 0, y: 0 });
+    const TMP = BD._tmp || (BD._tmp = { x: 0, y: 0 }), SP = PP.data.tuning.ringSpeed;
+    let live = 0;
+    for (const rg of V.rings) { const rad = (V.t - rg.t0) * SP; if (rad <= rg.R && rad >= 30 && rg.kind !== 'drip') live++; }
+    if (!live) return;
+    const q = Math.max(1, tier.mask * z * 0.75), bw = Math.ceil(V.w / q) + 1, bh = Math.ceil(V.h / q) + 1;
+    if (!BD.litC || BD.litC.width !== bw || BD.litC.height !== bh) {
+      for (const old of [BD.litC, BD.maskC]) if (old) { old.width = 0; old.height = 0; }
+      BD.litC = Kit.gfx.offscreen(bw, bh); BD.litG = BD.litC.getContext('2d');
+      BD.maskC = Kit.gfx.offscreen(bw, bh); BD.maskG = BD.maskC.getContext('2d');
+    }
+    // the mask: every live ring as a band, its alpha how lit it is
+    const m = BD.maskG;
+    m.globalCompositeOperation = 'source-over';
+    m.globalAlpha = 1;
+    m.clearRect(0, 0, bw, bh);
+    m.strokeStyle = '#fff';
     for (const rg of V.rings) {
-      const age = V.t - rg.t0, rad = age * PP.data.tuning.ringSpeed;
+      const rad = (V.t - rg.t0) * SP;
       if (rad > rg.R || rad < 30 || rg.kind === 'drip') continue;
       const k = 1 - rad / rg.R;
       Kit.cam.toScreen(rg.x, rg.y, TMP);
       const ro = rad * z + 12 * z, ri = Math.max(0, rad * z - 70 * z);
-      ctx.save();
-      ctx.beginPath(); ctx.arc(TMP.x, TMP.y, ro, 0, TAU); ctx.arc(TMP.x, TMP.y, ri, 0, TAU, true); ctx.clip();
-      for (const l of BD.layers) {
-        const d = l.def, tw = d.tw * z, th = d.th * z;
-        const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
-        ctx.globalAlpha = Math.min(1, k * 1.1) * (d.depth < 0.3 ? 0.45 : 0.7) * (rg.kind === 'shriek' ? 0.7 : 1);
-        tileDraw(ctx, l.lit, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.db / z);
-      }
-      ctx.restore();
+      m.globalAlpha = Math.min(1, k * 1.1) * (rg.kind === 'shriek' ? 0.7 : 1);
+      m.lineWidth = (ro - ri) / q;
+      m.beginPath(); m.arc(TMP.x / q, TMP.y / q, (ro + ri) / 2 / q, 0, TAU); m.stroke();
     }
-    ctx.globalAlpha = 1;
+    // the lit silhouettes, then kept only under the mask
+    const g = BD.litG;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1;
+    g.clearRect(0, 0, bw, bh);
+    g.setTransform(1 / q, 0, 0, 1 / q, 0, 0);
+    for (const l of BD.layers) {
+      const d = l.def, tw = d.tw * z, th = d.th * z;
+      const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
+      g.globalAlpha = d.depth < 0.3 ? 0.45 : 0.7;
+      tileDraw(g, l.lit, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.dbl / z);
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(BD.maskC, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(BD.litC, 0, 0, bw, bh, 0, 0, bw * q, bh * q);
   };
 
   // near foreground: hanging tips at the top edge, darker than everything (vectors, so always crisp)
@@ -167,14 +200,24 @@
     if (!BD.motes || BD.motes.length !== n) { const r = Kit.rng(5); BD.motes = []; for (let k = 0; k < n; k++) BD.motes.push([r.next(), r.next(), r.range(0.4, 1.2), r.range(0, 6)]); }
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = amb.motes.color || '#dfe8ff';
-    const sz = Vw.minW(1.6), ex = L.W, ey = L.exitY;
+    const sz = Vw.minW(1.6), rr = sz * 0.55, round = Vw.ppu >= 2, ex = L.W, ey = L.exitY, LV = 6; // round dust where pixels are fine enough to show it
+    const buckets = BD.moteBuckets || (BD.moteBuckets = Array.from({ length: LV }, () => []));
+    for (const bk of buckets) bk.length = 0;
     for (const m of BD.motes) {
       const x = Vw.x0 + Kit.wrap(m[0] * vw + t * drift * m[2], 0, vw), y = Vw.y0 + Kit.wrap(m[1] * vh + Math.sin(t * 0.5 + m[3]) * 10, 0, vh);
       const db = (x - b.x) * (x - b.x) + (y - b.y) * (y - b.y), de = (x - ex) * (x - ex) + (y - ey) * (y - ey);
-      const a = Math.max(db < 25600 ? 1 - db / 25600 : 0, de < 250000 ? (1 - de / 250000) * 0.8 : 0);
-      if (a < 0.03) continue;
-      ctx.globalAlpha = a * 0.45 * (0.5 + 0.5 * Math.sin(t * 2 + m[3]));
-      ctx.fillRect(x, y, sz, sz);
+      const a = Math.max(db < 25600 ? 1 - db / 25600 : 0, de < 250000 ? (1 - de / 250000) * 0.8 : 0) * (0.5 + 0.5 * Math.sin(t * 2 + m[3]));
+      if (a < 0.06) continue;
+      buckets[Math.min(LV - 1, Math.floor(a * LV))].push(x, y);
+    }
+    for (let i = 0; i < LV; i++) {
+      const bk = buckets[i];
+      if (!bk.length) continue;
+      ctx.globalAlpha = (i + 0.5) / LV * 0.45;
+      ctx.beginPath();
+      if (round) for (let k = 0; k < bk.length; k += 2) { ctx.moveTo(bk[k] + rr, bk[k + 1]); ctx.arc(bk[k], bk[k + 1], rr, 0, TAU); }
+      else for (let k = 0; k < bk.length; k += 2) ctx.rect(bk[k], bk[k + 1], sz, sz);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';

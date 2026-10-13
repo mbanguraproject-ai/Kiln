@@ -7,6 +7,9 @@
   const PP = window.PP, Kit = window.Kit, R = PP.R, CELL = PP.CELL;
   const CS = 256;
   R.CS = CS;
+  const ROCK_MB = 10; // the rock cache's share of canvas memory (see js/render/quality.js)
+  // how many chunks of this size fit a memory budget, never fewer than the view needs
+  const capFor = (size, mb, need) => Math.max(need + 6, Math.floor(mb * 1e6 / (size * size * 4)));
   const STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4];
 
   // marching-squares edge segments for the whole cave (used for rims and the bat's warm light)
@@ -37,33 +40,41 @@
     lv.segs = new Float32Array(segs);
     lv.segStart = segStart;
     rock.clear(); memc.clear();
-    R.density = 0;
+    R.density = 0; R.memDensity = 0;
     lv.shafts = null;
   };
 
   // ---- LRU canvas caches ----
+  // A spare canvas is kept only while it can be reused at the current size; the rest give their memory back
+  // (a zero-size canvas frees its backing store), so the caches never hold more than their budget.
   function lru() {
     const map = new Map(), pool = [];
+    const free = c => { c.width = 0; c.height = 0; };
+    const spare = c => { if (pool.length < 6) pool.push(c); else free(c); };
     return {
       map,
       get(k) { const v = map.get(k); if (v) { map.delete(k); map.set(k, v); } return v; },
-      put(k, v, cap) { map.set(k, v); while (map.size > cap) { const [k0, v0] = map.entries().next().value; map.delete(k0); pool.push(v0.c); } },
+      put(k, v, cap) { map.set(k, v); while (map.size > cap) { const [k0, v0] = map.entries().next().value; map.delete(k0); spare(v0.c); } },
       canvas(size) { for (let i = 0; i < pool.length; i++) if (pool[i].width === size) return pool.splice(i, 1)[0]; return Kit.gfx.offscreen(size, size); },
-      clear() { for (const v of map.values()) pool.push(v.c); map.clear(); while (pool.length > 24) pool.shift(); },
+      clear() { for (const v of map.values()) free(v.c); map.clear(); while (pool.length) free(pool.pop()); },
     };
   }
   const rock = lru(), memc = lru();
-  R.chunkStats = () => ({ rock: rock.map.size, mem: memc.map.size, density: R.density });
+  R.chunkStats = () => ({ rock: rock.map.size, mem: memc.map.size, density: R.density, memDensity: R.memDensity });
 
-  // density bucket (device px per world px) with hysteresis, capped by the tier
-  R.pickDensity = function (ppu) {
-    const cap = R.quality.tier.chunkMax;
+  // density buckets (device px per world px) with hysteresis, capped by the tier: one for rock, one for memory
+  function bucket(ppu, cap, cur) {
     let d = STEPS[STEPS.length - 1];
     for (const s of STEPS) if (s >= ppu * 0.92) { d = s; break; }
     d = Math.min(d, cap);
-    if (R.density && Math.abs(R.density - d) / R.density < 0.2 && R.density <= cap) return R.density;
-    if (d !== R.density) { rock.clear(); memc.clear(); }
-    R.density = d;
+    if (cur && Math.abs(cur - d) / cur < 0.2 && cur <= cap) return cur;
+    return d;
+  }
+  R.pickDensity = function (ppu) {
+    const t = R.quality.tier, d = bucket(ppu, t.rockMax, R.density), dm = bucket(ppu, t.memMax, R.memDensity);
+    if (d !== R.density) rock.clear();
+    if (dm !== R.memDensity) memc.clear();
+    R.density = d; R.memDensity = dm;
     return d;
   };
 
@@ -154,17 +165,7 @@
       g.globalAlpha = 1;
     }
     g.globalCompositeOperation = 'source-over';
-    // a rim where stone meets air, stroked from the segments
-    const S = lv.segs, ST = lv.segStart;
-    g.strokeStyle = pal.rim;
-    g.lineWidth = Math.max(3, 2 / d);
-    g.lineCap = 'round';
-    g.beginPath();
-    for (let j = j0; j <= j1; j++) {
-      const s0 = ST[j * cols + i0], s1 = ST[j * cols + Math.min(cols - 1, i1 + 1)];
-      for (let s = s0; s < s1; s++) { g.moveTo(S[s * 4], S[s * 4 + 1]); g.lineTo(S[s * 4 + 2], S[s * 4 + 3]); }
-    }
-    g.stroke();
+    // (the rim where stone meets air is stroked live, at full resolution: R.drawRims)
     // water: dark basins with a lighter skin
     for (const rv of lv.rivers) {
       if (rv.x1 + CELL * 3 < X0 || rv.x0 - CELL * 3 > X1) continue;
@@ -199,8 +200,9 @@
   };
 
   R.drawRock = function (ctx, x0, y0, x1, y1, d, budget) {
-    const size = Math.ceil(CS * d) + 2, cap = R.quality.tier.lru;
+    const size = Math.ceil(CS * d) + 2;
     const ci0 = Math.floor(x0 / CS), ci1 = Math.floor(x1 / CS), cj0 = Math.floor(y0 / CS), cj1 = Math.floor(y1 / CS);
+    const cap = Math.min(R.quality.tier.lru, capFor(size, ROCK_MB, (ci1 - ci0 + 1) * (cj1 - cj0 + 1)));
     let painted = 0;
     for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
       const k = ci * 4096 + cj + 1e7;
@@ -221,6 +223,23 @@
     return painted;
   };
 
+  // The rim where stone meets air, stroked from the marching-squares segments in view at the screen's own
+  // resolution, so stone edges stay crisp on a 4K screen whatever the chunk density.
+  R.drawRims = function (ctx, x0, y0, x1, y1) {
+    const lv = PP.L, pal = PP.biome(lv.biome).palette, S = lv.segs, ST = lv.segStart, cols = lv.cols;
+    const i0 = Math.max(0, Math.floor(x0 / CELL) - 1), i1 = Math.min(cols - 2, Math.ceil(x1 / CELL) + 1);
+    const j0 = Math.max(0, Math.floor(y0 / CELL) - 1), j1 = Math.min(lv.rows - 2, Math.ceil(y1 / CELL) + 1);
+    ctx.strokeStyle = pal.rim;
+    ctx.lineWidth = Math.max(3, 2 / R.ppu);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let j = j0; j <= j1; j++) {
+      const s0 = ST[j * cols + i0], s1 = ST[j * cols + i1 + 1];
+      for (let s = s0; s < s1; s++) { ctx.moveTo(S[s * 4], S[s * 4 + 1]); ctx.lineTo(S[s * 4 + 2], S[s * 4 + 3]); }
+    }
+    ctx.stroke();
+  };
+
   // ---- memory ----
   function drawMemEntries(g, a, from, to, d) {
     const lw = Math.max(2.5, 2 / d);
@@ -238,15 +257,17 @@
       for (let n = from; n < to; n++) {
         const o = n * 5;
         if (a[o + 4] !== c || a[o + 2] >= -1e5) continue;
-        g.rect(a[o] - 2, a[o + 1] - 2, 4, 4); any = true;
+        if (d >= 1.5) { g.moveTo(a[o] + 2.1, a[o + 1]); g.arc(a[o], a[o + 1], 2.1, 0, 6.2832); } else g.rect(a[o] - 2, a[o + 1] - 2, 4, 4);
+        any = true;
       }
       if (any) { g.fillStyle = PP.COL[c]; g.globalAlpha = 0.55; g.fill(); }
     }
     g.globalAlpha = 1;
   }
-  R.drawMemory = function (ctx, x0, y0, x1, y1, d) {
-    const mem = PP.mem, size = Math.ceil(CS * d) + 2, cap = R.quality.tier.lru;
+  R.drawMemory = function (ctx, x0, y0, x1, y1) {
+    const d = R.memDensity || 1, mem = PP.mem, size = Math.ceil(CS * d) + 2;
     const ci0 = Math.floor(x0 / CS), ci1 = Math.floor(x1 / CS), cj0 = Math.floor(y0 / CS), cj1 = Math.floor(y1 / CS);
+    const cap = Math.min(R.quality.tier.lru, capFor(size, R.quality.tier.memMB || 10, (ci1 - ci0 + 1) * (cj1 - cj0 + 1)));
     for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
       const ch = mem.chunks.get(mem.key(ci, cj));
       if (!ch || !ch.n) continue;
