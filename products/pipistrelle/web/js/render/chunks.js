@@ -225,11 +225,14 @@
     if (!painted && ahead && PP.L) {
       const L = PP.L, n0 = Math.max(0, ci0 - 1), n1 = Math.min(Math.ceil(L.W / CS), ci1 + 1), m0 = Math.max(0, cj0 - 1), m1 = Math.min(Math.ceil(L.H / CS), cj1 + 1);
       let best = null, bd = Infinity;
+      const vx = (x0 + x1) / 2, vy = (y0 + y1) / 2, hx = ahead.x - vx, hy = ahead.y - vy;
       for (let cj = m0; cj <= m1; cj++) for (let ci = n0; ci <= n1; ci++) {
         if (ci >= ci0 && ci <= ci1 && cj >= cj0 && cj <= cj1) continue;
         const k = ci * 4096 + cj + 1e7, e = rock.map.get(k);
         if (e && e.d === d) continue;
-        const dx = (ci + 0.5) * CS - ahead.x, dy = (cj + 0.5) * CS - ahead.y, dd = dx * dx + dy * dy;
+        const cx = (ci + 0.5) * CS, cy = (cj + 0.5) * CS;
+        if ((cx - vx) * hx + (cy - vy) * hy <= 0) continue; // only where the camera is heading
+        const dx = cx - ahead.x, dy = cy - ahead.y, dd = dx * dx + dy * dy;
         if (dd < bd) { bd = dd; best = [ci, cj, k, e]; }
       }
       if (best) paint(best[0], best[1], best[2], best[3]);

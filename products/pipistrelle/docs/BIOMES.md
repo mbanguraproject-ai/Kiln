@@ -13,7 +13,7 @@ A biome without `ready: true` shows on the map as still to come.
 | `ready` | Playable in this build |
 | `finale` | The last biome: its flight home shows the ending, and the Long Night skips it |
 | `palette` | Sky gradient, darkness, rock tones, rim, strata, silhouettes, arch, water and accent colours |
-| `painter(g, P)` | Paints one 256 px rock chunk (source-atop). `P` gives the chunk bounds, level, palette, quality tier, density, a seeded rng, `near(fn)` for decorations that cross chunk edges, and `minW(w)` |
+| `painter(g, P)` | Paints one 256 px rock chunk (source-atop). `P` gives the chunk bounds, level, palette, effect level (`tier`), density, a seeded rng, `near(fn)` for decorations that cross chunk edges, and `minW(w)` |
 | `parallax` | Two background layers, drawn behind the rock |
 | `ambient` | Motes (colour, drift), light shafts, glowworms, crickets, cavefish |
 | `crystalHold` | Seconds a lit crystal keeps glowing (The Glass Vaults: 4) |

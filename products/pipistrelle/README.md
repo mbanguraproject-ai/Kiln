@@ -22,7 +22,14 @@ this folder.
 - **The Last Echo**: losing is a moment, not a cut.
   - The Second Wind is four heartbeats; tap three in time to fly on, free and skill only.
   - After that, one opt-in rewarded ad per attempt lets you fly on (owner decision D15). There are no other ads.
-- **Full 4K**: four quality tiers and an Auto governor that keeps 4K within the frame budget.
+- **Native 4K by default**: every screen is drawn at its full resolution, up to 4K, with every effect on, and
+  there are no quality tiers to pick. A quiet safety net sheds effects before it ever lowers the resolution (never
+  below 75%). Settings has a Battery saver.
+- **The bats** are drawn in the app icon's style. The icon is built from `art/icon.webp` by `tools/make-icons.py`:
+  - the adaptive launcher icon, with a themed monochrome layer;
+  - the splash screens;
+  - the 512 px Play Store icon (`store/play-icon-512.png`);
+  - the web icons.
 
 ## Run, test, build
 
@@ -31,7 +38,7 @@ npm ci
 npm run serve                 # http://localhost:8920 (add ?debug for test hooks, ?fakeads for the stand-in ad)
 node tests/test.cjs --unit    # data and economy checks, no browser (CI runs these)
 node tests/test.cjs           # the full suite in Chromium: every cave, every Moon, screens, Last Echo, frame budgets
-npm run shots                 # screenshots into shots/ (--quality=ultra by default)
+npm run shots                 # screenshots into shots/ (every effect on; --quality=native keeps the safety net)
 npm run android:apk           # android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -61,7 +68,7 @@ Before the Play listing, the owner needs to do the following (see D15 in `docs/D
 | `web/js/core.js`, `run.js`, `bat.js`, `echo.js` | The game loop, the bat and the echo engine |
 | `web/js/gen/` | The cave generator |
 | `web/js/hazards/` | One module per hazard |
-| `web/js/render/` | Renderer, chunks, backdrop, bat art, quality tiers and governor |
+| `web/js/render/` | Renderer, chunks, backdrop, bat art, resolution and the safety net (`quality.js`) |
 | `web/js/rescue.js`, `ads.js` | The Last Echo and rewarded ads |
 | `web/js/ui/` | Screens: title, map, brief, results, Hangar, Roost, Journal, Requests, settings |
 | `web/data/` | Tuning, economy, bats, missions, requests, campaign and `biomes/` (see `docs/BIOMES.md`) |

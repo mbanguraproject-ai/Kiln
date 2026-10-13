@@ -81,9 +81,10 @@
   }
 
   // screen-space draw (ctx in CSS px); V = { w, h, zoom, k (device px per CSS px), camX, camY, t, rings }
-  // The sky, both silhouette layers, the glowworms and the relight are drawn into one buffer at the silhouettes'
-  // own resolution (no finer than the screen), which then goes to the screen in a single opaque copy. Drawing the
-  // far layers straight to a 4K screen would blend nearly three full screens of pixels for detail they do not have.
+  // On phones and 4K screens the sky, both silhouette layers, the glowworms and the relight are drawn into one
+  // buffer at the silhouettes' own resolution, which then goes to the screen in a single opaque copy. Drawing the
+  // far layers straight to such a screen would blend nearly three full screens of pixels for detail they do not
+  // have.
   BD.draw = function (ctx, V) {
     const B = BD.biome, pal = B.palette, tier = R.quality.tier, z = V.zoom;
     let dens = 0;
@@ -93,16 +94,26 @@
       tiles(l, Math.min(cap, [0.75, 1, 1.25, 1.5, 2, 2.5].find(s => s >= want - 1e-6) || 2.5));
       dens = Math.max(dens, l.db);
     }
-    const bs = Math.min(V.k, Math.max(0.5, (dens || 1) / z)), bw = Math.ceil(V.w * bs), bh = Math.ceil(V.h * bs);
-    if (!BD.bufC || BD.bufC.width !== bw || BD.bufC.height !== bh) {
-      if (BD.bufC) { BD.bufC.width = 0; BD.bufC.height = 0; }
-      BD.bufC = Kit.gfx.offscreen(bw, bh); BD.bufG = BD.bufC.getContext('2d', { alpha: false });
+    // the buffer only where it saves at least a third of the pixels (phones and 4K screens); otherwise straight to
+    // the screen, as a buffer at full resolution would only add a canvas
+    const bs = Math.min(V.k, Math.max(0.5, (dens || 1) / z)), useBuf = bs < V.k * 0.8;
+    const bw = Math.ceil(V.w * bs), bh = Math.ceil(V.h * bs);
+    let g = ctx;
+    if (useBuf) {
+      if (!BD.bufC || BD.bufC.width !== bw || BD.bufC.height !== bh) {
+        if (BD.bufC) { BD.bufC.width = 0; BD.bufC.height = 0; }
+        BD.bufC = Kit.gfx.offscreen(bw, bh); BD.bufG = BD.bufC.getContext('2d', { alpha: false });
+      }
+      g = BD.bufG;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      Kit.gfx.sky(g, pal.sky);
+      g.setTransform(bs, 0, 0, bs, 0, 0);
+    } else {
+      if (BD.bufC) { BD.bufC.width = 0; BD.bufC.height = 0; BD.bufC = null; }
+      Kit.gfx.sky(ctx, pal.sky);
     }
-    const g = BD.bufG;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-    Kit.gfx.sky(g, pal.sky);
-    g.setTransform(bs, 0, 0, bs, 0, 0);
+    const pxs = useBuf ? bs : V.k;
     for (const l of BD.layers) {
       const d = l.def, tw = d.tw * z, th = d.th * z;
       const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
@@ -112,7 +123,7 @@
       if (B.ambient && B.ambient.glowworms) {
         g.globalCompositeOperation = 'lighter';
         g.fillStyle = pal.glowworm;
-        const ww = Math.max(z, 1.5 / bs);
+        const ww = Math.max(z, 1.5 / pxs);
         for (let y = oy; y < V.h; y += th) for (let x = ox; x < V.w; x += tw) {
           for (const wm of l.worms) {
             const px = x + wm.x * z, py = y + wm.y * z, len = wm.len * (d.depth < 0.3 ? 0.6 : 1) * z;
@@ -127,8 +138,7 @@
       }
     }
     relight(g, V, tier, z);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(BD.bufC, 0, 0, bw, bh, 0, 0, V.w, V.h);
+    if (useBuf) { ctx.imageSmoothingEnabled = true; ctx.drawImage(BD.bufC, 0, 0, bw, bh, 0, 0, V.w, V.h); }
   };
 
   // passing echo rings light up the silhouettes they sweep over: the lit layers are drawn once into a

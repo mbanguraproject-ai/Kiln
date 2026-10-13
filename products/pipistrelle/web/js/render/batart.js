@@ -258,8 +258,9 @@
     ctx.fillStyle = K.head;
     ctx.beginPath(); headPath(ctx); ctx.fill();
     if (b.puff > 0.02) {
-      ctx.fillStyle = mix(look.fur, '#ffcfae', 0.4);
-      ctx.beginPath(); for (const s of [-1, 1]) { ctx.moveTo(s * 4.4 + 2.2 + b.puff * 2.2, 2.0); ctx.arc(s * 4.4, 2.0, 2.2 + b.puff * 2.2, 0, TAU); } ctx.fill();
+      // cheeks puffed by a call: small, soft and low, beside the muzzle
+      ctx.fillStyle = alpha(mix(look.fur, '#ffcfae', 0.35), 0.85);
+      ctx.beginPath(); for (const s of [-1, 1]) { const r = 1.2 + b.puff * 1.1; ctx.moveTo(s * 3.3 + f * 0.5 + r, 2.9); ctx.arc(s * 3.3 + f * 0.5, 2.9, r, 0, TAU); } ctx.fill();
     }
     const mx = f * 0.6;
     if (det >= 1) { ctx.fillStyle = K.muzzle; ctx.beginPath(); ctx.ellipse(mx, 2.7, 2.3, 1.7, 0, 0, TAU); ctx.fill(); }
