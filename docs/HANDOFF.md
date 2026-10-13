@@ -31,7 +31,10 @@ Keep this file current: update the status table at the end of every task.
 
 ## Commands for the owner (Codespace)
 
-Get the latest `main` and build the APK:
+There are two apps; give the owner the command for the one the work changed (both when both changed). The owner
+once ran the Kiln command after a Pipistrelle change and saw the old pilot, so say which app each command builds.
+
+**Kiln**, the collection (gem-block icon). Get the latest `main` and build its APK:
 
 ```sh
 git checkout main && git pull origin main && npm run android:apk
@@ -42,7 +45,7 @@ its name in place of `main`, for example `git fetch origin && git checkout <bran
 Every push to `main` (or a `claude/*` branch) also publishes
 [kiln-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/android-preview/kiln-debug.apk).
 
-**Pipistrelle** (its own app, `products/pipistrelle/`):
+**Pipistrelle**, the full game (its own app with the bat icon, `products/pipistrelle/`):
 
 ```sh
 git checkout main && git pull origin main && cd products/pipistrelle && npm ci && npm run android:apk

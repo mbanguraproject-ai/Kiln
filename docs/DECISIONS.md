@@ -123,7 +123,8 @@ original games in Kiln ... After we have pushed Pipistrelle, the next is Napwalk
 - **Order**: Pipistrelle first (full 4K, distinct caves, atmosphere, missions, bats bought with earned currency,
   and more), then Napwalk's full rollout, then the remaining catalogue games are built in Kiln (D12) for the owner
   to review. The overhaul of the four original games is paused until then; drafts stay on the working branch.
-- The pilot version of a graduated game stays in the Kiln hub unchanged.
+- The pilot version of a graduated game stays in the Kiln hub as a short taste of it, sharing the product's look
+  where it can: Pipistrelle's pilot draws its bats with the product's renderer (13 October).
 - Bats and other unlocks are bought with currency earned by playing. No real money, no energy timers, no dark
   patterns. (No ads, until D15 allowed one opt-in rewarded ad at the Last Echo.)
 - Pipistrelle's design and build plan live in `docs/pipistrelle/` (`DESIGN.md`, `BUILD_PLAN.md`).
