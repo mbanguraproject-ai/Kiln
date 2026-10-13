@@ -23,6 +23,7 @@ const GOALS = {
   energy: [{ larder: true }, { careful: true, larder: true }], nowake: [{ calls: 6, callEvery: 12, careful: true }, { careful: true }],
   dry: [{ careful: true }, {}, { careful: true, pups: false }], tidefree: [{ fast: true }, { fast: true, pups: false }],
   nosiphon: [{ careful: true }, {}, { fast: true }], tigers: [{ larder: true }, { larder: true, careful: true }], shrieks: [{}],
+  wakes: m => [{ calls: 6, callEvery: 12, careful: true }, { careful: true }, {}], talons: [{}, { fast: true }], chorus: [{}, { careful: true }],
   bells: [{ survey: true }], decoy: [{ careful: true }],
 };
 
@@ -77,6 +78,21 @@ const GOALS = {
       return [...seen];
     });
     check(ln.length >= 3, 'The Long Night: one cave after another', ln.join(','));
+    // with every biome open, it travels through them, three caves each, never the finale
+    const tour = await page.evaluate(() => {
+      __ppTest.clearAll();
+      const out = [];
+      for (const n of [1, 4, 7, 10, 13]) { __ppTest.startEndless(n); out.push(PP.L.biome); }
+      __ppTest.startEndless(8);
+      __ppTest.autopilot(true, { fast: true });
+      let won = false;
+      for (let i = 0; i < 200 && !won; i++) { __ppTest.step(1); const inf = __ppTest.info(); if (inf && (inf.cave > 8 || inf.sub === 'night')) won = true; }
+      __ppTest.autopilot(false);
+      __ppTest.reset();
+      return { out, won };
+    });
+    check(tour.out.join() === 'chalk,drowned,glass,owlstone,chalk', 'The Long Night travels through the opened biomes', tour.out.join(', '));
+    check(tour.won, 'a Glass Vaults cave in The Long Night can be finished');
   }
 
   if (want('moons')) {

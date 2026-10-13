@@ -7,7 +7,7 @@
   const { dist } = window.Kit;
 
   PP.bot = {
-    // goals: { pups, survey, larder, calls (budget), careful (few bumps), fast }
+    // goals: { pups, survey, larder, calls (budget), careful (few bumps), fast, chorus (default on where there is a heart) }
     plan(L, goals) {
       goals = goals || {};
       const wps = [];
@@ -17,6 +17,7 @@
         for (const br of L.branches) if (br.length) { const q = br[br.length - 1]; wps.push({ kind: 'spot', x: q.x, y: q.y }); }
       }
       if (goals.larder) for (const m of L.moths) if (!m.dead) wps.push({ kind: 'moth', ref: m, x: m.hx, y: m.hy });
+      if (L.heart && goals.chorus !== false) wps.push({ kind: 'heart', x: L.heart.x, y: L.heart.y });
       // visit in order along the main path (by nearest path index), so the tour runs left to right
       const pathIdx = w => { let bi = 0, bd = 1e18; for (let i = 0; i < L.path.length; i += 3) { const p = L.path[i], d = (p.x - w.x) ** 2 + (p.y - w.y) ** 2; if (d < bd) { bd = d; bi = i; } } return bi; };
       for (const w of wps) w.pi = pathIdx(w);
@@ -37,7 +38,7 @@
       // skip waypoints already done
       while (bot.i < bot.wps.length) {
         const w = bot.wps[bot.i];
-        const done = (w.kind === 'pup' && w.ref.state !== 'hang') || (w.kind === 'moth' && w.ref.dead) || (w.kind === 'spot' && dist(b.x, b.y, w.x, w.y) < 60) || w.giveUp;
+        const done = (w.kind === 'pup' && w.ref.state !== 'hang') || (w.kind === 'moth' && w.ref.dead) || (w.kind === 'spot' && dist(b.x, b.y, w.x, w.y) < 60) || (w.kind === 'heart' && L.heart.sung) || w.giveUp;
         if (!done) break;
         bot.i++; bot.lastProg = 0; bot.stuckT = 0;
       }
@@ -50,6 +51,9 @@
       }
       // wiggle out of webs
       if (b.web) return { x: (Math.floor(G.t * 8) % 2 ? 1 : -1), y: 0 };
+      // at the heart of the Hush: sing
+      const cw = bot.wps[bot.i];
+      if (cw && cw.kind === 'heart' && dist(b.x, b.y, cw.x, cw.y) < 110) PP.bat.shriek();
       const k = gl.fast ? 0.95 : gl.careful ? 0.62 : 0.78;
       let inp;
       if (bot.i < bot.wps.length) {

@@ -15,7 +15,10 @@
   const lx1 = new Float32Array(LN), ly1 = new Float32Array(LN), lx2 = new Float32Array(LN), ly2 = new Float32Array(LN), lt = new Float32Array(LN).fill(-99), ll = new Float32Array(LN).fill(2.2), lc = new Uint8Array(LN);
   let eHead = 0, lHead = 0;
   E.pools = { EN, LN, ex, ey, et, es, el, ec, lx1, ly1, lx2, ly2, lt, ll, lc };
-  const lifeFor = c => { const b = PP.bat.stats(); return b.echoLife * (c === CH.WATER && PP.bat.ability('skim') ? 2 : 1); };
+  // a biome can make echoes die sooner (the Hush's moss swallows them); crystals always carry sound
+  let lifeMul = 1;
+  PP.on('caveEnter', lv => { lifeMul = (PP.biome(lv.biome) || {}).echoLife || 1; });
+  const lifeFor = c => { const b = PP.bat.stats(); return b.echoLife * (c === CH.WATER && PP.bat.ability('skim') ? 2 : 1) * (c === CH.CRYS || c === CH.MOON ? 1 : lifeMul); };
   E.addDot = function (x, y, t0, c, s) { const i = eHead; eHead = (eHead + 1) % EN; ex[i] = x; ey[i] = y; et[i] = t0; ec[i] = c; es[i] = s; el[i] = lifeFor(c); };
   E.addLine = function (x1, y1, x2, y2, t0, c) { const i = lHead; lHead = (lHead + 1) % LN; lx1[i] = x1; ly1[i] = y1; lx2[i] = x2; ly2[i] = y2; lt[i] = t0; lc[i] = c; ll[i] = lifeFor(c); };
 
@@ -100,7 +103,7 @@
       if (!found) return;
     }
     const t0 = G.t;
-    const ringCol = kind === 'crystal' ? CH.CRYS : kind === 'crash' ? CH.HAZ : kind === 'drip' ? CH.WATER : CH.ROCK;
+    const ringCol = kind === 'crystal' ? CH.CRYS : kind === 'crash' ? CH.HAZ : kind === 'drip' ? CH.WATER : kind === 'chorus' ? CH.MOON : CH.ROCK;
     G.rings.push({ x: ox, y: oy, t0, R, kind, c: ringCol });
     const tint = kind === 'crystal' ? CH.CRYS : -1;
     const off = G.rng.range(0, TAU / rays);

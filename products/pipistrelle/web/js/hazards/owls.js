@@ -1,5 +1,9 @@
 /* Owls roost in side chambers. A shriek (or flying right up to one) wakes it: 0.9 s alert, then a swoop.
- * Hark's whisper chirps never wake them; Gale's loud chirps wake light sleepers within 260 px. */
+ * Hark's whisper chirps never wake them; Gale's loud chirps wake light sleepers within 260 px.
+ * Light and deep sleepers (cfg.light, cfg.deep): a light sleeper also wakes to any chirp within 220 px; a deep
+ * sleeper only to a shriek. Every sleeping owl breathes, a faint red spark you can hear and see close up.
+ * Decoys: a woken owl swoops at the loudest sound of the last 1.6 s, not at the bat, so a crystal's re-echo
+ * (or a call you made and flew away from) draws it off. */
 (function () {
   'use strict';
   const PP = window.PP, Kit = window.Kit, CH = PP.CH, HZ = PP.hazards;
@@ -16,6 +20,24 @@
   }
   PP.wakeOwl = wakeOwl;
 
+  // what the owls hear: recent calls and re-echoes, with how loud they were
+  const sounds = [];
+  const heard = (x, y, loud) => { const G = PP.G; if (!G || !PP.L) return; sounds.push({ x, y, loud, t: G.t }); if (sounds.length > 24) sounds.shift(); };
+  PP.on('chirp', () => { const G = PP.G; if (G) heard(G.bat.x, G.bat.y, PP.bat.ability('hark') ? 0.3 : PP.bat.ability('bolt') ? 1.4 : 1); });
+  PP.on('shriek', () => { const G = PP.G; if (G) heard(G.bat.x, G.bat.y, 2); });
+  PP.on('reecho', cl => heard(cl.x, cl.y, 1.6));
+  PP.on('caveEnter', () => { sounds.length = 0; });
+  PP.owlSounds = sounds;
+  function swoopTarget(o) {
+    const G = PP.G;
+    let best = null;
+    for (const s of sounds) {
+      if (G.t - s.t > 1.6 || dist(s.x, s.y, o.x, o.y) > 900) continue;
+      if (!best || s.loud > best.loud || (s.loud === best.loud && s.t > best.t)) best = s;
+    }
+    return best || { x: G.bat.x, y: G.bat.y };
+  }
+
   HZ.def('owls', {
     place(lv, r, cfg, Q) {
       const spots = lv.chambers.length ? lv.chambers.slice() : [Q.pathAt(0.4), Q.pathAt(0.7)];
@@ -23,7 +45,8 @@
         if (lv.owls.length >= (cfg.n || 2)) break;
         const fl = Q.floorBelow(c.x, c.y, 400);
         if (fl === null) continue;
-        lv.owls.push({ hx: c.x, hy: fl - 15, x: c.x, y: fl - 15, state: 'sleep', t: 0, vx: 0, vy: 0, lit: -99, cool: 0, ph: r.range(0, 6), face: 1 });
+        const n = lv.owls.length, deep = typeof cfg.deep === 'number' ? n < cfg.deep : !!cfg.deep;
+        lv.owls.push({ hx: c.x, hy: fl - 15, x: c.x, y: fl - 15, state: 'sleep', t: 0, vx: 0, vy: 0, lit: -99, cool: 0, ph: r.range(0, 6), face: 1, deep, light: !deep && !!cfg.light, breath: r.range(0, 2.4) });
       }
     },
     update(dt, G, L) {
@@ -32,13 +55,21 @@
         o.cool = Math.max(0, o.cool - dt);
         if (o.state === 'sleep') {
           if (alive && o.cool <= 0 && dist(b.x, b.y, o.x, o.y) < 70) wakeOwl(o);
+          // breathing: a faint spark, and a soft sound close up
+          if ((o.breath -= dt) <= 0) {
+            o.breath = 2.4;
+            const d = dist(b.x, b.y, o.x, o.y);
+            if (d < 700) PP.echo.addDot(o.x, o.y - 6, G.t, CH.HAZ, o.deep ? 0.5 : 0.8);
+            if (d < 300) PP.caption(o.deep ? 'deep breathing' : 'hoo...', o.x, o.y, CH.HAZ);
+          }
         } else if (o.state === 'alert') {
           o.t -= dt;
           o.face = b.x < o.x ? -1 : 1;
           if (o.t <= 0) {
-            const d = Math.max(1, dist(o.x, o.y, b.x, b.y));
-            o.vx = (b.x - o.x) / d * 400; o.vy = (b.y - o.y) / d * 400;
-            o.state = 'swoop'; o.t = 1.3;
+            const tg = swoopTarget(o), d = Math.max(1, dist(o.x, o.y, tg.x, tg.y));
+            o.vx = (tg.x - o.x) / d * 400; o.vy = (tg.y - o.y) / d * 400;
+            o.t = Math.min(1.3, d / 400 + 0.25);
+            o.state = 'swoop';
             PP.sfx('swoop', { pan: HZ.pan(o.x) });
           }
         } else if (o.state === 'swoop') {
@@ -60,9 +91,12 @@
     ping(E) {
       const L = PP.L;
       for (const o of L.owls) E.ping(o, o.x, o.y, CH.HAZ, 5, 8);
-      const loud = E.kind === 'shriek' ? 560 : (E.kind === 'chirp' && PP.bat.ability('bolt')) ? 260 : 0;
-      if (loud && !(E.kind === 'chirp' && PP.bat.ability('hark'))) {
-        for (const o of L.owls) if (o.state === 'sleep' && o.cool <= 0 && dist(E.ox, E.oy, o.x, o.y) < loud) wakeOwl(o);
+      if (E.kind !== 'chirp' && E.kind !== 'shriek') return;
+      const whisper = E.kind === 'chirp' && PP.bat.ability('hark');
+      for (const o of L.owls) {
+        if (o.state !== 'sleep' || o.cool > 0 || whisper) continue;
+        const reach = E.kind === 'shriek' ? 560 : o.deep ? 0 : PP.bat.ability('bolt') ? 260 : o.light ? 220 : 0;
+        if (reach && dist(E.ox, E.oy, o.x, o.y) < reach) wakeOwl(o);
       }
     },
     draw(ctx, t, V) {

@@ -31,6 +31,9 @@
       nosiphon: { text: () => 'Never get pulled by a siphon', lost: () => 'a siphon pulled you' },
       tigers: { text: m => 'Eat ' + m.n + ' tiger moths', lost: () => 'too few tiger moths left' },
       shrieks: { text: m => (m.max === 0 ? 'Never shriek' : 'Shriek ' + m.max + ' times or fewer'), lost: m => 'shriek ' + (m.max + 1) },
+      wakes: { text: m => (m.max === 0 ? 'Wake no owl' : 'Wake ' + m.max + (m.max === 1 ? ' owl' : ' owls') + ' or fewer'), lost: m => 'owl ' + (m.max + 1) + ' woke' },
+      talons: { text: () => 'Never let the Grey Lady catch you', lost: () => 'her talons caught you' },
+      chorus: { text: () => 'Sing the Chorus at the heart of the Hush' },
     },
   };
 })();

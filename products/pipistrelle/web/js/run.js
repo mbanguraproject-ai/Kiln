@@ -25,7 +25,7 @@
       bot: null, results: null,
     };
   }
-  function newStats() { return { time: 0, chirps: 0, shrieks: 0, calls: 0, bumps: 0, damage: 0, splashes: 0, webs: 0, owlsWoken: 0, moths: 0, collapse: 0, tide: 0, siphons: 0, tigers: 0, bells: 0, minEnergy: 100, scratches: 0 }; }
+  function newStats() { return { time: 0, chirps: 0, shrieks: 0, calls: 0, bumps: 0, damage: 0, splashes: 0, webs: 0, owlsWoken: 0, moths: 0, collapse: 0, tide: 0, siphons: 0, tigers: 0, bells: 0, talons: 0, chorus: 0, minEnergy: 100, scratches: 0 }; }
 
   // ---- the event bus feeds the run's stats ----
   const on = (e, f) => PP.on(e, d => { if (PP.G && PP.G.mode === 'play') f(PP.G, d); });
@@ -39,6 +39,8 @@
   on('tideTouch', G => { G.stats.tide++; });
   on('siphon', G => { G.stats.siphons++; });
   on('bell', G => { G.stats.bells++; });
+  on('talon', G => { G.stats.talons++; });
+  on('chorus', G => { G.stats.chorus++; });
   on('scratch', (G, s) => { G.stats.scratches++; if (G.kind !== 'practice') PP.profile.readScratch(s); });
 
   /* ---------- starting runs ---------- */
@@ -57,8 +59,14 @@
     return G;
   };
 
+  // The Long Night travels through every biome the player has opened, three caves in each (the finale excepted)
+  R.endlessBiome = function (G, n) {
+    if (G.kind === 'attract') return 'chalk';
+    const list = PP.data.campaign.order.filter(id => { const B = PP.biomes[id]; return B && B.ready && !B.finale && PP.profile.caveOpen(id, 0); });
+    return list.length ? list[Math.floor((n - 1) / 3) % list.length] : 'chalk';
+  };
   R.specFor = function (G, n) {
-    if (G.kind === 'endless' || G.kind === 'attract') return PP.gen.endlessSpec(G.runSeed, n, 'chalk');
+    if (G.kind === 'endless' || G.kind === 'attract') return PP.gen.endlessSpec(G.runSeed, n, R.endlessBiome(G, n));
     return PP.gen.caveSpec(G.caveDef);
   };
 

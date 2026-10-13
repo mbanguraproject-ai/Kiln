@@ -63,6 +63,7 @@
         if (G.t < re.at) continue;
         G.reechoes.splice(i, 1);
         PP.echo.sonar(re.cl.x, re.cl.y, 320, 150, 'crystal');
+        PP.emit('reecho', re.cl);
         PP.sfx('chime', { pan: HZ.pan(re.cl.x) });
         PP.caption('chime', re.cl.x, re.cl.y, PP.CH.CRYS);
         Kit.fx.burst(re.cl.x, re.cl.y, { count: 20, color: [PP.P.crystal, '#ffffff', PP.P.gold], glow: true, shape: 'star', size: [1.5, 3.5], speed: [30, 140], life: [0.5, 1] });

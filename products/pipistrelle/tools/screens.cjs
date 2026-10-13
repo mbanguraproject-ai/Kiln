@@ -47,6 +47,41 @@ const SHOTS = [
   }],
   ['night', async p => { await p.evaluate(() => { __ppTest.startEndless(); __ppTest.win(); __ppTest.step(2.5); }); await p.waitForTimeout(800); }],
   ['flighthome', async p => { await p.evaluate(() => { __ppTest.startFlight('chalk'); __ppTest.step(9); }); await p.waitForTimeout(500); }],
+  // the later biomes
+  ['drowned', async p => {
+    await p.evaluate(() => { __ppTest.startCave('2-2'); __ppTest.step(1); const rv = PP.L.rivers[0]; __ppTest.teleport((rv.x0 + rv.x1) / 2, rv.y - 80); __ppTest.step(0.3); __ppTest.chirp(); __ppTest.step(0.5); });
+    await p.waitForTimeout(400);
+  }],
+  ['flood', async p => {
+    await p.evaluate(() => { __ppTest.startCave('2-6'); __ppTest.autopilot(true, { careful: true }); __ppTest.step(9); __ppTest.autopilot(false); for (let i = 0; i < 120 && PP.L.tide.x < PP.G.bat.x + 300; i++) { __ppTest.input(0, -0.2); __ppTest.step(0.25); } __ppTest.input(0, 0); __ppTest.energy(80); __ppTest.chirp(); __ppTest.step(0.35); });
+    await p.waitForTimeout(400);
+  }],
+  ['glass', async p => {
+    await p.evaluate(() => { __ppTest.startCave('3-1'); __ppTest.step(1); const cl = PP.L.crystals[0], o = PP.world.nearestOpen(cl.x, cl.y, 1); __ppTest.teleport(o[0], o[1] + 40); __ppTest.step(0.2); __ppTest.chirp(); __ppTest.step(0.9); });
+    await p.waitForTimeout(400);
+  }],
+  ['bells', async p => {
+    await p.evaluate(() => { __ppTest.startCave('3-2'); __ppTest.step(1); const bl = PP.L.bells[0]; __ppTest.teleport(bl.pup.x - 60, bl.pup.y + 60); __ppTest.step(0.3); __ppTest.chirp(); __ppTest.step(0.25); });
+    await p.waitForTimeout(400);
+  }],
+  ['tigers', async p => {
+    await p.evaluate(() => { __ppTest.startCave('3-5'); __ppTest.step(1); const m = PP.L.tigers[0]; __ppTest.teleport(m.x - 70, m.y + 20); __ppTest.step(0.2); __ppTest.chirp(); __ppTest.step(0.55); });
+    await p.waitForTimeout(400);
+  }],
+  ['owls', async p => {
+    await p.evaluate(() => { __ppTest.startCave('4-1'); __ppTest.step(1); const o = PP.L.owls[0]; __ppTest.teleport(o.x - 150, o.y - 60); __ppTest.step(0.2); __ppTest.shriek(); __ppTest.step(1.2); });
+    await p.waitForTimeout(400);
+  }],
+  ['greylady', async p => {
+    await p.evaluate(() => { __ppTest.startCave('4-6'); __ppTest.step(1); const D = PP.L.lady; __ppTest.teleport(D.x - 160, D.y + 60); __ppTest.step(0.2); __ppTest.chirp(); __ppTest.step(1.4); });
+    await p.waitForTimeout(400);
+  }],
+  ['chorus', async p => {
+    await p.evaluate(() => { __ppTest.clearAll(); __ppTest.startCave('5-1'); __ppTest.step(1); const H = PP.L.heart; __ppTest.teleport(H.x, H.y); __ppTest.step(0.3); __ppTest.shriek(); __ppTest.step(1.1); });
+    await p.waitForTimeout(500);
+  }],
+  ['ending', async p => { await p.evaluate(() => { __ppTest.clearAll(); __ppTest.startFlight('hush'); __ppTest.skipNight(); __ppTest.step(3); }); await p.waitForTimeout(900); }],
+  ['map-all', async p => { await p.evaluate(() => { __ppTest.clearAll(); __ppTest.show('map'); }); await p.waitForTimeout(400); }],
 ];
 
 (async () => {

@@ -374,10 +374,15 @@
     if (f.crystal) hz.crystal = { chamber: true, patches: 2 };
     if (f.gust) hz.gust = { n: 2 + (n > 9 ? 1 : 0) };
     if (f.owls) hz.owls = { n: 2 };
+    // each biome brings its own things to listen for
+    if (biome === 'drowned') { hz.river = { at: [[0.22, 0.32], [0.56, 0.66]], level: 0.38 }; if (n >= 4) hz.siphon = { n: 1 }; }
+    if (biome === 'glass') { hz.crystal = { chamber: true, patches: 3 }; hz.tiger = { n: Math.min(5, 2 + Math.floor(n / 4)) }; }
+    if (biome === 'owlstone') hz.owls = { n: Math.min(4, 2 + Math.floor(n / 6)), light: true, deep: 1 };
+    const first = biome && biome !== 'chalk' && n > 1 && (n - 1) % 3 === 0;
     return {
       id: 'night-' + n, n, seed: PP.hash2(runSeed, n), biome: biome || 'chalk', mission: 'endless',
       screens: T.screens(n), rad: T.rad(n), moths: T.moths(n), H: T.H(n), pups: T.pups(n), drain: T.drain(n), hazards: hz,
-      intro: ENDLESS_INTRO[n] || (n % 3 === 0 ? 'Deeper. Narrower. Fewer moths.' : 'Every echo counts down here'),
+      intro: first ? PP.biome(biome).name + ': ' + PP.biome(biome).line.replace(/\.$/, '') : ENDLESS_INTRO[n] || (n % 3 === 0 ? 'Deeper. Narrower. Fewer moths.' : 'Every echo counts down here'),
     };
   };
   const ENDLESS_INTRO = {

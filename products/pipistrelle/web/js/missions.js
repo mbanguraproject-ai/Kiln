@@ -25,6 +25,9 @@
     nosiphon: { won: (m, G) => !G.stats.siphons, lost: (m, G) => G.stats.siphons > 0 },
     tigers: { won: (m, G) => G.stats.tigers >= m.n, lost: (m, G, L) => G.stats.tigers + (L.tigers || []).filter(x => !x.dead).length < m.n },
     shrieks: { won: (m, G) => G.stats.shrieks <= m.max, lost: (m, G) => G.stats.shrieks > m.max },
+    wakes: { won: (m, G) => G.stats.owlsWoken <= m.max, lost: (m, G) => G.stats.owlsWoken > m.max },
+    talons: { won: (m, G) => !G.stats.talons, lost: (m, G) => G.stats.talons > 0 },
+    chorus: { won: (m, G) => G.stats.chorus > 0 },
   };
   PP.moonTypes = TYPES;
 
@@ -72,6 +75,7 @@
         case 'larder': return G.stats.moths + '/' + m.n;
         case 'tigers': return G.stats.tigers + '/' + m.n;
         case 'shrieks': return G.stats.shrieks + '/' + m.max;
+        case 'wakes': return G.stats.owlsWoken + '/' + m.max;
         default: return '';
       }
     },

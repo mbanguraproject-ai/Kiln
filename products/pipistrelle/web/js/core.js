@@ -4,7 +4,7 @@
   'use strict';
   const Kit = window.Kit;
   const PP = window.PP = window.PP || {};
-  PP.version = '1.0.0-step1';
+  PP.version = '1.0.0';
   PP.debug = /[?&]debug\b/.test(location.search);
   PP.keyart = /[?&]keyart\b/.test(location.search);
 

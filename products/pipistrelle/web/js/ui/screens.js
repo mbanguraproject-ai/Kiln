@@ -205,9 +205,10 @@
       kids.push(h('h1', { text: 'Cave ' + res.depth }));
       kids.push(h('p.muted', { text: 'Every moth you banked is in the larder.' }));
     } else if (res.kind === 'flight') {
-      kids.push(h('div.eyebrow', { text: PP.biome(G.flightBiome).name + ' complete' }));
-      kids.push(h('h1', { text: 'Home' }));
-      kids.push(h('p', { text: 'The colony is a little bigger tonight. The rain goes on, deeper in the hill.' }));
+      const end = PP.biome(G.flightBiome).finale;
+      kids.push(h('div.eyebrow', { text: end ? 'The Long Rain' : PP.biome(G.flightBiome).name + ' complete' }));
+      kids.push(h('h1', { text: end ? 'The colony is home' : 'Home' }));
+      kids.push(h('p', { text: end ? 'Every pup you found sleeps in the belfry tonight, out of the rain. ' + PP.plural(PP.profile.get().stats.pups, 'pup') + ' brought home.' : 'The colony is a little bigger tonight. The rain goes on, deeper in the hill.' }));
     } else {
       kids.push(h('div.eyebrow', { text: 'The Nightly Cave' }));
       kids.push(h('h1', { text: res.won ? 'Cleared' : 'The echoes fade' }));
