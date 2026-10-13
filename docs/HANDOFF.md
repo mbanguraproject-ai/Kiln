@@ -8,7 +8,12 @@ Keep this file current: update the status table at the end of every task.
 
 ## The owner's standing instructions
 
-1. Goals: 60 new games, 10 in each category (Action, Adventure, Racing, Puzzle, Sports, Arcade), with space and
+1. **Current priority (12 October, D14)**: games start in Kiln, and the good ones graduate into standalone
+   products in `products/<id>/` (own Android app, build, tests and CI; nothing outside its folder). First
+   **Pipistrelle as a full product**: full 4K, different caves, atmosphere, missions, bats to buy with earned
+   currency, and lots more (design and build plan in `docs/pipistrelle/`). Next, **Napwalk's full rollout**. Then
+   the rest of the 60 catalogue games are built in Kiln, and the owner reviews each to pick the next graduates.
+1. Catalogue goals (resume after Pipistrelle and Napwalk): 60 new games, 10 in each category (Action, Adventure, Racing, Puzzle, Sports, Arcade), with space and
    animal games among them, all high quality and fun; and a visual overhaul of the four existing games, which look
    templated and unfinished. The hub follows the owner's mockup; Continue playing cards have no Play button.
 2. Ship in batches. Each batch gets its own pull request, which the assistant merges once its checks and the APK
@@ -17,8 +22,9 @@ Keep this file current: update the status table at the end of every task.
    the download link.
 4. Games are immersive: they fill the whole screen edge to edge with no hub bar, and the Android system bars hide
    while one plays. A game's own pause menu holds Back to games, Sound and Vibration.
-5. Speed matters: one agent per game builds and self-tests it end to end, and the assistant does the final check
-   and ships it as soon as it passes; no separate review round unless something fails.
+5. Speed matters, and so does usage: one agent per game builds and self-tests it end to end, and the assistant does
+   the final check and ships it as soon as it passes. No critic, judge or review rounds unless something fails;
+   use as few agents as the work needs (the owner, 12 October: "are they necessary, they eat up usage").
 6. **Never leave work only in the chat or its container.** Commit and push work in progress to the working branch
    (use `[skip ci]` in the message for unfinished checkpoints, so the published APK is not replaced by a broken
    build). Anything that matters (specs, plans, workflow scripts, status) goes into the repo.
@@ -36,14 +42,38 @@ its name in place of `main`, for example `git fetch origin && git checkout <bran
 Every push to `main` (or a `claude/*` branch) also publishes
 [kiln-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/android-preview/kiln-debug.apk).
 
+**Pipistrelle** (its own app, `products/pipistrelle/`):
+
+```sh
+git checkout main && git pull origin main && cd products/pipistrelle && npm ci && npm run android:apk
+```
+
+Its APK lands in `products/pipistrelle/android/app/build/outputs/apk/debug/app-debug.apk`, and every push publishes
+[pipistrelle-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/pipistrelle-preview/pipistrelle-debug.apk).
+
 ## Status
 
 | Work | State |
 | --- | --- |
+| **Pipistrelle product (D14, D15)** | **v1 done**: `products/pipistrelle/` (README, `docs/BIOMES.md`, build log `STATUS.md`). The Long Rain (25 caves in five biomes), missions and 20 Moon types, five bats bought with earned moths, the Nightly Cave and The Long Night, full 4K with an Auto governor, the Last Echo (Second Wind plus one opt-in Unity rewarded ad, D15), unit and browser tests, its own CI and APK. Before the Play listing: privacy policy, Data safety and ads declarations, 13+ audience, `app-ads.txt` (D15) |
+| Napwalk product | Next, after Pipistrelle ships |
 | Foundation: mockup Home, six categories, game kit, game checker, 60-game plan | Done, merged in #10 |
 | Batch 1: Scrapwing, Pipistrelle, Tinplate GP, Napwalk, Long Ball Night, Night Bloom | Done: all six shipped (#12, #14, #15 and the PR that adds the last two) |
-| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Next |
-| Batches 2 to 10 | Not started; line-ups in `docs/CATALOGUE.md`. Build them one agent per game end to end (`.claude/workflows/` has the fast workflow pattern in this PR history), then ship each as it passes |
+| Visual overhaul of Tessera, Goldmend, Lariat, Crosswake | Paused (D14). Crosswake is part-rewritten on the working branch (not shippable yet); the others untouched |
+| Batch 2: Riposte, Thimblekeep, Bramble Cup, Orrery, Swellrider, Sunken Bell | Paused (D14). Riposte and Thimblekeep have first drafts on the working branch, not in the registry |
+| Batches 3 to 10 | Not started; line-ups in `docs/CATALOGUE.md` |
+
+New games are built with `.claude/workflows/kiln-games-fast.js` (one agent per game, end to end; args
+`{ games: [{ id, title, category }], portBase }`, with a `portBase` other runs are not using). Ship each game as soon
+as it passes. The overhaul uses `.claude/workflows/kiln-legacy-overhaul.js` (args `{ games: [{ id, title, note? }],
+portBase }`). After a usage-limit stop, rerun either one with a `note` telling the agent to continue from the files
+already in its game folder.
+
+**Shipping a new game while a live game is mid-overhaul**: the working branch may hold half-edited live games from
+the checkpoints. Stop the checkpoint loop, then stage the live game folders back to `main`'s version without
+touching the files on disk (`git restore --source=origin/main --staged games/<live-id>`), commit and push the new
+game, merge when green, restart the branch from `main` and the checkpoint loop. The pull request then carries only
+finished work.
 
 Work in progress is pushed to the working branch named in the latest pull request. A game folder in
 `games/<id>/` that is not yet in `games/registry.js` is unfinished: check it with `node tools/game-check.cjs --game

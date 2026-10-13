@@ -17,6 +17,15 @@ git checkout main && git pull origin main && npm run android:apk
 The APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`. Every push to `main` also publishes it as
 [kiln-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/android-preview/kiln-debug.apk).
 
+**Pipistrelle** (its own app, `products/pipistrelle/`):
+
+```sh
+git checkout main && git pull origin main && cd products/pipistrelle && npm ci && npm run android:apk
+```
+
+Its APK lands in `products/pipistrelle/android/app/build/outputs/apk/debug/app-debug.apk`, and every push publishes
+[pipistrelle-debug.apk](https://github.com/mbanguraproject-ai/Kiln/releases/download/pipistrelle-preview/pipistrelle-debug.apk).
+
 ## What is built
 
 | Area | Status |

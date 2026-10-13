@@ -106,6 +106,58 @@ with no image or audio files, but shares engine code with the others.
 - The kit gives engine pieces, not a look: each game chooses its own palette, fonts, panel style and music.
 - Every new game must pass `tools/game-check.cjs` and a playtest review before it is listed.
 
+## D14. Kiln is where games start; the best become standalone products (decided 12 October 2026)
+
+The owner, on 12 October: "Pipistrelle has the potential of being an original product, high quality ... Pipistrelle
+needs the full suite: full 4K, different caves, atmosphere, missions, different bats you can purchase and lots
+more." Then: "Pipistrelle should be its own sub repo in Kiln. It's a roll out. Picture this: all high quality
+original games in Kiln ... After we have pushed Pipistrelle, the next is Napwalk full rollout. And the rest of the
+60 games we will build them in Kiln and I'll look at each; if I spot any good one, it's getting out."
+
+- **The model**: every game starts in Kiln. The owner looks at each one; the good ones graduate into standalone
+  products with a full rollout.
+- **A product** lives in its own self-contained folder of this repo, `products/<id>/`, with its own Android app
+  (own app ID, name, icon), web root, build, tests, README and CI workflow that publishes its own APK. It depends on
+  nothing outside its folder, so it can later move to its own git repository unchanged. `docs/PRODUCTS.md`
+  describes the layout.
+- **Order**: Pipistrelle first (full 4K, distinct caves, atmosphere, missions, bats bought with earned currency,
+  and more), then Napwalk's full rollout, then the remaining catalogue games are built in Kiln (D12) for the owner
+  to review. The overhaul of the four original games is paused until then; drafts stay on the working branch.
+- The pilot version of a graduated game stays in the Kiln hub unchanged.
+- Bats and other unlocks are bought with currency earned by playing. No real money, no energy timers, no dark
+  patterns. (No ads, until D15 allowed one opt-in rewarded ad at the Last Echo.)
+- Pipistrelle's design and build plan live in `docs/pipistrelle/` (`DESIGN.md`, `BUILD_PLAN.md`).
+
+## D15. Pipistrelle: rewarded ads at the Last Echo, nowhere else (decided 13 October 2026)
+
+The owner, on 13 October: "Add Unity Ads integration, 2026 standards ... strategically place reward ads at the
+pressure point when the player loses, add losing mechanics, fun and interactive, then a continue or something."
+This replaces "no ads" in D14 and in Pipistrelle's fairness charter, for Pipistrelle only. D6 still holds for the
+Kiln hub.
+
+- **Losing is a moment** (the Last Echo, `products/pipistrelle/web/js/rescue.js`): when the bat runs out of energy
+  or is overtaken, it falls in slow motion and the world stops. First comes the **Second Wind**: four heartbeats,
+  and a player who taps three of them in time flies on with a little energy. It is free, once per attempt, and
+  skill only.
+- **Fly on?** After a missed or spent Second Wind, a card offers a **rewarded ad** to fly on with most of the energy
+  and a moment of safety. It is once per attempt, and only when the player taps "Watch and fly on". It never plays by
+  itself, and "Let the echoes fade" is always one tap away. The card closes on its own after 9 s.
+- **Never elsewhere**: no interstitials, no banners, no ads on menus, results or the flight home, and none in
+  practice. Moths, bats, Moons and the story are never sold or gated behind ads. A revive pushes back whatever caught
+  the bat, but a Moon already lost stays lost.
+- **Network**: Unity Ads SDK 4.21 (`RewardedAd` API) through the app's own `PipAds` plugin. Game ID `800397328`,
+  placement `BP_Rewarded_Android` (`web/js/ads.js`).
+- **Privacy**: ads are non-personalised unless the player turns on "Personalised ads" in Settings (off by default).
+  Debug builds use Unity's test ads, so our own installs never count as real traffic. Release builds show live ads.
+- **Before the Play listing**, the owner must:
+  - publish a privacy policy that names Unity Ads;
+  - in the Play Console, answer "Contains ads: yes";
+  - fill in Data safety: Unity collects the device or advertising ID and app interactions, for advertising and
+    analytics, shared with Unity;
+  - set the target audience to 13+. Anything younger brings the Families policy, which needs a certified ad
+    network setup instead.
+  - Add `app-ads.txt` with Unity's line on the developer website.
+
 ## Open items
 
 - App name and package ID. `com.mbanguraproject.kiln` is a placeholder and becomes permanent on the first Play upload.

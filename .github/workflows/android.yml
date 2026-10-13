@@ -6,6 +6,9 @@ name: Android APK
 on:
   push:
     branches: [main, 'claude/**']
+    paths-ignore:
+      - 'products/**'
+      - '.github/workflows/pipistrelle.yml'
   workflow_dispatch:
 
 permissions:

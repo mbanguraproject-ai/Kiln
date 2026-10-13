@@ -122,7 +122,7 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   });
   check(s.phase === 'over' || s.lit === s.total, 'using every stone without clearing the pond ends the run', JSON.stringify(s));
   await page.waitForTimeout(1300);
-  const overShown = await page.locator('#over').isVisible();
+  const overShown = await page.locator('.k-over').isVisible();
   check(overShown, 'the run-over card shows');
   const best = await ev(() => window.__crosswake.best);
   check(best > 0, 'the best score is kept', best);
@@ -147,8 +147,9 @@ const check = (ok, name, detail) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${nam
   await page.click('#dropBtn');
   await page.waitForTimeout(200);
   check(await ev(() => window.__crosswake.phase) === 'drop', 'Drop starts the ripples');
-  await page.waitForTimeout(3500);
-  check(await ev(() => window.__crosswake.phase) !== 'drop', 'the drop finishes on its own');
+  let dropDone = false;
+  for (let k = 0; k < 40 && !dropDone; k++) { await page.waitForTimeout(250); dropDone = await ev(() => window.__crosswake.phase) !== 'drop'; }
+  check(dropDone, 'the drop finishes on its own');
 
   check(errors.length === 0, 'no console errors', errors.join(' | '));
   await browser.close();

@@ -1,0 +1,79 @@
+# Builds the Pipistrelle Android app (debug APK) from products/pipistrelle/ and publishes it to the
+# "pipistrelle-preview" release, so the latest build can be installed on a phone from:
+#   https://github.com/<owner>/<repo>/releases/download/pipistrelle-preview/pipistrelle-debug.apk
+name: Pipistrelle APK
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'products/pipistrelle/**'
+      - '.github/workflows/pipistrelle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pipistrelle-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: products/pipistrelle
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: products/pipistrelle/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install web and Capacitor dependencies
+        run: npm ci
+
+      - name: Unit tests (economy, saves, cave data)
+        run: node tests/test.cjs --unit
+
+      - name: Copy the web app into the Android project
+        run: npm run android:sync
+
+      - name: Build the debug APK
+        working-directory: products/pipistrelle/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Name the APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/pipistrelle-debug.apk
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pipistrelle-debug-apk
+          path: products/pipistrelle/out/pipistrelle-debug.apk
+          retention-days: 14
+
+      - name: Publish to the pipistrelle-preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="Pipistrelle debug build of ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}, built $(date -u '+%Y-%m-%d %H:%M UTC'). Install pipistrelle-debug.apk on an Android phone (allow installs from your browser when asked)."
+          if gh release view pipistrelle-preview >/dev/null 2>&1; then
+            gh release edit pipistrelle-preview --notes "$notes"
+          else
+            gh release create pipistrelle-preview --prerelease --title "Pipistrelle preview" --notes "$notes" --target "$GITHUB_SHA"
+          fi
+          gh release upload pipistrelle-preview out/pipistrelle-debug.apk --clobber

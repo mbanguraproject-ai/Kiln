@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05060d">
+<title>Pipistrelle</title>
+<meta name="description" content="Fly a little bat through pitch-black caves. Chirp to paint the walls in echoes, eat moths, and bring the lost pups home.">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<canvas id="game" aria-label="Pipistrelle: drag to fly the bat, tap to chirp and see the cave in echoes"></canvas>
+<div id="ui" class="pp-ui"></div>
+<div id="safe" aria-hidden="true"></div>
+
+<!-- engine (vendored, owned by this product) -->
+<script src="vendor/arcade-shim.js"></script>
+<script src="vendor/kit.js"></script>
+<!-- core and data -->
+<script src="js/core.js"></script>
+<script src="data/tuning.js"></script>
+<script src="data/economy.js"></script>
+<script src="data/bats.js"></script>
+<script src="data/missions.js"></script>
+<script src="data/requests.js"></script>
+<script src="data/campaign.js"></script>
+<script src="data/biomes/chalk.js"></script>
+<!-- later biomes register themselves here, each in its own files (see docs/BIOMES.md) -->
+<script src="data/biomes/drowned.js"></script>
+<script src="data/biomes/glass.js"></script>
+<script src="data/biomes/owlstone.js"></script>
+<script src="data/biomes/hush.js"></script>
+<!-- world and simulation -->
+<script src="js/world.js"></script>
+<script src="js/gen/cave.js"></script>
+<script src="js/hazards/registry.js"></script>
+<script src="js/hazards/water.js"></script>
+<script src="js/hazards/tide.js"></script>
+<script src="js/hazards/siphon.js"></script>
+<script src="js/hazards/crystals.js"></script>
+<script src="js/hazards/webs.js"></script>
+<script src="js/hazards/stals.js"></script>
+<script src="js/hazards/gusts.js"></script>
+<script src="js/hazards/owls.js"></script>
+<script src="js/hazards/collapse.js"></script>
+<script src="js/hazards/scratches.js"></script>
+<script src="js/hazards/glass.js"></script>
+<script src="js/hazards/greylady.js"></script>
+<script src="js/hazards/chorus.js"></script>
+<script src="js/echo.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/bat.js"></script>
+<script src="js/bot.js"></script>
+<script src="js/run.js"></script>
+<script src="js/night.js"></script>
+<!-- rendering -->
+<script src="js/render/quality.js"></script>
+<script src="js/render/glow.js"></script>
+<script src="js/render/chunks.js"></script>
+<script src="js/render/backdrop.js"></script>
+<script src="js/render/batart.js"></script>
+<script src="js/render/entities.js"></script>
+<script src="js/render/hud.js"></script>
+<script src="js/render/renderer.js"></script>
+<!-- audio, profile, screens -->
+<script src="js/audio.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/ads.js"></script>
+<script src="js/rescue.js"></script>
+<script src="js/ui/ui.js"></script>
+<script src="js/ui/roost.js"></script>
+<script src="js/ui/screens.js"></script>
+<script src="js/ui/hangar.js"></script>
+<script src="js/debug.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
