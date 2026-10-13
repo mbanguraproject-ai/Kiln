@@ -152,7 +152,7 @@
       const a = Math.max(R.litA(m.lit, t) * 0.95, near * 0.9);
       if (a <= 0.02) continue;
       R.glow(ctx, m.x, m.y, 16, PP.P.gold, 0.55 * a);
-      R.drawMoth(ctx, m.x, m.y, t + m.ph, a, m.ang);
+      R.drawMoth(ctx, m.x, m.y, t + m.ph, a, m.ang, m.tiger);
     }
   };
 

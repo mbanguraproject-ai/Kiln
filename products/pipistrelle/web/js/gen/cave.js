@@ -286,12 +286,13 @@
     if (list) {
       for (const ps of list) {
         let ok = false;
-        if (ps.at === 'chamber') { const ch = Q.takeChamber(); if (ch) ok = hang(ch, { deep: !!ps.deep }) || hang({ x: ch.x + ch.r * 0.3, y: ch.y }, { deep: !!ps.deep }); }
+        const o = { deep: !!ps.deep, sealed: !!ps.sealed };
+        if (ps.at === 'chamber') { const ch = Q.takeChamber(); if (ch) ok = hang(ch, o) || hang({ x: ch.x + ch.r * 0.3, y: ch.y }, o); }
         else if (typeof ps.at === 'number') {
-          for (let d = 0; d < 8 && !ok; d++) { const p = Q.pathAt(clamp(ps.at + (d % 2 ? 1 : -1) * d * 0.012, 0.05, 0.95)); ok = hang(p, { deep: !!ps.deep, ledge: !!ps.ledge }); }
+          for (let d = 0; d < 8 && !ok; d++) { const p = Q.pathAt(clamp(ps.at + (d % 2 ? 1 : -1) * d * 0.012, 0.05, 0.95)); ok = hang(p, Object.assign({ ledge: !!ps.ledge }, o)); }
         }
         // fallback: along the path, so the count always matches the mission
-        for (let d = 0; d < 30 && !ok; d++) ok = hang(Q.pathAt(0.2 + (d * 0.023) % 0.7), { deep: !!ps.deep });
+        for (let d = 0; d < 30 && !ok; d++) ok = hang(Q.pathAt(0.2 + (d * 0.023) % 0.7), o);
       }
       return;
     }

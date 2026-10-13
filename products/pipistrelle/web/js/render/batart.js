@@ -162,16 +162,23 @@
     ctx.fill();
     ctx.restore();
   };
-  R.drawMoth = function (ctx, x, y, t, a, ang) {
-    const f = Math.abs(Math.sin(t * 34));
+  // tiger: the Glass Vaults' jamming moth, a little bigger, orange with dark bars on its forewings
+  R.drawMoth = function (ctx, x, y, t, a, ang, tiger) {
+    const f = Math.abs(Math.sin(t * (tiger ? 40 : 34))), z = tiger ? 1.35 : 1;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(Math.cos(ang) * 0.2);
+    ctx.scale(z, z);
     ctx.globalAlpha = a;
-    ctx.fillStyle = '#ffe6a3';
+    ctx.fillStyle = tiger ? '#ff9a3c' : '#ffe6a3';
     for (const s of [-1, 1]) {
       ctx.beginPath(); ctx.ellipse(s * 3.6 * (0.4 + f * 0.6), -1.2, 3.8 * (0.4 + f * 0.6), 2.8, s * 0.5, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.ellipse(s * 2.4 * (0.4 + f * 0.6), 2, 2.2 * (0.4 + f * 0.6), 1.8, -s * 0.4, 0, TAU); ctx.fill();
+    }
+    if (tiger) {
+      ctx.fillStyle = '#2a1408';
+      for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.ellipse(s * (2 + k * 2.2) * (0.4 + f * 0.6), -1.6 + k * 0.6, 0.8, 1.7, s * 0.5, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#ffd36b';
     }
     ctx.fillStyle = '#b8762e';
     ctx.fillRect(-0.8, -3, 1.6, 6.5);

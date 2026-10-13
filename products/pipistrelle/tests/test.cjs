@@ -22,7 +22,7 @@ const GOALS = {
   noweb: [{ careful: true }, { fast: true }], untouched: [{ fast: true }, { fast: true, pups: false }],
   energy: [{ larder: true }, { careful: true, larder: true }], nowake: [{ calls: 6, callEvery: 12, careful: true }, { careful: true }],
   dry: [{ careful: true }, {}, { careful: true, pups: false }], tidefree: [{ fast: true }, { fast: true, pups: false }],
-  nosiphon: [{ careful: true }, {}, { fast: true }],
+  nosiphon: [{ careful: true }, {}, { fast: true }], tigers: [{ larder: true }, { larder: true, careful: true }], shrieks: [{}],
   bells: [{ survey: true }], decoy: [{ careful: true }],
 };
 

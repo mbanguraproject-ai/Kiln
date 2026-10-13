@@ -112,6 +112,15 @@
       hitD[k] = d < 5 ? Infinity : d;
       if (d === Infinity || d < 5) continue;
       const c = tint >= 0 && HIT.t === CH.ROCK ? (k % 2 ? CH.CRYS : CH.ROCK) : (kind === 'crash' && HIT.t === CH.ROCK && k % 3 === 0 ? CH.HAZ : HIT.t);
+      // a tiger moth's clicks scramble an echo near it: it comes back jittered and doubled, and is not mapped
+      const jam = kind !== 'crystal' && PP.jamAt ? PP.jamAt(HIT.x, HIT.y) : 0;
+      if (jam > 0.05) {
+        const tj = t0 + d / SPEED, sj = 10 + jam * 34;
+        E.addDot(HIT.x + fr.range(-sj, sj), HIT.y + fr.range(-sj, sj), tj + fr.range(0, 0.06), c, 0.9);
+        E.addDot(HIT.x + fr.range(-sj, sj), HIT.y + fr.range(-sj, sj), tj + fr.range(0.03, 0.12), c, 0.6);
+        hitD[k] = Infinity;
+        continue;
+      }
       hitX[k] = HIT.x; hitY[k] = HIT.y; hitT[k] = c;
       const ta = t0 + d / SPEED;
       E.addDot(HIT.x, HIT.y, ta, c, 1);

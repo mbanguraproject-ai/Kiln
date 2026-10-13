@@ -29,6 +29,8 @@
       dry: { text: () => 'Never touch the water', lost: () => 'a splash' },
       tidefree: { text: () => 'Never let the flood touch you', lost: () => 'the flood caught you' },
       nosiphon: { text: () => 'Never get pulled by a siphon', lost: () => 'a siphon pulled you' },
+      tigers: { text: m => 'Eat ' + m.n + ' tiger moths', lost: () => 'too few tiger moths left' },
+      shrieks: { text: m => (m.max === 0 ? 'Never shriek' : 'Shriek ' + m.max + ' times or fewer'), lost: m => 'shriek ' + (m.max + 1) },
     },
   };
 })();

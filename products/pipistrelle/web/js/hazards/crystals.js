@@ -41,6 +41,13 @@
     }
   }
   PP.paintShards = paintShards;
+  // how lit a cluster is: an echo's life by default; a biome with crystalHold keeps it glowing that long, dimming slowly
+  function litOf(cl, t) {
+    const hold = PP.biome(PP.L.biome).crystalHold;
+    if (!hold) return PP.R.litA(cl.lit, t);
+    const a = t - cl.lit;
+    return a < 0 ? 0 : a < 0.1 ? 1 : Math.max(0, 1 - Math.pow((a - 0.1) / hold, 1.6));
+  }
 
   HZ.def('crystal', {
     phase: 'terrain',
@@ -61,11 +68,11 @@
         Kit.fx.burst(re.cl.x, re.cl.y, { count: 20, color: [PP.P.crystal, '#ffffff', PP.P.gold], glow: true, shape: 'star', size: [1.5, 3.5], speed: [30, 140], life: [0.5, 1] });
       }
     },
-    holes(hole, t) { for (const cl of PP.L.crystals) { const a = PP.R.litA(cl.lit, t); if (a > 0) hole(cl.x, cl.y, cl.r * 1.3, a * 0.45); } },
+    holes(hole, t) { for (const cl of PP.L.crystals) { const a = litOf(cl, t); if (a > 0) hole(cl.x, cl.y, cl.r * 1.3, a * 0.45); } },
     draw(ctx, t, V) {
       for (const cl of PP.L.crystals) {
         if (!V.inView(cl.x, cl.y, cl.r + 30)) continue;
-        const a = PP.R.litA(cl.lit, t);
+        const a = litOf(cl, t);
         if (a <= 0) continue;
         ctx.globalCompositeOperation = 'lighter';
         for (const s of cl.shards) {

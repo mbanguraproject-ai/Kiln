@@ -23,6 +23,8 @@
     dry: { won: (m, G) => !G.stats.splashes, lost: (m, G) => G.stats.splashes > 0 },
     tidefree: { won: (m, G) => !G.stats.tide, lost: (m, G) => G.stats.tide > 0 },
     nosiphon: { won: (m, G) => !G.stats.siphons, lost: (m, G) => G.stats.siphons > 0 },
+    tigers: { won: (m, G) => G.stats.tigers >= m.n, lost: (m, G, L) => G.stats.tigers + (L.tigers || []).filter(x => !x.dead).length < m.n },
+    shrieks: { won: (m, G) => G.stats.shrieks <= m.max, lost: (m, G) => G.stats.shrieks > m.max },
   };
   PP.moonTypes = TYPES;
 
@@ -68,6 +70,8 @@
         case 'calls': return G.stats.calls + '/' + m.max;
         case 'survey': return PP.missions.coverage(L) + '/' + m.pct + '%';
         case 'larder': return G.stats.moths + '/' + m.n;
+        case 'tigers': return G.stats.tigers + '/' + m.n;
+        case 'shrieks': return G.stats.shrieks + '/' + m.max;
         default: return '';
       }
     },
