@@ -21,6 +21,8 @@ const GOALS = {
   survey: [{ survey: true }, { survey: true, careful: true }], larder: [{ larder: true }, { larder: true, careful: true }],
   noweb: [{ careful: true }, { fast: true }], untouched: [{ fast: true }, { fast: true, pups: false }],
   energy: [{ larder: true }, { careful: true, larder: true }], nowake: [{ calls: 6, callEvery: 12, careful: true }, { careful: true }],
+  dry: [{ careful: true }, {}, { careful: true, pups: false }], tidefree: [{ fast: true }, { fast: true, pups: false }],
+  nosiphon: [{ careful: true }, {}, { fast: true }],
   bells: [{ survey: true }], decoy: [{ careful: true }],
 };
 

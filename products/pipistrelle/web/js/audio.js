@@ -73,6 +73,18 @@
     { wave: 'noise', freq: 3000, attack: 0.003, hold: 0.06, release: 0.25, vol: 0.2, filter: 'lowpass', cut: 3200, cutTo: 500 },
     { wave: 'sine', freq: 600, to: 1400, slide: 0.06, hold: 0.03, release: 0.05, vol: 0.06 },
   ]);
+  D('rush', { wave: 'noise', freq: 600, attack: 0.25, hold: 0.5, release: 0.6, vol: 0.14, filter: 'lowpass', cut: 900, cutTo: 420 });
+  D('gurgle', [
+    { wave: 'sine', freq: 320, to: 180, slide: 0.12, attack: 0.005, hold: 0.05, release: 0.06, vol: 0.09, verb: 0.5 },
+    { wave: 'sine', freq: 410, to: 220, slide: 0.1, at: 0.11, attack: 0.005, hold: 0.04, release: 0.06, vol: 0.08, verb: 0.5 },
+    { wave: 'sine', freq: 280, to: 150, slide: 0.12, at: 0.24, attack: 0.005, hold: 0.05, release: 0.08, vol: 0.07, verb: 0.5 },
+  ]);
+  D('lap', { wave: 'noise', freq: 900, attack: 0.18, hold: 0.25, release: 0.5, vol: 0.05, filter: 'bandpass', cut: 500, cutTo: 900, q: 1.2 });
+  D('ring', [
+    { wave: 'sine', freq: 1568, attack: 0.002, hold: 0.08, release: 1.4, vol: 0.07, verb: 0.8 },
+    { wave: 'sine', freq: 2349, attack: 0.002, hold: 0.05, release: 1.1, vol: 0.04, verb: 0.8 },
+    { wave: 'sine', freq: 3136, attack: 0.002, hold: 0.03, release: 0.8, vol: 0.025, verb: 0.8 },
+  ]);
   D('drip', { wave: 'sine', freq: 1700, to: 900, slide: 0.05, attack: 0.001, hold: 0.012, release: 0.06, vol: 0.1, verb: 0.55, jitter: 3 });
   D('gust', { wave: 'noise', freq: 400, attack: 0.3, hold: 0.9, release: 0.5, vol: 0.13, filter: 'bandpass', cut: 300, cutTo: 900, q: 3 });
   D('chime', { wave: 'sine', freq: 2093, arp: [0, 7, 12, 19], arpStep: 0.07, attack: 0.002, hold: 0.3, release: 0.5, vol: 0.08, verb: 0.7 });
@@ -131,6 +143,8 @@
       const B = PP.biome(PP.L.biome), amb = (B.audio && B.audio.ambience) || {}, r = G.fxr, x = r.next();
       if (x < 0.4) Kit.sfx('drip', { pan: r.range(-0.9, 0.9), vol: r.range(0.2, 0.5), pitch: r.range(-4, 4) });
       else if (x < 0.65 && amb.crickets) Kit.sfx('cricket', { pan: r.range(-1, 1), vol: r.range(0.4, 1), pitch: r.range(-2, 2) });
+      else if (x < 0.65 && amb.lap) Kit.sfx('lap', { pan: r.range(-0.8, 0.8), vol: amb.lap * r.range(0.6, 1), pitch: r.range(-3, 3) });
+      else if (x < 0.65 && amb.hum) Kit.sfx('ring', { pan: r.range(-0.8, 0.8), vol: amb.hum * r.range(0.3, 0.7), pitch: r.pick([0, 2, 4, 7, 9]) });
       else if (x < 0.85 && amb.wind && G.bat.x < PP.L.W * 0.3) Kit.sfx('wind', { vol: amb.wind, pan: -0.5 });
       else if (amb.owlFar && r.chance(0.3)) Kit.sfx('owlfar', { pan: 0.8, vol: 0.6 });
     },

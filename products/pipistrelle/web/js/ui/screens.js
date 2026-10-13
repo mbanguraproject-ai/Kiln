@@ -128,7 +128,7 @@
     const el = h('div.scr.scrim', null, [
       U.top(cv.id + '  ' + cv.name),
       h('div.body', null, h('div.wrap', null, [
-        h('div.card.lit', null, [h('div.eyebrow', { text: B.name + ' · ' + M.types[cv.mission].name + (cv.setPiece ? ' · set piece' : '') }), h('h3', { text: cv.name }), h('p', { text: cv.intro + '.' }), h('p.muted', { text: M.types[cv.mission].line })]),
+        h('div.card.lit', null, [h('div.eyebrow', { text: B.name + ' · ' + M.types[cv.mission].name + (cv.setPiece ? ' · set piece' : '') }), h('h3', { text: cv.name }), h('p', { text: /[.!?]$/.test(cv.intro) ? cv.intro : cv.intro + '.' }), h('p.muted', { text: M.types[cv.mission].line })]),
         h('div.card', null, [h('div.eyebrow', { text: 'Moons' }), h('div.brief-moons', null, moonRows), best && best.best ? h('p.muted', { text: 'Best: ' + Math.round(best.best.time) + ' s · ' + fmt(best.best.bank) + ' moths banked' }) : null]),
         heard ? h('p.muted', { text: 'Heard well by: ' + heard }) : null,
         h('div.card', null, [h('div.eyebrow', { text: 'Fly as' }), batPicker(() => U.refresh())]),

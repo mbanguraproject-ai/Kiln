@@ -25,7 +25,7 @@
       bot: null, results: null,
     };
   }
-  function newStats() { return { time: 0, chirps: 0, shrieks: 0, calls: 0, bumps: 0, damage: 0, splashes: 0, webs: 0, owlsWoken: 0, moths: 0, collapse: 0, minEnergy: 100, scratches: 0 }; }
+  function newStats() { return { time: 0, chirps: 0, shrieks: 0, calls: 0, bumps: 0, damage: 0, splashes: 0, webs: 0, owlsWoken: 0, moths: 0, collapse: 0, tide: 0, siphons: 0, minEnergy: 100, scratches: 0 }; }
 
   // ---- the event bus feeds the run's stats ----
   const on = (e, f) => PP.on(e, d => { if (PP.G && PP.G.mode === 'play') f(PP.G, d); });
@@ -36,6 +36,8 @@
   on('web', G => { G.stats.webs++; });
   on('owlWake', G => { G.stats.owlsWoken++; });
   on('collapseTouch', G => { G.stats.collapse++; });
+  on('tideTouch', G => { G.stats.tide++; });
+  on('siphon', G => { G.stats.siphons++; });
   on('scratch', (G, s) => { G.stats.scratches++; if (G.kind !== 'practice') PP.profile.readScratch(s); });
 
   /* ---------- starting runs ---------- */

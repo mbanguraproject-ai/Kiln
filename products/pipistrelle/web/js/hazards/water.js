@@ -39,11 +39,12 @@
     return null;
   }
 
+  // cfg.at: one [from, to] range along the path, or a list of them for several rivers
   HZ.def('river', {
     phase: 'terrain',
     place(lv, r, cfg, Q) {
-      const at = cfg.at || [0.3, 0.42];
-      addRiver(lv, r, Q, r.range(at[0], at[1]), cfg.level === undefined ? 0.38 : cfg.level, false);
+      const at = cfg.at || [0.3, 0.42], list = Array.isArray(at[0]) ? at : [at];
+      for (const a of list) addRiver(lv, r, Q, r.range(a[0], a[1]), cfg.level === undefined ? 0.38 : cfg.level, false);
     },
   });
   HZ.def('flood', {

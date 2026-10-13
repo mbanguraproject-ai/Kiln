@@ -26,6 +26,9 @@
       untouched: { text: () => 'Never let the collapse touch you', lost: () => 'the collapse caught you' },
       energy: { text: m => 'Never drop below ' + m.min + ' energy', lost: m => 'energy fell below ' + m.min },
       nowake: { text: () => 'Wake no owl', lost: () => 'an owl woke' },
+      dry: { text: () => 'Never touch the water', lost: () => 'a splash' },
+      tidefree: { text: () => 'Never let the flood touch you', lost: () => 'the flood caught you' },
+      nosiphon: { text: () => 'Never get pulled by a siphon', lost: () => 'a siphon pulled you' },
     },
   };
 })();

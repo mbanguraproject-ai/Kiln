@@ -20,6 +20,9 @@
     untouched: { won: (m, G) => !G.stats.collapse, lost: (m, G) => G.stats.collapse > 0 },
     energy: { won: (m, G) => G.stats.minEnergy >= m.min, lost: (m, G) => G.stats.minEnergy < m.min },
     nowake: { won: (m, G) => !G.stats.owlsWoken, lost: (m, G) => G.stats.owlsWoken > 0 },
+    dry: { won: (m, G) => !G.stats.splashes, lost: (m, G) => G.stats.splashes > 0 },
+    tidefree: { won: (m, G) => !G.stats.tide, lost: (m, G) => G.stats.tide > 0 },
+    nosiphon: { won: (m, G) => !G.stats.siphons, lost: (m, G) => G.stats.siphons > 0 },
   };
   PP.moonTypes = TYPES;
 

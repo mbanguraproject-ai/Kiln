@@ -210,7 +210,7 @@
     const lv = {
       id: sp.id || ('n' + sp.n), n: sp.n || 1, sp, biome: sp.biome || 'chalk', seed: sp.seed >>> 0,
       W, WT, H, cols, rows, archH: ah, type, solid, dist: dst, field, path, chambers, exitY, startY: path[0].y,
-      moths: [], pups: [], webs: [], stals: [], rivers: [], crystals: [], gusts, owls: [], drips: [], scratches: [], branches,
+      moths: [], pups: [], webs: [], stals: [], rivers: [], crystals: [], gusts, owls: [], drips: [], scratches: [], siphons: [], fish: [], branches,
       collapse: null,
     };
     const cellOf = (x, y) => { const i = Math.floor(x / CELL), j = Math.floor(y / CELL); return (i < 0 || j < 0 || i >= cols || j >= rows) ? -1 : j * cols + i; };
