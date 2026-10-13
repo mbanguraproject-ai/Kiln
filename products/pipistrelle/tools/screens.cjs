@@ -1,5 +1,5 @@
 // Screenshot tool: renders every screen and a few flight moments at the given sizes into shots/.
-// Usage: node tools/screens.cjs [390x844x3] [1280x800x1] [3840x2160x1] [--only=title,flight] [--quality=ultra] [--port=8902]
+// Usage: node tools/screens.cjs [390x844x3] [1280x800x1] [3840x2160x1] [--only=title,flight] [--quality=ultra|native] [--port=8902]
 // Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally).
 const path = require('path');
 const fs = require('fs');
@@ -11,8 +11,8 @@ const sizes = args.filter(a => /^\d+x\d+/.test(a));
 if (!sizes.length) sizes.push('390x844x3', '1280x800x1', '3840x2160x1');
 const only = (args.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const port = +((args.find(a => a.startsWith('--port=')) || '').slice(7)) || 8902;
-// A fixed tier, so a 4K shot shows 4K quality: headless Chromium draws on the CPU, and on Auto the governor would
-// step down. --quality=auto keeps the governor.
+// Every effect on at native resolution with the safety net held: headless Chromium has no GPU, so the safety net
+// would otherwise step down. --quality=native keeps the safety net, as on a phone.
 const quality = (args.find(a => a.startsWith('--quality=')) || '').slice(10) || 'ultra';
 const OUT = path.join(__dirname, '..', 'shots');
 fs.mkdirSync(OUT, { recursive: true });
@@ -95,7 +95,7 @@ const SHOTS = [
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     await page.goto(`http://127.0.0.1:${port}/?debug`);
     await page.waitForFunction(() => window.__ppTest && __ppTest.ready());
-    await page.evaluate(q => { __ppTest.reset(); __ppTest.quality(q); if (q !== 'auto') PP.R.quality.frame = () => {}; }, quality);
+    await page.evaluate(q => { __ppTest.reset(); __ppTest.quality(q); if (q !== 'native') PP.R.quality.frame = () => {}; }, quality);
     for (const [name, fn] of SHOTS) {
       if (only.length && !only.includes(name)) continue;
       await fn(page);

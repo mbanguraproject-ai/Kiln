@@ -7,7 +7,6 @@
   const PP = window.PP, Kit = window.Kit, R = PP.R, CELL = PP.CELL;
   const CS = 256;
   R.CS = CS;
-  const ROCK_MB = 10; // the rock cache's share of canvas memory (see js/render/quality.js)
   // how many chunks of this size fit a memory budget, never fewer than the view needs
   const capFor = (size, mb, need) => Math.max(need + 6, Math.floor(mb * 1e6 / (size * size * 4)));
   const STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4];
@@ -199,26 +198,44 @@
     },
   };
 
-  R.drawRock = function (ctx, x0, y0, x1, y1, d, budget) {
+  // budget: how many stale chunks (painted at another density) may be repainted this frame; a chunk never painted
+  // is always painted. On frames that paint nothing, one chunk just outside the view is painted ahead of time,
+  // the one nearest where the camera is heading (ahead = { x, y } in world px), so flying into new stone rarely
+  // has to paint several big chunks in one frame.
+  R.drawRock = function (ctx, x0, y0, x1, y1, d, budget, ahead) {
     const size = Math.ceil(CS * d) + 2;
     const ci0 = Math.floor(x0 / CS), ci1 = Math.floor(x1 / CS), cj0 = Math.floor(y0 / CS), cj1 = Math.floor(y1 / CS);
-    const cap = Math.min(R.quality.tier.lru, capFor(size, ROCK_MB, (ci1 - ci0 + 1) * (cj1 - cj0 + 1)));
+    const cap = Math.min(Math.max(R.quality.tier.lru, (ci1 - ci0 + 3) * (cj1 - cj0 + 3) + 4), capFor(size, R.quality.tier.rockMB || 10, (ci1 - ci0 + 3) * (cj1 - cj0 + 3)));
     let painted = 0;
+    const paint = (ci, cj, k, e) => {
+      const c = e && e.c.width === size ? e.c : rock.canvas(size);
+      if (c.width !== size) { c.width = size; c.height = size; }
+      paintRock(c, ci, cj, d);
+      e = { c, d };
+      rock.put(k, e, cap);
+      painted++;
+      return e;
+    };
     for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
       const k = ci * 4096 + cj + 1e7;
       let e = rock.get(k);
-      if (!e || e.d !== d) {
-        if (painted >= budget && e) { /* keep the stale one a frame longer */ }
-        else if (painted < budget || !e) {
-          const c = e && e.c.width === size ? e.c : rock.canvas(size);
-          if (c.width !== size) { c.width = size; c.height = size; }
-          paintRock(c, ci, cj, d);
-          e = { c, d };
-          rock.put(k, e, cap);
-          painted++;
-        }
-      }
+      if (!e || (e.d !== d && painted < budget)) e = paint(ci, cj, k, e);
       ctx.drawImage(e.c, 0, 0, e.c.width, e.c.height, ci * CS - 1 / e.d, cj * CS - 1 / e.d, (e.c.width) / e.d, (e.c.height) / e.d);
+    }
+    if (!painted && ahead && PP.L) {
+      const L = PP.L, n0 = Math.max(0, ci0 - 1), n1 = Math.min(Math.ceil(L.W / CS), ci1 + 1), m0 = Math.max(0, cj0 - 1), m1 = Math.min(Math.ceil(L.H / CS), cj1 + 1);
+      let best = null, bd = Infinity;
+      const vx = (x0 + x1) / 2, vy = (y0 + y1) / 2, hx = ahead.x - vx, hy = ahead.y - vy;
+      for (let cj = m0; cj <= m1; cj++) for (let ci = n0; ci <= n1; ci++) {
+        if (ci >= ci0 && ci <= ci1 && cj >= cj0 && cj <= cj1) continue;
+        const k = ci * 4096 + cj + 1e7, e = rock.map.get(k);
+        if (e && e.d === d) continue;
+        const cx = (ci + 0.5) * CS, cy = (cj + 0.5) * CS;
+        if ((cx - vx) * hx + (cy - vy) * hy <= 0) continue; // only where the camera is heading
+        const dx = cx - ahead.x, dy = cy - ahead.y, dd = dx * dx + dy * dy;
+        if (dd < bd) { bd = dd; best = [ci, cj, k, e]; }
+      }
+      if (best) paint(best[0], best[1], best[2], best[3]);
     }
     return painted;
   };

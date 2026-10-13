@@ -81,39 +81,70 @@
   }
 
   // screen-space draw (ctx in CSS px); V = { w, h, zoom, k (device px per CSS px), camX, camY, t, rings }
+  // On phones and 4K screens the sky, both silhouette layers, the glowworms and the relight are drawn into one
+  // buffer at the silhouettes' own resolution, which then goes to the screen in a single opaque copy. Drawing the
+  // far layers straight to such a screen would blend nearly three full screens of pixels for detail they do not
+  // have.
   BD.draw = function (ctx, V) {
-    const B = BD.biome, pal = B.palette, tier = R.quality.tier;
-    Kit.gfx.sky(ctx, pal.sky);
-    const z = V.zoom;
+    const B = BD.biome, pal = B.palette, tier = R.quality.tier, z = V.zoom;
+    let dens = 0;
+    for (const l of BD.layers) {
+      const d = l.def, cap = 2048 / Math.max(d.tw, d.th);
+      const want = Math.min(cap, z * V.k, tier.bgMax || 1.5);
+      tiles(l, Math.min(cap, [0.75, 1, 1.25, 1.5, 2, 2.5].find(s => s >= want - 1e-6) || 2.5));
+      dens = Math.max(dens, l.db);
+    }
+    // the buffer only where it saves at least a third of the pixels (phones and 4K screens); otherwise straight to
+    // the screen, as a buffer at full resolution would only add a canvas
+    const bs = Math.min(V.k, Math.max(0.5, (dens || 1) / z)), useBuf = bs < V.k * 0.8;
+    const bw = Math.ceil(V.w * bs), bh = Math.ceil(V.h * bs);
+    let g = ctx;
+    if (useBuf) {
+      if (!BD.bufC || BD.bufC.width !== bw || BD.bufC.height !== bh) {
+        if (BD.bufC) { BD.bufC.width = 0; BD.bufC.height = 0; }
+        BD.bufC = Kit.gfx.offscreen(bw, bh); BD.bufG = BD.bufC.getContext('2d', { alpha: false });
+      }
+      g = BD.bufG;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      Kit.gfx.sky(g, pal.sky);
+      g.setTransform(bs, 0, 0, bs, 0, 0);
+    } else {
+      if (BD.bufC) { BD.bufC.width = 0; BD.bufC.height = 0; BD.bufC = null; }
+      Kit.gfx.sky(ctx, pal.sky);
+    }
+    const pxs = useBuf ? bs : V.k;
     for (const l of BD.layers) {
       const d = l.def, tw = d.tw * z, th = d.th * z;
-      const want = Math.min(2048 / Math.max(d.tw, d.th), z * V.k, tier.bgMax || 1.5);
-      const db = want <= 0.75 ? 0.75 : want <= 1 ? 1 : want <= 1.5 ? 1.5 : want <= 2 ? 2 : Math.min(2048 / Math.max(d.tw, d.th), 2.8);
-      tiles(l, db / z * z);
       const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
-      ctx.globalAlpha = 0.85;
-      tileDraw(ctx, l.dark, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.db / z);
-      ctx.globalAlpha = 1;
+      g.globalAlpha = 0.85;
+      tileDraw(g, l.dark, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.db / z);
+      g.globalAlpha = 1;
       if (B.ambient && B.ambient.glowworms) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = pal.glowworm;
-        const ww = Math.max(z, 2 / V.k);
+        g.globalCompositeOperation = 'lighter';
+        g.fillStyle = pal.glowworm;
+        const ww = Math.max(z, 1.5 / pxs);
         for (let y = oy; y < V.h; y += th) for (let x = ox; x < V.w; x += tw) {
           for (const wm of l.worms) {
             const px = x + wm.x * z, py = y + wm.y * z, len = wm.len * (d.depth < 0.3 ? 0.6 : 1) * z;
             if (px < -4 || px > V.w + 4 || py < -30 * z || py > V.h) continue;
-            ctx.globalAlpha = (d.depth < 0.3 ? 0.18 : 0.3) * (0.55 + 0.45 * Math.sin(V.t * wm.sp + wm.ph));
-            ctx.fillRect(px, py, ww, len);
-            ctx.fillRect(px - ww * 0.5, py + len, ww * 2, ww * 2);
+            g.globalAlpha = (d.depth < 0.3 ? 0.18 : 0.3) * (0.55 + 0.45 * Math.sin(V.t * wm.sp + wm.ph));
+            g.fillRect(px, py, ww, len);
+            g.fillRect(px - ww * 0.5, py + len, ww * 2, ww * 2);
           }
         }
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = 'source-over';
       }
     }
-    // passing echo rings light up the silhouettes they sweep over: the lit layers are drawn once into a
-    // low-resolution buffer, which is masked by every live ring at once and laid over the screen. (One pass
-    // whatever the number of rings; no clip paths, which are slow to rasterise.)
+    relight(g, V, tier, z);
+    if (useBuf) { ctx.imageSmoothingEnabled = true; ctx.drawImage(BD.bufC, 0, 0, bw, bh, 0, 0, V.w, V.h); }
+  };
+
+  // passing echo rings light up the silhouettes they sweep over: the lit layers are drawn once into a
+  // low-resolution buffer, which is masked by every live ring at once and laid over the backdrop. (One pass
+  // whatever the number of rings; no clip paths, which are slow to rasterise.) out is in CSS px.
+  function relight(out, V, tier, z) {
     if (!tier.relight || !V.rings || !V.rings.length) return;
     const TMP = BD._tmp || (BD._tmp = { x: 0, y: 0 }), SP = PP.data.tuning.ringSpeed;
     let live = 0;
@@ -159,9 +190,9 @@
     g.globalCompositeOperation = 'destination-in';
     g.drawImage(BD.maskC, 0, 0);
     g.globalCompositeOperation = 'source-over';
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(BD.litC, 0, 0, bw, bh, 0, 0, bw * q, bh * q);
-  };
+    out.imageSmoothingEnabled = true;
+    out.drawImage(BD.litC, 0, 0, bw, bh, 0, 0, bw * q, bh * q);
+  }
 
   // near foreground: hanging tips at the top edge, darker than everything (vectors, so always crisp)
   BD.drawForeground = function (ctx, V) {

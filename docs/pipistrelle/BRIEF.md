@@ -20,7 +20,7 @@ current game is mapped in `research/map-code.md` and assessed in `research/map-p
 
 Pitch-black caves that the player paints with sonar rings; echoes that fade; the bat's floaty feel; rescuing pups
 who follow you home. The echo colour code is sacred: teal rock, gold food, pink pups, red danger, in every cave
-and on every tier.
+and at every effect level.
 
 ## Version 1 content
 
@@ -77,7 +77,7 @@ Title (painted wordmark, never wraps) → **The Roost** (home: every rescued pup
 came from) → World map (biomes and caves with Moons) → Cave brief (mission, Moons, "Heard well by") → Flight (HUD
 anchored to safe-area corners, sound captions at the screen edge, pause) → Results (Moons, moths banked, pups home;
 its own screen, no confetti) → Hangar (bats, Practice Hollow, buy with price next to balance) → Journal (Old
-Scratches, moths, pups) → Requests → Settings (sound, music, echo volume, vibration, quality tier, Gentle Wings
+Scratches, moths, pups) → Requests → Settings (sound, music, echo volume, vibration, Battery saver, Gentle Wings
 assist, Echo shapes colourblind mode, save export and import) → Pause (Resume, Restart, How to play, Settings,
 Quit to map).
 
@@ -85,8 +85,10 @@ Quit to map).
 
 - A camera that shows a constant world area (about 400,000 to 480,000 world px squared, chosen on the short side),
   so a 4K screen shows the same play space as a phone, only sharper.
-- Quality tiers Low, Medium, High, Ultra with a frame-time governor (dynamic resolution). Tiers change fidelity,
-  never information: echo pools, ray counts and lifetimes are the same on every tier.
+- Native resolution up to 4K by default, with every effect on (the owner, 13 October: "4K should be the default
+  resolution ... not lousy tiers"). A safety net sheds effects first and lowers resolution only as a last resort,
+  never below 75%. Battery saver is the one setting. Effects change fidelity, never information: echo pools, ray
+  counts and lifetimes are the same at every level.
 - Rock and echo memory in 256 px chunks (LRU cache) with vector rims stroked from the segments, a per-biome 512 px
   detail pattern composited at device resolution, a dithered glow atlas (64, 256, 512 px), bloom as core plus halo
   sprites (no `ctx.filter`, no `shadowBlur`), nothing drawn below 2 device px, high detail only from 6 device px,
