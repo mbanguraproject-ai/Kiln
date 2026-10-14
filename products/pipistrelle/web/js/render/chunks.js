@@ -56,6 +56,7 @@
       put(k, v, cap) { map.set(k, v); while (map.size > cap) { const [k0, v0] = map.entries().next().value; map.delete(k0); spare(v0.c); } },
       canvas(size) { for (let i = 0; i < pool.length; i++) if (pool[i].width === size) return pool.splice(i, 1)[0]; return Kit.gfx.offscreen(size, size); },
       clear() { for (const v of map.values()) free(v.c); map.clear(); while (pool.length) free(pool.pop()); },
+      drop(k) { const v = map.get(k); if (v) { map.delete(k); spare(v.c); } },
     };
   }
   const rock = lru(), memc = lru();
@@ -69,10 +70,10 @@
     if (cur && Math.abs(cur - d) / cur < 0.2 && cur <= cap) return cur;
     return d;
   }
+  // A change of density does not clear the caches: chunks painted at the old density keep being drawn (scaled)
+  // and are repainted one a frame (drawRock, drawMemory), so a resolution step never stalls on a full repaint.
   R.pickDensity = function (ppu) {
     const t = R.quality.tier, d = bucket(ppu, t.rockMax, R.density), dm = bucket(ppu, t.memMax, R.memDensity);
-    if (d !== R.density) rock.clear();
-    if (dm !== R.memDensity) memc.clear();
     R.density = d; R.memDensity = dm;
     return d;
   };
@@ -208,7 +209,8 @@
     const cap = Math.min(Math.max(R.quality.tier.lru, (ci1 - ci0 + 3) * (cj1 - cj0 + 3) + 4), capFor(size, R.quality.tier.rockMB || 10, (ci1 - ci0 + 3) * (cj1 - cj0 + 3)));
     let painted = 0;
     const paint = (ci, cj, k, e) => {
-      const c = e && e.c.width === size ? e.c : rock.canvas(size);
+      if (e && e.c.width !== size) { rock.drop(k); e = null; }
+      const c = e ? e.c : rock.canvas(size);
       if (c.width !== size) { c.width = size; c.height = size; }
       paintRock(c, ci, cj, d);
       e = { c, d };
@@ -285,12 +287,14 @@
     const d = R.memDensity || 1, mem = PP.mem, size = Math.ceil(CS * d) + 2;
     const ci0 = Math.floor(x0 / CS), ci1 = Math.floor(x1 / CS), cj0 = Math.floor(y0 / CS), cj1 = Math.floor(y1 / CS);
     const cap = Math.min(R.quality.tier.lru, capFor(size, R.quality.tier.memMB || 10, (ci1 - ci0 + 1) * (cj1 - cj0 + 1)));
+    let rebuilt = 0;
     for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
       const ch = mem.chunks.get(mem.key(ci, cj));
       if (!ch || !ch.n) continue;
       const k = ci * 4096 + cj;
       let e = memc.get(k);
-      if (!e || e.d !== d || e.store !== ch) {
+      if (!e || e.store !== ch || (e.d !== d && rebuilt++ < 1)) {
+        if (e) memc.drop(k);
         const c = memc.canvas(size);
         if (c.width !== size) { c.width = size; c.height = size; }
         const g = c.getContext('2d');
@@ -300,8 +304,8 @@
         e = { c, d, drawn: 0, store: ch };
         memc.put(k, e, cap);
       }
-      if (e.drawn < ch.n) { const g = e.c.getContext('2d'); drawMemEntries(g, ch.a, e.drawn, ch.n, d); e.drawn = ch.n; }
-      ctx.drawImage(e.c, 0, 0, e.c.width, e.c.height, ci * CS - 1 / d, cj * CS - 1 / d, e.c.width / d, e.c.height / d);
+      if (e.drawn < ch.n) { const g = e.c.getContext('2d'); drawMemEntries(g, ch.a, e.drawn, ch.n, e.d); e.drawn = ch.n; }
+      ctx.drawImage(e.c, 0, 0, e.c.width, e.c.height, ci * CS - 1 / e.d, cj * CS - 1 / e.d, e.c.width / e.d, e.c.height / e.d);
     }
   };
 })();

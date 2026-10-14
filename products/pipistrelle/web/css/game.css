@@ -133,6 +133,9 @@ button.card:active { transform: scale(0.99); }
 @keyframes moonpop { from { transform: scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* settings */
+.ad-status { margin: 0; font-weight: 700; color: var(--ink-soft); }
+.ad-status.good { color: var(--teal); }
+.ad-status.bad { color: #ff9a8a; }
 .res-title { display: block; font: 800 1.15rem/1.2 var(--display); color: var(--ink); }
 
 /* hangar */

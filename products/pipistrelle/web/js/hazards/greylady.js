@@ -105,7 +105,7 @@
       ctx.fillStyle = '#4b4a52';
       if (flying) {
         const fl = Math.sin(D.flap) * 9;
-        for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 6, -4); ctx.quadraticCurveTo(s * 24, -18 - fl, s * 40, -6 - fl); ctx.quadraticCurveTo(s * 22, 4, s * 6, 7); ctx.fill(); }
+        for (let s = -1; s <= 1; s += 2) { ctx.beginPath(); ctx.moveTo(s * 6, -4); ctx.quadraticCurveTo(s * 24, -18 - fl, s * 40, -6 - fl); ctx.quadraticCurveTo(s * 22, 4, s * 6, 7); ctx.fill(); }
       }
       // body and the great grey facial disc with its rings
       ctx.fillStyle = '#5e5d66';
@@ -113,7 +113,7 @@
       ctx.fillStyle = '#8e8d96';
       ctx.beginPath(); ctx.arc(0, -6, 10, 0, PP.TAU); ctx.fill();
       ctx.strokeStyle = 'rgba(40,40,48,0.7)'; ctx.lineWidth = 0.7;
-      for (const s of [-1, 1]) for (let q = 1; q <= 3; q++) { ctx.beginPath(); ctx.arc(s * 4.4, -6, q * 1.9 + 1, 0, PP.TAU); ctx.stroke(); }
+      for (let s = -1; s <= 1; s += 2) for (let q = 1; q <= 3; q++) { ctx.beginPath(); ctx.arc(s * 4.4, -6, q * 1.9 + 1, 0, PP.TAU); ctx.stroke(); }
       ctx.strokeStyle = Kit.gfx.alpha(PP.P.red, 0.75); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.ellipse(0, 2, 12, 16, 0, 0, PP.TAU); ctx.stroke();
       // the white "bow tie" at her throat
@@ -125,7 +125,7 @@
         ctx.save(); ctx.translate(D.x, D.y); ctx.scale(1.9, 1.9); ctx.globalAlpha = a; ctx.strokeStyle = '#d8d0c0'; ctx.lineWidth = 0.9;
         ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-3, -6); ctx.moveTo(3, -6); ctx.lineTo(6, -6); ctx.stroke(); ctx.restore();
       } else {
-        for (const s of [-1, 1]) {
+        for (let s = -1; s <= 1; s += 2) {
           const ex = D.x + s * 4.4 * 1.9, ey = D.y - 6 * 1.9;
           ctx.globalCompositeOperation = 'lighter';
           PP.R.glow(ctx, ex, ey, 14, '#ffd36a', 0.85);

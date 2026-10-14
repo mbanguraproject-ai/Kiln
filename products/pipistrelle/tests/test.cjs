@@ -249,6 +249,35 @@ const GOALS = {
       await p.close();
     }
 
+    // smooth motion on 90 and 120 Hz screens: the simulation steps at 60 Hz, so without blending some frames show
+    // the camera where it was the frame before (a visible hitch) and the next jumps two steps
+    {
+      const p = await open(640, 360, 1);
+      const sm = await p.evaluate(() => {
+        __ppTest.quality('ultra'); PP.R.quality.frame = () => {};
+        __ppTest.startCave('1-3'); __ppTest.autopilot(true, { fast: true }); __ppTest.step(3);
+        PP.loop.stop();
+        const STEP = 1 / 60, out = {}, apply = Kit.cam.apply;
+        let seen = null;
+        Kit.cam.apply = function () { if (seen === null) seen = Kit.cam.x; return apply.apply(this, arguments); };
+        for (const hz of [90, 120]) for (const blend of [true, false]) {
+          let acc = 0, still = 0, n = 0, prev = null;
+          for (let f = 0; f < 90; f++) {
+            acc += 1 / hz;
+            while (acc >= STEP) { PP.R.beforeStep(); PP.run.update(STEP); Kit.cam.update(STEP); acc -= STEP; }
+            seen = null; PP.R.frame(blend ? acc / STEP : 1);
+            if (prev !== null && seen !== null) { n++; if (Math.abs(seen - prev) < 1e-6) still++; }
+            prev = seen;
+          }
+          out[hz + (blend ? '' : 'raw')] = still + '/' + n;
+        }
+        Kit.cam.apply = apply;
+        return out;
+      });
+      check(sm['90'].startsWith('0/') && sm['120'].startsWith('0/') && !sm['90raw'].startsWith('0/'), 'the camera moves every frame on 90 and 120 Hz screens (blended between steps)', JSON.stringify(sm));
+      await p.close();
+    }
+
     // the safety net, on a 4K screen this machine cannot keep up with: effects go first, then resolution, and
     // never below 75%
     const q = await open(3840, 2160, 1);

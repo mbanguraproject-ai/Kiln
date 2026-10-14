@@ -27,7 +27,6 @@ this folder.
   below 75%). Settings has a Battery saver.
 - **The bats** are drawn in the app icon's style. The icon is built from `art/icon.webp` by `tools/make-icons.py`:
   - the adaptive launcher icon, with a themed monochrome layer;
-  - the splash screens;
   - the 512 px Play Store icon (`store/play-icon-512.png`);
   - the web icons.
 

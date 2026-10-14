@@ -22,9 +22,12 @@
       furHi: mix(look.fur, '#ffffff', 0.22), furLo: mix(look.fur, '#000000', 0.4),
       muzzle: mix(look.fur, look.belly, 0.38), nose: mix(look.fur, '#120808', 0.72),
       claw: mix(look.bone, '#1a1010', 0.5), tail: mix(look.wing, '#000000', 0.15),
-      wing: [], ear: [],
+      wing: [], ear: [], edges: [],
     };
-    for (const s of [-1, 1]) {
+    K.outline = 'rgba(4,4,10,0.88)';
+    K.fringe = alpha(look.belly, 0.7); K.ridge = alpha(mix(look.inner, '#000000', 0.3), 0.55); K.tragus = mix(look.inner, '#ffffff', 0.32);
+    K.puff = alpha(mix(look.fur, '#ffcfae', 0.35), 0.85); K.shut = alpha(K.eyeGlow, 0.85);
+    for (let s = -1; s <= 1; s += 2) {
       const g = ctx.createRadialGradient(s * SHOULDER[0], SHOULDER[1], 1, s * SHOULDER[0], SHOULDER[1], 38 * span);
       g.addColorStop(0, mix(look.wing, '#000000', 0.38));
       g.addColorStop(0.42, look.wing);
@@ -91,6 +94,7 @@
     scallop(ctx, W.t3, [W.Hx, W.Hy], W, 0.22);
     ctx.lineTo(s * 2.4, 3);
     ctx.closePath();
+    if (det >= 1) { ctx.strokeStyle = K.outline; ctx.lineWidth = 1.5; ctx.stroke(); }
     ctx.fillStyle = K.wing[s > 0 ? 1 : 0];
     ctx.fill();
     if (det >= 1) {
@@ -105,8 +109,8 @@
     }
     // the glowing leading edge, as on the icon
     ctx.beginPath(); leading(ctx, W);
-    if (det >= 1) { ctx.strokeStyle = alpha(edge, 0.16); ctx.lineWidth = 1.8; ctx.stroke(); }
-    ctx.strokeStyle = alpha(edge, 0.9); ctx.lineWidth = det >= 1 ? 0.55 : 0.9; ctx.stroke();
+    if (det >= 1) { ctx.strokeStyle = edge.a16; ctx.lineWidth = 1.8; ctx.stroke(); }
+    ctx.strokeStyle = edge.a90; ctx.lineWidth = det >= 1 ? 0.55 : 0.9; ctx.stroke();
     if (det >= 2) {
       // the thumb, a small hooked claw at the wrist
       ctx.strokeStyle = K.claw; ctx.lineWidth = 0.55;
@@ -127,7 +131,7 @@
     ctx.fill();
     ctx.beginPath(); ctx.moveTo(s * 2.9, -4.8); ctx.quadraticCurveTo(s * 7.6, -1.6, s * 6.9, 6.4);
     if (det >= 1) { ctx.strokeStyle = K.arm; ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.stroke(); }
-    ctx.strokeStyle = alpha(edge, 0.7); ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.strokeStyle = edge.a70; ctx.lineWidth = 0.6; ctx.stroke();
     if (det >= 1) {
       ctx.strokeStyle = K.bone; ctx.lineWidth = 0.4;
       ctx.beginPath(); ctx.moveTo(s * 6.6, 3); ctx.quadraticCurveTo(s * 5.4, 8.5, s * 3.2, 12.4); ctx.moveTo(s * 5.4, 1.5); ctx.quadraticCurveTo(s * 4.4, 6, s * 2.6, 9.6); ctx.stroke();
@@ -176,10 +180,11 @@
     const x = b.x, y = b.y + (o.still ? 0 : Math.sin(t * 3.1) * 1.2);
     if (o.glow !== false) {
       const glowA = b.dead ? Math.max(0, 1 - (o.deadT || 0) * 0.8) : clamp(0.55 + (o.energy === undefined ? 100 : o.energy) / 220, 0.4, 1);
-      R.glow(ctx, x, y, 92, PP.P.warm, 0.07 * glowA);
-      R.glow(ctx, x, y, 34, PP.P.warm, 0.42 * glowA);
-      if (b.rim > 0) R.glow(ctx, x, y, 46, PP.P.teal, 0.3 * Math.min(1, b.rim));
-      if (b.dash > 0) R.glow(ctx, x, y, 60, '#ffffff', 0.25);
+      const gk = Math.max(1, scale / 1.3); // the light grows with the bat
+      R.glow(ctx, x, y, 92 * gk, PP.P.warm, 0.07 * glowA);
+      R.glow(ctx, x, y, 34 * gk, PP.P.warm, 0.42 * glowA);
+      if (b.rim > 0) R.glow(ctx, x, y, 46 * gk, PP.P.teal, 0.3 * Math.min(1, b.rim));
+      if (b.dash > 0) R.glow(ctx, x, y, 60 * gk, '#ffffff', 0.25);
     }
     if (b.charge > 0) {
       ctx.strokeStyle = PP.P.teal; ctx.globalAlpha = 0.25 + b.charge * 0.5; ctx.lineWidth = 2;
@@ -194,7 +199,7 @@
     const sz = scale * (look.size || 1);
     ctx.scale(sz * (b.sx || 1) * 1.05, sz * (b.sy || 1) * 1.05);
     // how many screen pixels one of the bat's units covers decides the detail
-    const m = ctx.getTransform(), px = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c));
+    const px = sz * 1.05 * Math.sqrt(Math.abs((b.sx || 1) * (b.sy || 1))) * (R.ppu || 1);
     const det = px < 1.4 ? 0 : px < 3 ? 1 : 2;
     const ph = (b.flap || 0) % TAU;
     let a = Math.sin(ph) * 0.85 + 0.12, span = (0.82 + 0.18 * Math.cos(ph)) * (look.span || 1);
@@ -203,15 +208,17 @@
     if (b.web) { a = Math.sin(t * 22) * 0.4 + 0.1; span = 0.7; }
     if (b.dead) { a = -0.4 + Math.sin(t * 9) * 0.2; span = 0.6; }
     const rim = b.rim || 0, chord = look.chord || 1, f = b.face || 1, hx = f * 1.2;
-    const edge = rim > 0.01 ? mix(K.edge, PP.P.rimLight, Math.min(1, rim) * 0.7) : K.edge;
+    const ri = rim > 0.01 ? Math.min(8, Math.round(Math.min(1, rim) * 8)) : 0;
+    const edge = K.edges[ri] || (K.edges[ri] = { c: ri ? mix(K.edge, PP.P.rimLight, ri / 8 * 0.7) : K.edge });
+    if (!edge.a16) { edge.a16 = alpha(edge.c, 0.16); edge.a90 = alpha(edge.c, 0.9); edge.a70 = alpha(edge.c, 0.7); edge.a50 = alpha(edge.c, 0.5); }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (!o.folded) {
-      for (const s of [-1, 1]) drawWing(ctx, K, wingGeo(s, a, span, chord), s, edge, det);
+      for (let s = -1; s <= 1; s += 2) drawWing(ctx, K, wingGeo(s, a, span, chord), s, edge, det);
       // the tail membrane between the legs, and the feet
       ctx.fillStyle = K.tail;
       ctx.beginPath(); ctx.moveTo(-HIP[0], HIP[1] - 1); ctx.quadraticCurveTo(-2.6, 12.6, 0, 13.4); ctx.quadraticCurveTo(2.6, 12.6, HIP[0], HIP[1] - 1); ctx.closePath(); ctx.fill();
       if (look.fringe && det >= 1) {
-        ctx.strokeStyle = alpha(look.belly, 0.7); ctx.lineWidth = 0.35;
+        ctx.strokeStyle = K.fringe; ctx.lineWidth = 0.35;
         ctx.beginPath(); for (let k = -5; k <= 5; k++) { const u = k / 5, ex = u * 3, ey = 13.4 - u * u * 3.4; ctx.moveTo(ex, ey); ctx.lineTo(ex * 1.12, ey + 1.1); } ctx.stroke();
       }
     }
@@ -219,7 +226,7 @@
     if (det >= 1) {
       ctx.strokeStyle = K.claw; ctx.lineWidth = 0.55 * Math.min(1.5, fs);
       ctx.beginPath();
-      for (const s of [-1, 1]) {
+      for (let s = -1; s <= 1; s += 2) {
         const fx = s * (o.folded ? 1.4 : 2.6 + 0.5 * fs), fy = o.folded ? 13.6 : 10.6 + 1.2 * fs;
         ctx.moveTo(s * (o.folded ? 1.2 : 2.6), o.folded ? 12.2 : 9.4); ctx.lineTo(fx, fy);
         for (let k = -1; k <= 1; k++) { ctx.moveTo(fx, fy); ctx.lineTo(fx + k * 0.55 * fs, fy + 0.9 * fs); }
@@ -228,39 +235,45 @@
     }
     // body, with a soft lighter belly
     ctx.fillStyle = K.body;
-    ctx.beginPath(); ctx.ellipse(0, 3, 5.1, 7.4, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 3, 5.1, 7.4, 0, 0, TAU);
+    if (det >= 1) { ctx.strokeStyle = K.outline; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.fill();
     if (det >= 1) { ctx.fillStyle = K.belly; ctx.beginPath(); ctx.ellipse(0, 4.4, 3.8, 5.6, 0, 0, TAU); ctx.fill(); }
-    if (o.folded) for (const s of [-1, 1]) drawCloak(ctx, K, s, edge, det);
+    if (o.folded) for (let s = -1; s <= 1; s += 2) drawCloak(ctx, K, s, edge, det);
     // the head: ears behind, a wide soft skull, the muzzle, and the eyes
     ctx.save();
     ctx.translate(hx, HEAD[0]);
     const el = look.ear || 1, ew = look.earW || 1, tip = look.earTip || 1;
     ctx.fillStyle = look.fur;
-    ctx.beginPath(); for (const s of [-1, 1]) earPath(ctx, s, el, ew, tip, 1); ctx.fill();
+    ctx.beginPath(); for (let s = -1; s <= 1; s += 2) earPath(ctx, s, el, ew, tip, 1);
+    if (det >= 1) { ctx.strokeStyle = K.outline; ctx.lineWidth = 1.4; ctx.stroke(); }
+    ctx.fill();
     if (det >= 1) {
-      for (const s of [-1, 1]) { ctx.fillStyle = K.ear[s > 0 ? 1 : 0]; ctx.beginPath(); earPath(ctx, s, el, ew, tip, 0.8); ctx.fill(); }
+      for (let s = -1; s <= 1; s += 2) { ctx.fillStyle = K.ear[s > 0 ? 1 : 0]; ctx.beginPath(); earPath(ctx, s, el, ew, tip, 0.8); ctx.fill(); }
       // long ears fold in soft ridges
       if (el > 1.6 && det >= 2) {
-        ctx.strokeStyle = alpha(mix(look.inner, '#000000', 0.3), 0.55); ctx.lineWidth = 0.3;
+        ctx.strokeStyle = K.ridge; ctx.lineWidth = 0.3;
         ctx.beginPath();
-        for (const s of [-1, 1]) for (let k = 1; k <= 5; k++) { const yy = -4.4 - 10.5 * el * 0.8 * k / 6, xx = s * (2.6 + 1.4 * k / 6) * ew; ctx.moveTo(xx, yy); ctx.quadraticCurveTo(xx + s * 0.9 * ew, yy - 0.7, xx + s * 1.8 * ew, yy + 0.1); }
+        for (let s = -1; s <= 1; s += 2) for (let k = 1; k <= 5; k++) { const yy = -4.4 - 10.5 * el * 0.8 * k / 6, xx = s * (2.6 + 1.4 * k / 6) * ew; ctx.moveTo(xx, yy); ctx.quadraticCurveTo(xx + s * 0.9 * ew, yy - 0.7, xx + s * 1.8 * ew, yy + 0.1); }
         ctx.stroke();
       }
       if (look.tragus) {
-        ctx.fillStyle = mix(look.inner, '#ffffff', 0.32);
-        ctx.beginPath(); for (const s of [-1, 1]) { ctx.moveTo(s * 2.3, -4.2); ctx.quadraticCurveTo(s * 2.6 * ew, -4.4 - 3 * el * look.tragus, s * 3.3 * ew, -4.4 - 4.6 * el * look.tragus); ctx.lineTo(s * 3.5, -4.0); ctx.closePath(); } ctx.fill();
+        ctx.fillStyle = K.tragus;
+        ctx.beginPath(); for (let s = -1; s <= 1; s += 2) { ctx.moveTo(s * 2.3, -4.2); ctx.quadraticCurveTo(s * 2.6 * ew, -4.4 - 3 * el * look.tragus, s * 3.3 * ew, -4.4 - 4.6 * el * look.tragus); ctx.lineTo(s * 3.5, -4.0); ctx.closePath(); } ctx.fill();
       }
-      ctx.strokeStyle = alpha(edge, 0.5); ctx.lineWidth = 0.5;
+      ctx.strokeStyle = edge.a50; ctx.lineWidth = 0.5;
       ctx.beginPath();
-      for (const s of [-1, 1]) { const tx = s * (3.4 + 1.4 * tip) * ew, ty = -4.4 - 10.5 * el; ctx.moveTo(tx, ty); ctx.quadraticCurveTo(s * 7.4 * ew, -4.4 - 4.6 * el, s * 6.2 * ew, -1.6); }
+      for (let s = -1; s <= 1; s += 2) { const tx = s * (3.4 + 1.4 * tip) * ew, ty = -4.4 - 10.5 * el; ctx.moveTo(tx, ty); ctx.quadraticCurveTo(s * 7.4 * ew, -4.4 - 4.6 * el, s * 6.2 * ew, -1.6); }
       ctx.stroke();
     }
     ctx.fillStyle = K.head;
-    ctx.beginPath(); headPath(ctx); ctx.fill();
+    ctx.beginPath(); headPath(ctx);
+    if (det >= 1) { ctx.strokeStyle = K.outline; ctx.lineWidth = 1.4; ctx.stroke(); }
+    ctx.fill();
     if (b.puff > 0.02) {
       // cheeks puffed by a call: small, soft and low, beside the muzzle
-      ctx.fillStyle = alpha(mix(look.fur, '#ffcfae', 0.35), 0.85);
-      ctx.beginPath(); for (const s of [-1, 1]) { const r = 1.2 + b.puff * 1.1; ctx.moveTo(s * 3.3 + f * 0.5 + r, 2.9); ctx.arc(s * 3.3 + f * 0.5, 2.9, r, 0, TAU); } ctx.fill();
+      ctx.fillStyle = K.puff;
+      ctx.beginPath(); for (let s = -1; s <= 1; s += 2) { const r = 1.2 + b.puff * 1.1; ctx.moveTo(s * 3.3 + f * 0.5 + r, 2.9); ctx.arc(s * 3.3 + f * 0.5, 2.9, r, 0, TAU); } ctx.fill();
     }
     const mx = f * 0.6;
     if (det >= 1) { ctx.fillStyle = K.muzzle; ctx.beginPath(); ctx.ellipse(mx, 2.7, 2.3, 1.7, 0, 0, TAU); ctx.fill(); }
@@ -269,12 +282,12 @@
     if (look.noseleaf) { ctx.beginPath(); ctx.moveTo(mx - 1.1, 1.9); ctx.lineTo(mx, -0.4 - look.noseleaf * 1.6); ctx.lineTo(mx + 1.1, 1.9); ctx.fill(); }
     // glowing almond eyes, closed in a blink, a stun or a fall
     const shut = b.dead || b.stun > 0 || (b.blink !== undefined && b.blink < 0);
-    for (const s of [-1, 1]) {
+    for (let s = -1; s <= 1; s += 2) {
       ctx.save();
       ctx.translate(s * 2.7 + f * 0.5, -1.0);
       ctx.rotate(-s * 0.24);
       if (shut) {
-        ctx.strokeStyle = alpha(K.eyeGlow, 0.85); ctx.lineWidth = 0.45;
+        ctx.strokeStyle = K.shut; ctx.lineWidth = 0.45;
         ctx.beginPath(); ctx.moveTo(-1.6, 0); ctx.quadraticCurveTo(0, 0.7, 1.6, 0); ctx.stroke();
       } else {
         if (det >= 1) { ctx.fillStyle = K.eyeHalo; ctx.fillRect(-3.2, -3.2, 6.4, 6.4); }
@@ -310,18 +323,18 @@
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // ears
     ctx.fillStyle = '#9a6a52';
-    ctx.beginPath(); for (const sd of [-1, 1]) { ctx.moveTo(sd * 1.4, -8.4); ctx.quadraticCurveTo(sd * 3.2, -14.6, sd * 5.4, -15); ctx.quadraticCurveTo(sd * 6.6, -10, sd * 5.2, -6.4); ctx.closePath(); } ctx.fill();
+    ctx.beginPath(); for (let sd = -1; sd <= 1; sd += 2) { ctx.moveTo(sd * 1.4, -8.4); ctx.quadraticCurveTo(sd * 3.2, -14.6, sd * 5.4, -15); ctx.quadraticCurveTo(sd * 6.6, -10, sd * 5.2, -6.4); ctx.closePath(); } ctx.fill();
     ctx.fillStyle = '#e3a0a0';
-    ctx.beginPath(); for (const sd of [-1, 1]) { ctx.moveTo(sd * 2.6, -8.6); ctx.quadraticCurveTo(sd * 3.6, -12.8, sd * 5.0, -13.2); ctx.quadraticCurveTo(sd * 5.6, -10, sd * 4.6, -7.6); ctx.closePath(); } ctx.fill();
+    ctx.beginPath(); for (let sd = -1; sd <= 1; sd += 2) { ctx.moveTo(sd * 2.6, -8.6); ctx.quadraticCurveTo(sd * 3.6, -12.8, sd * 5.0, -13.2); ctx.quadraticCurveTo(sd * 5.6, -10, sd * 4.6, -7.6); ctx.closePath(); } ctx.fill();
     // body and head, one soft shape
     ctx.fillStyle = P.body;
     ctx.beginPath(); ctx.ellipse(0, 3, 5, 6.8, 0, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.ellipse(0, -5, 5.9, 5.3, 0, 0, TAU); ctx.fill();
     // little wings wrapped round
     ctx.fillStyle = P.wing;
-    ctx.beginPath(); for (const sd of [-1, 1]) { ctx.moveTo(sd * 3.2, -1.6); ctx.quadraticCurveTo(sd * 8.6, 1.4, sd * 5.6, 9.6); ctx.quadraticCurveTo(sd * 3.6, 7.4, sd * 1.8, 6.4); ctx.closePath(); } ctx.fill();
+    ctx.beginPath(); for (let sd = -1; sd <= 1; sd += 2) { ctx.moveTo(sd * 3.2, -1.6); ctx.quadraticCurveTo(sd * 8.6, 1.4, sd * 5.6, 9.6); ctx.quadraticCurveTo(sd * 3.6, 7.4, sd * 1.8, 6.4); ctx.closePath(); } ctx.fill();
     ctx.strokeStyle = 'rgba(255,210,150,0.55)'; ctx.lineWidth = 0.5;
-    ctx.beginPath(); for (const sd of [-1, 1]) { ctx.moveTo(sd * 3.2, -1.6); ctx.quadraticCurveTo(sd * 8.6, 1.4, sd * 5.6, 9.6); } ctx.stroke();
+    ctx.beginPath(); for (let sd = -1; sd <= 1; sd += 2) { ctx.moveTo(sd * 3.2, -1.6); ctx.quadraticCurveTo(sd * 8.6, 1.4, sd * 5.6, 9.6); } ctx.stroke();
     // big dark eyes with two catchlights, rosy cheeks, a tiny nose
     ctx.fillStyle = '#140c0e';
     ctx.beginPath(); ctx.ellipse(-2.2, -5.3, 1.45, 1.6, 0, 0, TAU); ctx.ellipse(2.2, -5.3, 1.45, 1.6, 0, 0, TAU); ctx.fill();
@@ -355,13 +368,13 @@
     ctx.scale(z, z);
     ctx.globalAlpha = a;
     ctx.fillStyle = tiger ? '#ff9a3c' : '#ffe6a3';
-    for (const s of [-1, 1]) {
+    for (let s = -1; s <= 1; s += 2) {
       ctx.beginPath(); ctx.ellipse(s * 3.6 * (0.4 + f * 0.6), -1.2, 3.8 * (0.4 + f * 0.6), 2.8, s * 0.5, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.ellipse(s * 2.4 * (0.4 + f * 0.6), 2, 2.2 * (0.4 + f * 0.6), 1.8, -s * 0.4, 0, TAU); ctx.fill();
     }
     if (tiger) {
       ctx.fillStyle = '#2a1408';
-      for (const s of [-1, 1]) for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.ellipse(s * (2 + k * 2.2) * (0.4 + f * 0.6), -1.6 + k * 0.6, 0.8, 1.7, s * 0.5, 0, TAU); ctx.fill(); }
+      for (let s = -1; s <= 1; s += 2) for (let k = 0; k < 2; k++) { ctx.beginPath(); ctx.ellipse(s * (2 + k * 2.2) * (0.4 + f * 0.6), -1.6 + k * 0.6, 0.8, 1.7, s * 0.5, 0, TAU); ctx.fill(); }
       ctx.fillStyle = '#ffd36b';
     }
     ctx.fillStyle = '#b8762e';

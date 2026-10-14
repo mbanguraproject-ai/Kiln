@@ -13,6 +13,7 @@
   R.scene = 'cave';
   R.xray = false;
   R.k = 1; R.zoom = 1; R.u = 1; R.w = 1; R.h = 1;
+  R.BAT_SCALE = 2.1; // the bat on screen: big and bold enough to read as the game's hero (its body is the 8 px hit circle)
   R.safe = { l: 0, r: 0, t: 0, b: 0 };
   let canvas = null, ctx = null, darkC = null, darkG = null, safeEl = null, trees = null, treesZoom = 0;
   const stars = Kit.gfx.starfield({ count: 160, seed: 5, layers: 3, size: [0.5, 2.1] });
@@ -69,7 +70,32 @@
   };
 
   /* ---------- the frame ---------- */
-  R.frame = function () {
+  // The simulation steps at a fixed 60 Hz; screens refresh at 60, 90 or 120 Hz, so a frame often falls between
+  // two steps. The camera, the bat and its pups (what the eye follows) are drawn blended between the previous
+  // step and the latest by alpha, so motion is smooth at any refresh rate instead of stepping 0, 1 or 2 ticks a
+  // frame. R.interp holds the previous step's positions (js/main.js records them before each step).
+  const I = R.interp = { ok: false, cx: 0, cy: 0, bx: 0, by: 0, tx: new Float64Array(32), ty: new Float64Array(32), tn: 0 };
+  const near = (a, b, c, d) => Math.abs(a - c) + Math.abs(b - d) < 400;
+  R.frame = function (alpha) {
+    const G = PP.G;
+    if (!(alpha >= 0 && alpha < 1) || !I.ok || !G || !G.bat) { frame(); return; }
+    const cx = cam.x, cy = cam.y, b = G.bat, bx = b.x, by = b.y, tr = G.trail || [], tn = Math.min(I.tn, tr.length);
+    if (near(cx, cy, I.cx, I.cy)) { cam.x = I.cx + (cx - I.cx) * alpha; cam.y = I.cy + (cy - I.cy) * alpha; }
+    if (near(bx, by, I.bx, I.by)) { b.x = I.bx + (bx - I.bx) * alpha; b.y = I.by + (by - I.by) * alpha; }
+    for (let i = 0; i < tn; i++) { const p = tr[i]; I.tx[16 + i] = p.x; I.ty[16 + i] = p.y; if (near(p.x, p.y, I.tx[i], I.ty[i])) { p.x = I.tx[i] + (p.x - I.tx[i]) * alpha; p.y = I.ty[i] + (p.y - I.ty[i]) * alpha; } }
+    try { frame(); } finally {
+      cam.x = cx; cam.y = cy; b.x = bx; b.y = by;
+      for (let i = 0; i < tn; i++) { tr[i].x = I.tx[16 + i]; tr[i].y = I.ty[16 + i]; }
+    }
+  };
+  // before each step: remember where things were
+  R.beforeStep = function () {
+    const G = PP.G;
+    I.cx = cam.x; I.cy = cam.y;
+    if (G && G.bat) { I.bx = G.bat.x; I.by = G.bat.y; const tr = G.trail || []; I.tn = Math.min(16, tr.length); for (let i = 0; i < I.tn; i++) { I.tx[i] = tr[i].x; I.ty[i] = tr[i].y; } }
+    I.ok = !!(G && G.bat);
+  };
+  function frame() {
     if (!ctx) return;
     if (R.dirty) R.resize();
     const G = PP.G, w = R.w, h = R.h, k = R.k;
@@ -83,7 +109,7 @@
     overlays(w, h);
     R.drawHud(ctx, w, h, R.safe, R.u);
     if (G.rescue) drawRescue(w, h);
-  };
+  }
 
   // The Last Echo's heartbeats (js/rescue.js): the cave dims to the bat's heart; a ring closes on it with each
   // beat, and four small hearts below fill pink for the beats you caught.
@@ -166,7 +192,7 @@
     if (G.sub === 'exit' && G.wipe > 0) { cam.restore(ctx); R.ppu = k; R.drawWipe(ctx, w, h); cam.apply(ctx); R.ppu = V.ppu; }
     R.drawTrailPups(ctx, t);
     const look = PP.bat.def().look;
-    R.drawBat(ctx, G.bat, t, 1.3, look, { energy: G.energy / PP.bat.stats().energy * 100, deadT: G.deadT });
+    R.drawBat(ctx, G.bat, t, R.BAT_SCALE, look, { energy: G.energy / PP.bat.stats().energy * 100, deadT: G.deadT });
     Kit.fx.draw(ctx);
     cam.restore(ctx);
     R.ppu = k;
@@ -306,13 +332,13 @@
       ctx.fillStyle = '#0a0f1e';
       const fl = Math.sin(t * 9) * 10;
       ctx.beginPath(); ctx.ellipse(0, 0, 12, 9, 0, 0, TAU); ctx.fill();
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, -2); ctx.quadraticCurveTo(s * 20, -16 - fl, s * 40, -4 - fl); ctx.quadraticCurveTo(s * 20, 4, 0, 4); ctx.fill(); }
+      for (let s = -1; s <= 1; s += 2) { ctx.beginPath(); ctx.moveTo(0, -2); ctx.quadraticCurveTo(s * 20, -16 - fl, s * 40, -4 - fl); ctx.quadraticCurveTo(s * 20, 4, 0, 4); ctx.fill(); }
       ctx.restore();
       R.glow(ctx, o.x - 8, o.y - 3, 10, '#ff6a3a', 0.9);
     }
     R.drawTrailPups(ctx, t);
     G.bat.rim = Math.max(G.bat.rim, 0.5);
-    R.drawBat(ctx, G.bat, t, 1.4, PP.bat.def().look, { energy: 100 });
+    R.drawBat(ctx, G.bat, t, R.BAT_SCALE * 1.05, PP.bat.def().look, { energy: 100 });
     Kit.fx.draw(ctx);
     cam.restore(ctx);
     R.ppu = R.k;

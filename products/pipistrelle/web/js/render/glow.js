@@ -48,10 +48,10 @@
   R.bloom = function (ctx, x, y, r, color, a) { R.glow(ctx, x, y, r * 3.2, color, a * 0.22); R.glow(ctx, x, y, r, color, a); };
 
   // echo dot sprites: a hot core fading out; in Echo shapes mode each channel has its own mark
-  const dotCache = new Map();
+  const dotCache = [[], []];
   R.dotSprite = function (ch, shapes) {
-    const key = ch + (shapes ? 's' : 'r');
-    let s = dotCache.get(key);
+    const row = dotCache[shapes ? 1 : 0];
+    let s = row[ch];
     if (s) return s;
     const c = PP.COL[ch], S = 64, cv = Kit.gfx.offscreen(S, S), g = cv.getContext('2d');
     const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
@@ -74,7 +74,7 @@
       else if (ch === CH.PUP) { g.moveTo(0, 12); g.bezierCurveTo(-16, 0, -10, -14, 0, -5); g.bezierCurveTo(10, -14, 16, 0, 0, 12); g.fill(); }
       else { g.arc(0, 0, 7, 0, PP.TAU); g.fill(); }
     }
-    dotCache.set(key, cv);
+    row[ch] = cv;
     return cv;
   };
 })();

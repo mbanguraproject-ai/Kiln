@@ -154,7 +154,7 @@
       why.textContent = S.why + (G.kind === 'endless' ? ' · cave ' + G.cave : G.caveDef ? ' · ' + G.caveDef.name : '');
       const ready = PP.ads.ready();
       watch.disabled = !ready || S.busy;
-      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad is ready right now (are you online?).';
+      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad right now. ' + PP.ads.status().text;
       ring.style.setProperty('--k', String(Math.max(0, S.offerT) / 9));
       ring.textContent = String(Math.ceil(Math.max(0, S.offerT)));
     };
@@ -375,6 +375,20 @@
       saverSw.classList.toggle('on', on); saverSw.setAttribute('aria-checked', String(on)); PP.uiSfx();
       setTimeout(() => { PP.R.frame(); const r = res(); resT.textContent = r.title; resL.textContent = r.line; }, 60);
     });
+    // the ad network's state in words, live: so an ad that cannot load says why instead of failing silently
+    const adStatus = h('p.ad-status'), retryB = h('button.btn.ghost', { text: 'Try again', onclick: () => { PP.uiSfx(); PP.ads.retry(); } });
+    const testB = h('button.btn.ghost', { text: 'Watch a test ad', onclick: () => { PP.uiSfx(); PP.ads.test(); } });
+    const adRow = h('div.row', null, [testB, retryB]);
+    const syncAds = () => {
+      const st = PP.ads.status();
+      adStatus.textContent = st.text; adStatus.classList.toggle('bad', !!st.error); adStatus.classList.toggle('good', !!st.ok);
+      retryB.hidden = PP.ads.state !== 'wait';
+      testB.hidden = !(PP.ads.testMode || PP.debug);
+      adRow.hidden = retryB.hidden && testB.hidden;
+    };
+    syncAds();
+    PP.on('adsStatus', () => { if (adStatus.isConnected) syncAds(); });
+    const adTick = setInterval(() => { if (!adStatus.isConnected) clearInterval(adTick); else syncAds(); }, 1000);
     const code = h('textarea', { readonly: true, 'aria-label': 'Save code' });
     code.hidden = true;
     const imp = h('textarea', { placeholder: 'Paste a save code here', 'aria-label': 'Import save code' });
@@ -382,7 +396,7 @@
     const el = h('div.scr.scrim-strong', null, [U.top('Settings', { larder: false }), h('div.body', null, h('div.wrap', null, [
       h('div.card', null, [toggle('sound', 'Sound'), slider('music', 'Music'), slider('sfx', 'Effects'), slider('echo', 'Echo volume'), toggle('vibration', 'Vibration')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Display' }), resT, resL, h('div.toggle', null, [h('span', null, ['Battery saver', h('small', { text: 'Draws at about 1080p with lighter effects. What you hear and see in the echoes never changes.' })]), saverSw])]),
-      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
+      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), adStatus, adRow, toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
       h('div.card', null, [toggle('gentle', 'Gentle Wings', 'Bumps cost nothing; other knocks and the dark’s hunger are softer.'), toggle('shapes', 'Echo shapes', 'Each echo colour also gets its own mark: rock dots, food diamonds, pup hearts, danger triangles.'), toggle('captions', 'Sound captions', 'Show what you hear at the edge of the screen.')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Save' }), h('div.row', null, [
         h('button.btn.ghost', { text: 'Export', onclick: () => { code.hidden = false; code.value = PP.profile.exportCode(); code.select(); try { navigator.clipboard.writeText(code.value); U.toast('Save code copied'); } catch (e) { /* select is enough */ } } }),

@@ -19,7 +19,7 @@
   const NATIVE_MAX = 3840 * 2160 * 1.07, SAVER_MAX = 2.1e6, FLOOR = 0.75;
   // the safety net's levels, best first (the old tier names are kept for the tests and tools that pin one)
   R.TIERS = {
-    ultra: { id: 'ultra', name: 'Full', rockMax: 2.5, memMax: 3.5, bgMax: 2, rockMB: 32, memMB: 40, mask: 1.5, relight: true, ambient: 900, detail: true, decals: true, lru: 96, bloom: true },
+    ultra: { id: 'ultra', name: 'Full', rockMax: 2, memMax: 3, bgMax: 2, rockMB: 24, memMB: 28, mask: 1.5, relight: true, ambient: 900, detail: true, decals: true, lru: 96, bloom: true },
     high: { id: 'high', name: 'Lean', rockMax: 2, memMax: 3, bgMax: 1.5, rockMB: 20, memMB: 24, mask: 2, relight: true, ambient: 450, detail: true, decals: true, lru: 64, bloom: true },
     medium: { id: 'medium', name: 'Light', rockMax: 1.5, memMax: 2.5, bgMax: 1.25, rockMB: 12, memMB: 14, mask: 2.5, relight: false, ambient: 200, detail: true, decals: false, lru: 42, bloom: true },
     low: { id: 'low', name: 'Minimal', rockMax: 1.25, memMax: 2, bgMax: 1, rockMB: 8, memMB: 10, mask: 3, relight: false, ambient: 80, detail: false, decals: false, lru: 30, bloom: false },
@@ -32,13 +32,14 @@
     tier: R.TIERS.ultra, // the current level
     g: 1,                // the safety net's resolution scale (1 = native)
     ema: 16.7, work: 4, slowT: 0, fastT: 0, frames: 0,
+    upAt: -1e9, locked: false, // a step down soon after a step up means the device sits at the edge: stay put
     log: [],             // recent frame intervals, for tests
     steps: [],           // what the safety net did, for tests: 'level:<id>' or 'scale:<g>'
     set(id) {
       if (R.TIERS[id]) { Q.setting = 'native'; Q.pinned = id; }
       else { Q.setting = id === 'saver' ? 'saver' : 'native'; Q.pinned = null; }
       Q.tier = R.TIERS[Q.pinned || Q.top()];
-      Q.g = 1; Q.slowT = 0; Q.fastT = 0; Q.steps.length = 0;
+      Q.g = 1; Q.slowT = 0; Q.fastT = 0; Q.steps.length = 0; Q.locked = false; Q.upAt = -1e9;
       R.dirty = true;
     },
     // the best level the setting allows
@@ -64,16 +65,20 @@
       Q.slowT = slow ? Q.slowT + dtMs : 0;
       Q.fastT = fast ? Q.fastT + dtMs : 0;
       const i = ORDER.indexOf(Q.tier.id);
+      const now = performance.now();
       if (Q.slowT > 500) {
         Q.slowT = 0;
+        if (now - Q.upAt < 20000) Q.locked = true;
         // shed effects first; lower the resolution only when there is nothing left to shed
         if (i > 0) { Q.tier = R.TIERS[ORDER[i - 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; }
         else if (Q.g > FLOOR + 0.001) { Q.g = Math.max(FLOOR, Q.g * 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; }
-      } else if (Q.fastT > 2500) {
+      } else if (Q.fastT > 6000 && !Q.locked) {
         Q.fastT = 0;
-        // and climb back the same way: resolution first, then effects
-        if (Q.g < 1) { Q.g = Math.min(1, Q.g / 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; }
-        else if (i < ORDER.indexOf(Q.top())) { Q.tier = R.TIERS[ORDER[i + 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; }
+        // and climb back the same way, slowly: resolution first, then effects. Each change costs a moment of
+        // repainting, so a device that bounces between two levels is left at the lower one (locked) instead of
+        // stuttering every few seconds.
+        if (Q.g < 1) { Q.g = Math.min(1, Q.g / 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; Q.upAt = now; }
+        else if (i < ORDER.indexOf(Q.top())) { Q.tier = R.TIERS[ORDER[i + 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; Q.upAt = now; }
       }
     },
     stats() {

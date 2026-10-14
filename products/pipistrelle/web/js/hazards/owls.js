@@ -125,7 +125,7 @@
     ctx.fillStyle = '#3a2a24';
     if (swoop || o.state === 'back') {
       const fl = Math.sin(t * 14) * 8;
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 6, -4); ctx.quadraticCurveTo(s * 22, -16 - fl, s * 34, -6 - fl); ctx.quadraticCurveTo(s * 22, 2, s * 6, 6); ctx.fill(); }
+      for (let s = -1; s <= 1; s += 2) { ctx.beginPath(); ctx.moveTo(s * 6, -4); ctx.quadraticCurveTo(s * 22, -16 - fl, s * 34, -6 - fl); ctx.quadraticCurveTo(s * 22, 2, s * 6, 6); ctx.fill(); }
     }
     ctx.fillStyle = PP.P.owl;
     ctx.beginPath(); ctx.ellipse(0, bob, 12, 15, 0, 0, PP.TAU); ctx.fill();
