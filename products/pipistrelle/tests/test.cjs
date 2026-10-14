@@ -1,7 +1,7 @@
 // Pipistrelle's tests (docs/pipistrelle/BRIEF.md, Engineering): the economy simulator, save migration, every cave
 // generates, the bot finishes every cave and earns every Moon with Pip, The Long Night runs, every screen opens,
 // native resolution up to 4K, the pixels a frame covers, the frame-time budget and the safety net.
-// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,rescue,frames] [--port=8920]
+// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,rescue,play,frames] [--port=8920]
 //        node tests/test.cjs --unit    (no browser: economy, saves and campaign data; what CI runs)
 // Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally), except for --unit.
 const args = process.argv.slice(2);
@@ -181,6 +181,35 @@ const GOALS = {
     check(r.third === 'done', 'with both chances spent, losing ends the run', r.third);
     check(r.missed === 'offer' && r.faded === 'done', 'missed heartbeats lead to the offer; letting the echoes fade ends the run', `${r.missed} / ${r.faded}`);
     check(r.practice !== 'rescue', 'practice flights never stop for the Last Echo', r.practice);
+  }
+
+  if (want('play')) {
+    // the living cave and the harder game (14 October)
+    const pg = await open(640, 360, 1);
+    const r = await pg.evaluate(() => {
+      __ppTest.reset(); __ppTest.startCave('1-3'); __ppTest.show('flight');
+      __ppTest.step(0.2); PP.R.flyby.next = 0; __ppTest.step(0.1); __ppTest.step(0.1);
+      const flocks = PP.R.flyby.flocks.length;
+      const G = PP.G, par = PP.L.pathLen / 420 / 1.12 * PP.data.tuning.hunger.perScreen;
+      const before = PP.run.hunger(G); G.stats.time = par * 1.5; const after = PP.run.hunger(G);
+      const layouts = PP.game.allCaves().map(c => PP.gen.layoutOf(PP.gen.caveSpec(c)));
+      return { flocks, before, after: +after.toFixed(2), hint: !!(G.hint && /hungry/.test(G.hint.text)), layouts: [...new Set(layouts)].sort().join(' '), known: layouts.every(l => PP.gen.LAYOUTS[l]) };
+    });
+    check(r.flocks >= 1, 'bats of the colony fly by through the cave', r.flocks + ' flock');
+    check(r.before === 1 && r.after > 1.4 && r.hint, 'past its par time the dark grows hungry, and says so', `drain x${r.before} then x${r.after}`);
+    check(r.known && r.layouts.split(' ').length >= 6, 'the campaign uses all six cave architectures', r.layouts);
+    await pg.close();
+    // an ad that cannot load says why (a stand-in for the Unity plugin that answers "no fill")
+    const ap = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await ap.addInitScript(() => {
+      const mk = { init: () => Promise.resolve({ testMode: true, version: '4.21.0' }), setPrivacy: () => Promise.resolve(), load: () => Promise.reject({ code: 'NO_FILL', message: 'No fill' }), show: () => Promise.resolve({ rewarded: false }), addListener: () => {} };
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { PipAds: mk } };
+    });
+    await ap.goto(`http://127.0.0.1:${port}/`);
+    await ap.waitForTimeout(2200);
+    const st = await ap.evaluate(() => { PP.ui.show('settings'); return { text: document.querySelector('.ad-status').textContent, state: PP.ads.state }; });
+    check(/NO_FILL/.test(st.text) && st.state === 'wait', 'an ad that cannot load says why in Settings, and retries', st.text);
+    await ap.close();
   }
 
   if (want('frames')) {

@@ -189,6 +189,7 @@
     R.drawCritters(ctx, V, t);
     R.drawRings(ctx, V, t);
     R.drawEcho(ctx, V, t);
+    R.drawFlyby(ctx, V, t);
     if (G.sub === 'exit' && G.wipe > 0) { cam.restore(ctx); R.ppu = k; R.drawWipe(ctx, w, h); cam.apply(ctx); R.ppu = V.ppu; }
     R.drawTrailPups(ctx, t);
     const look = PP.bat.def().look;

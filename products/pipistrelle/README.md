@@ -7,7 +7,14 @@ this folder.
 ## What is in v1
 
 - **The Long Rain**, the campaign: 25 caves across five biomes, each with its own painter, palette, parallax, music,
-  hazards and flight home.
+  hazards, flight home and cave architecture (`js/gen/cave.js`, LAYOUTS):
+  - tunnels, shafts and caverns in Chalk Hollows;
+  - pillared halls in the Drowned Halls;
+  - geode chains in the Glass Vaults;
+  - square crypts in the Owlstone Crypt;
+  - one vast cavern in The Hush.
+
+  A biome opens after the third cave of the one before. The Nightly Cave visits a different biome each night.
   - Chalk Hollows: stalactites, webs, drips, the collapse.
   - The Drowned Halls: the rising flood, siphons, cavefish.
   - The Glass Vaults: crystals that hold your voice, crystal bells, tiger moths.
@@ -19,12 +26,21 @@ this folder.
   money, no timers.
 - **Modes**: the Nightly Cave (one seeded cave a day, real lunar phase) and The Long Night (endless, through every
   opened biome).
+- **A real chance of losing**: energy drains fast, so a full bar lasts about 32 s without moths and eating keeps
+  you alive. Hazards hit hard, a full-speed crash into stone costs far more than a brush, and past a cave's par time
+  the dark grows hungry. Gentle Wings in Settings softens all of it.
+- **A living cave**: flocks of the colony's bats fly by, and call back when you chirp near them.
 - **The Last Echo**: losing is a moment, not a cut.
   - The Second Wind is four heartbeats; tap three in time to fly on, free and skill only.
   - After that, one opt-in rewarded ad per attempt lets you fly on (owner decision D15). There are no other ads.
+  - If an ad can't load, Settings says why with Unity's own error name, retries, and in test builds has a Watch a
+    test ad button.
 - **Native 4K by default**: every screen is drawn at its full resolution, up to 4K, with every effect on, and
   there are no quality tiers to pick. A quiet safety net sheds effects before it ever lowers the resolution (never
-  below 75%). Settings has a Battery saver.
+  below 75%), and once it has stepped down it does not bounce back and forth. Settings has a Battery saver.
+- **Smooth on any screen**: the camera and the bat are blended between the 60 Hz simulation steps, so 90 and 120 Hz
+  screens get even motion. A 120 Hz screen draws a steady 60 fps.
+- **No splash**: opening the app goes straight to the title and its Fly button.
 - **The bats** are drawn in the app icon's style. The icon is built from `art/icon.webp` by `tools/make-icons.py`:
   - the adaptive launcher icon, with a themed monochrome layer;
   - the 512 px Play Store icon (`store/play-icon-512.png`);

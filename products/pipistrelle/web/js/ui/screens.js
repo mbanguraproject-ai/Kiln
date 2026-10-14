@@ -54,6 +54,21 @@
   });
 
   const card = (title, text, onclick, cls, kids) => h('button.card' + (cls || ''), { onclick: () => { PP.uiSfx(); onclick(); } }, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(kids || []));
+  // the Roost's menu cards: a glowing badge with an icon, the title and line beside it, an accent colour each
+  const ICON = {
+    rain: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2.5a7.5 7.5 0 1 0 7 10.2A6.2 6.2 0 0 1 14.5 2.5z" fill="currentColor"/><path d="M4.5 16.5l-1.2 3.2M8.5 17.5l-1.2 3.2M12.5 18.5l-1.2 3.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17a5.5 8.5 0 0 0 0-17z" fill="currentColor"/></svg>',
+    night: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V12a9 9 0 0 1 18 0v9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M12 7.5l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" fill="currentColor"/><circle cx="7.5" cy="15" r="1" fill="currentColor"/><circle cx="16.5" cy="16" r="1" fill="currentColor"/></svg>',
+    bat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2l-1.2-2.6-.6 3c-2.3-.4-4.6.3-6.7 2-.6.5-1.4.4-2.5 0 1.6 2.8 3.4 4.2 5.3 4 1 .9 2.3 1.2 3.3.6L12 18l2.4-2.8c1 .6 2.3.3 3.3-.6 1.9.2 3.7-1.2 5.3-4-1.1.4-1.9.5-2.5 0-2.1-1.7-4.4-2.4-6.7-2l-.6-3z" fill="currentColor"/></svg>',
+    book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10 5 7.3 4.5 3.5 5v13c3.8-.5 6.5 0 8.5 1.5 2-1.5 4.7-2 8.5-1.5V5c-3.8-.5-6.5 0-8.5 1.5zM12 6.5v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    scroll: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h11a2.5 2.5 0 0 1 0 5h-1v10.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 19.5V18h9.5v1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 4a2.5 2.5 0 0 0-2.5 2.5V8H6M8.5 9h5M8.5 12.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
+  };
+  const mcard = (icon, acc, title, text, onclick, cls, kids) => {
+    const dots = (kids || []).filter(k => k.classList.contains('dot-new')), rest = (kids || []).filter(k => !k.classList.contains('dot-new'));
+    return h('button.card.mcard' + (cls || ''), { style: '--acc:' + acc, onclick: () => { PP.uiSfx(); onclick(); } }, [
+      h('span.medal', { html: ICON[icon] }), h('span.mtext', null, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(rest)),
+    ].concat(dots));
+  };
 
   /* ---------- Title ---------- */
   U.def('title', () => {
@@ -76,12 +91,14 @@
     const el = h('div.scr.roost-ui', null, [
       h('div.top', null, [h('h2', { text: 'The Roost' }), U.larder(), h('button.icon-btn', { 'aria-label': 'Settings', html: U.icon.gear, onclick: () => { PP.uiSfx(); U.show('settings'); } })]),
       h('div.home-menu', null, [
-        card(PP.data.campaign.name, got + ' of ' + total + ' Moons · ' + PP.plural(pupsN, 'pup') + ' home', () => U.show('map'), '.wide.lit'),
-        card('The Nightly Cave', PP.profile.nightlyDone() ? lun.name + ' · cleared today' : lun.name + ' · +' + PP.data.economy.nightly + ' first clear', () => U.show('nightly')),
-        card('The Long Night', p.longNight.best ? 'Best ' + fmt(p.longNight.best) + ' · cave ' + p.longNight.bestCave : 'Endless caves', () => U.show('longnight')),
-        card('Hangar', 'Bats and Practice Hollow', () => U.show('hangar'), '', newBats ? [h('span.dot-new')] : []),
-        card('Journal', 'Scratches, moths, pups', () => U.show('journal')),
-        card('Requests', Object.keys(p.requests.done).length + ' of ' + PP.data.requests.length + ' done', () => U.show('requests'), '.wide', newReq ? [h('span.dot-new')] : []),
+        mcard('rain', 'var(--gold)', PP.data.campaign.name, got + ' of ' + total + ' Moons · ' + PP.plural(pupsN, 'pup') + ' home', () => U.show('map'), '.wide.hero', [
+          h('span.mbar', null, h('i', { style: 'width:' + Math.round(got / Math.max(1, total) * 100) + '%' })), h('span.mplay', { text: 'Fly' }),
+        ]),
+        mcard('moon', 'var(--moon)', 'The Nightly Cave', PP.profile.nightlyDone() ? lun.name + ' · cleared today' : lun.name + ' · +' + PP.data.economy.nightly + ' first clear', () => U.show('nightly')),
+        mcard('night', '#b58cff', 'The Long Night', p.longNight.best ? 'Best ' + fmt(p.longNight.best) + ' · cave ' + p.longNight.bestCave : 'Endless caves', () => U.show('longnight')),
+        mcard('bat', 'var(--teal)', 'Hangar', 'Bats and Practice Hollow', () => U.show('hangar'), '', newBats ? [h('span.dot-new')] : []),
+        mcard('book', '#ffb46b', 'Journal', 'Scratches, moths, pups', () => U.show('journal')),
+        mcard('scroll', 'var(--pink)', 'Requests', Object.keys(p.requests.done).length + ' of ' + PP.data.requests.length + ' done', () => U.show('requests'), '.wide', newReq ? [h('span.dot-new')] : []),
       ]),
     ]);
     return { el, scene: 'roost', show() { PP.roost.invalidate(); PP.audio.menu(); PP.loop.resume(); } };
