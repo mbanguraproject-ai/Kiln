@@ -152,7 +152,7 @@
       h('div.roost-modes', null, [
         h('div.mcol', null, [
           mtile(moonIcon(lun.phase), 'var(--moon)', 'Nightly Cave', done ? 'Done' : '+' + E.nightly, shortName(nB.name) + ' · ' + lun.name.toLowerCase(), () => U.show('nightly'), done ? '.done' : ''),
-          mtile('night', '#b58cff', 'Long Night', LN.best ? 'Cave ' + LN.bestCave : 'New', LN.best ? 'Endless caves, one life · best ' + fmt(LN.best) : 'Endless caves, one life. How deep?', () => U.show('longnight')),
+          mtile('night', '#b58cff', 'Long Night', LN.best ? 'Cave ' + LN.bestCave : 'New', LN.best ? 'Endless caves · best ' + fmt(LN.best) : 'Endless caves, one life', () => U.show('longnight')),
         ]),
         h('div.mcol', null, [
           mtile('bat', 'var(--teal)', 'Hangar', p.bats.owned.length + '/' + PP.data.bats.length, newBats ? 'A new bat has come to roost' : 'Flying ' + sel.name + ' · try the others', () => U.show('hangar'), '', newBats),
@@ -175,7 +175,7 @@
     let onResize = null;
     return {
       el, scene: 'roost',
-      show() { PP.roost.invalidate(); PP.audio.menu(); PP.loop.resume(); onResize = () => { H.paint(); PP.roost.invalidate(); }; addEventListener('resize', onResize); },
+      show() { PP.roost.invalidate(); PP.audio.menu(); PP.audio.prepare(GM.nextUp().cv.biome); PP.loop.resume(); onResize = () => { H.paint(); PP.roost.invalidate(); }; addEventListener('resize', onResize); },
       hide() { if (onResize) removeEventListener('resize', onResize); onResize = null; },
     };
   });
@@ -222,6 +222,7 @@
   PP.ui.batPicker = batPicker;
   U.def('brief', args => {
     const cv = GM.caveById(args.id), B = PP.biome(cv.biome), M = PP.data.missions, cm = PP.profile.caveMoons(cv.id);
+    PP.audio.prepare(cv.biome);
     const moonRows = cv.moons.map((m, i) => h('div.brief-moon', null, [U.moon(i, cm[i] ? 'on' : 'off', true), h('b', { text: M.slots[i] }), h('span.grow', { text: PP.missions.text(m) })]));
     const heard = (cv.heardWell || []).map(id => PP.batById(id).name).join(', ');
     const best = PP.profile.get().caves[cv.id];
@@ -466,13 +467,15 @@
       if (W * H >= full * 0.97) return { title: k4 ? '4K · native resolution' : 'Native resolution', line: at + ', every pixel of your screen.' };
       return { title: '4K', line: at + ', scaled to your screen.' };
     };
-    const r0 = res(), resT = h('b.res-title', { text: r0.title }), resL = h('p.muted', { text: r0.line });
+    // how smoothly the caves run on this device, measured in play (so a slow phone can be reported, and seen)
+    const smooth = () => { const Q = PP.R.quality, fps = Math.round(1000 / Math.max(1, Q.caveEma)); return Q.frames > 30 || Q.caveEma !== 16.7 ? 'In the caves: about ' + Math.min(fps, 120) + ' frames a second · ' + Q.tier.name + ' effects' + (Q.g < 1 ? ' · ' + Math.round(Q.g * 100) + '% resolution' : '') : 'Fly a cave to measure how smoothly it runs here.'; };
+    const r0 = res(), resT = h('b.res-title', { text: r0.title }), resL = h('p.muted', { text: r0.line + ' ' + smooth() });
     const saverSw = h('button.switch' + (S.get('quality') === 'saver' ? '.on' : ''), { role: 'switch', 'aria-checked': String(S.get('quality') === 'saver'), 'aria-label': 'Battery saver' });
     saverSw.addEventListener('click', () => {
       const on = S.get('quality') !== 'saver';
       S.set('quality', on ? 'saver' : 'native');
       saverSw.classList.toggle('on', on); saverSw.setAttribute('aria-checked', String(on)); PP.uiSfx();
-      setTimeout(() => { PP.R.frame(); const r = res(); resT.textContent = r.title; resL.textContent = r.line; }, 60);
+      setTimeout(() => { PP.R.frame(); const r = res(); resT.textContent = r.title; resL.textContent = r.line + ' ' + smooth(); }, 60);
     });
     // the ad network's state in words, live: so an ad that cannot load says why instead of failing silently
     const adStatus = h('p.ad-status'), retryB = h('button.btn.ghost', { text: 'Try again', onclick: () => { PP.uiSfx(); PP.ads.retry(); } });

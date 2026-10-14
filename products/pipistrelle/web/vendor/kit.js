@@ -1751,13 +1751,14 @@
 
   const seq = { song: null, src: null, step: 0, next: 0, timer: 0 };
 
-  function playInst(inst, t, freq, dur, vel, tr) {
-    const c = au.ctx;
+  function playInst(inst, t, freq, dur, vel, tr, X) {
+    X = X || au;
+    const c = X.ctx;
     const vol = (INST_VOL[inst] || 0.2) * vel * (tr.vol === undefined ? 1 : tr.vol);
     const out = c.createGain();
-    out.connect(au.musicIn);
+    out.connect(X.musicIn);
     const send = (node, amt) => { if (amt > 0) { const g = c.createGain(); g.gain.value = amt; out.connect(g); g.connect(node); } };
-    const osc = (type, f, detune) => { const o = c.createOscillator(); o.type = type; o.frequency.value = f; if (detune) o.detune.value = detune; return o; };
+    const nyq = c.sampleRate / 2 - 50, osc = (type, f, detune) => { const o = c.createOscillator(); o.type = type; o.frequency.value = Math.min(f, nyq); if (detune) o.detune.value = detune; return o; };
     const lp = (f, q) => { const b = c.createBiquadFilter(); b.type = 'lowpass'; b.frequency.value = f; b.Q.value = q || 0.7; return b; };
     let srcs = [], end;
     switch (inst) {
@@ -1772,7 +1773,7 @@
         break;
       }
       case 'snare': {
-        const n = c.createBufferSource(); n.buffer = au.noise;
+        const n = c.createBufferSource(); n.buffer = X.noise;
         const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1900; bp.Q.value = 0.7;
         const body = osc('triangle', 190);
         body.frequency.exponentialRampToValueAtTime(140, t + 0.08);
@@ -1780,14 +1781,14 @@
         bg.gain.setValueAtTime(0, t); bg.gain.linearRampToValueAtTime(0.6, t + 0.002); bg.gain.setTargetAtTime(0, t + 0.01, 0.03);
         out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(vol, t + 0.002); out.gain.setTargetAtTime(0, t + 0.01, 0.05);
         n.connect(bp); bp.connect(out); body.connect(bg); bg.connect(out);
-        send(au.verb, tr.verb === undefined ? 0.18 : tr.verb);
+        send(X.verb, tr.verb === undefined ? 0.18 : tr.verb);
         end = t + 0.4;
         n.start(t, Math.random() * 0.5); n.stop(end);
         srcs = [body];
         break;
       }
       case 'hat': {
-        const n = c.createBufferSource(); n.buffer = au.noise;
+        const n = c.createBufferSource(); n.buffer = X.noise;
         const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7200;
         out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(vol, t + 0.001);
         out.gain.setTargetAtTime(0, t + 0.004, dur > 0 ? dur : 0.014);
@@ -1812,7 +1813,7 @@
         for (const d of [-8, 7]) { const o = osc(tr.wave || 'sawtooth', freq, d); o.connect(f); srcs.push(o); }
         f.connect(out);
         end = adsr(out.gain, t, vol, tr.attack || 0.35, 0, 1, t + dur, tr.release || 0.7);
-        send(au.verb, tr.verb === undefined ? 0.5 : tr.verb);
+        send(X.verb, tr.verb === undefined ? 0.5 : tr.verb);
         break;
       }
       case 'pluck': {
@@ -1823,8 +1824,8 @@
         const g2 = c.createGain(); g2.gain.value = 0.18;
         o.connect(f); o2.connect(g2); g2.connect(f); f.connect(out);
         end = adsr(out.gain, t, vol, 0.003, 0.25, 0.15, t + Math.min(dur, 0.35), 0.18);
-        send(au.delayIn, tr.delay === undefined ? 0.35 : tr.delay);
-        send(au.verb, tr.verb === undefined ? 0.25 : tr.verb);
+        send(X.delayIn, tr.delay === undefined ? 0.35 : tr.delay);
+        send(X.verb, tr.verb === undefined ? 0.25 : tr.verb);
         srcs = [o, o2];
         break;
       }
@@ -1836,8 +1837,8 @@
         lfo.connect(lg); lg.connect(o.frequency);
         o.connect(f); f.connect(out);
         end = adsr(out.gain, t, vol, 0.012, 0.2, 0.7, t + dur, 0.12);
-        send(au.delayIn, tr.delay === undefined ? 0.3 : tr.delay);
-        send(au.verb, tr.verb === undefined ? 0.2 : tr.verb);
+        send(X.delayIn, tr.delay === undefined ? 0.3 : tr.delay);
+        send(X.verb, tr.verb === undefined ? 0.2 : tr.verb);
         srcs = [o, lfo];
         break;
       }
@@ -1847,8 +1848,8 @@
         mg.gain.setTargetAtTime(0, t, 0.25);
         mod.connect(mg); mg.connect(car.frequency); car.connect(out);
         end = adsr(out.gain, t, vol, 0.002, 1.2, 0.001, t + 0.05, 1.2);
-        send(au.verb, tr.verb === undefined ? 0.45 : tr.verb);
-        send(au.delayIn, tr.delay === undefined ? 0.2 : tr.delay);
+        send(X.verb, tr.verb === undefined ? 0.45 : tr.verb);
+        send(X.delayIn, tr.delay === undefined ? 0.2 : tr.delay);
         srcs = [car, mod];
         break;
       }
@@ -1857,30 +1858,31 @@
     for (const s of srcs) { s.start(t); s.stop(end + 0.05); }
   }
 
-  function scheduleStep(s, t) {
-    const S = seq.song, stepDur = 60 / S.bpm / 4;
+  function scheduleStep(s, t, X, S, pick) {
+    S = S || seq.song;
+    const stepDur = 60 / S.bpm / 4;
     const bar = Math.floor(s / S.spb) % S.chords.length;
     const chord = S.chords[bar];
     for (const tr of S.tracks) {
-      if (!tr.on) continue;
+      if (pick ? !pick(tr) : !tr.on) continue;
       const inst = tr.inst;
       if (tr.hitsArr) {
         const ch = tr.hitsArr[s % tr.hitsArr.length];
         if (ch === '.' || ch === undefined) continue;
         const vel = ch === 'X' ? 1 : ch === 'g' ? 0.4 : 0.78;
-        playInst(inst, t, 0, ch === 'o' ? 0.07 : 0, vel, tr);
+        playInst(inst, t, 0, ch === 'o' ? 0.07 : 0, vel, tr, X);
       } else if (tr.chord) {
         const every = tr.every || S.spb;
         if (s % every) continue;
         const oct = tr.oct === undefined ? INST_OCT[inst] || 0 : tr.oct;
         const tones = tr.seventh ? [0, 2, 4, 6] : [0, 2, 4];
-        for (const d of tones) playInst(inst, t, noteHz(degreeMidi(S.root + oct * 12, S.scale, chord + d)), every * stepDur * 0.95, 1, tr);
+        for (const d of tones) playInst(inst, t, noteHz(degreeMidi(S.root + oct * 12, S.scale, chord + d)), every * stepDur * 0.95, 1, tr, X);
       } else if (tr.parsed) {
         const i = s % tr.parsed.n, d = tr.parsed.deg[i];
         if (d !== d) continue; // NaN: rest or tie
         const oct = tr.oct === undefined ? INST_OCT[inst] || 0 : tr.oct;
         const deg = d + (tr.follow ? chord : 0);
-        playInst(inst, t, noteHz(degreeMidi(S.root + oct * 12, S.scale, deg)), tr.parsed.len[i] * stepDur * (tr.gate || 0.9), 1, tr);
+        playInst(inst, t, noteHz(degreeMidi(S.root + oct * 12, S.scale, deg)), tr.parsed.len[i] * stepDur * (tr.gate || 0.9), 1, tr, X);
       }
     }
   }
@@ -1897,8 +1899,127 @@
       seq.next += stepDur;
     }
   }
+  // Music rendered ahead. A song is a short loop, so it is rendered once, off the main thread (an
+  // OfflineAudioContext renders on its own thread), into looping stems: one for the tracks that always play and one
+  // for each track that starts silent (the adaptive layers that layer() brings in and out). Playback is then
+  // sample-accurate and costs the main thread nothing, so a long frame, a garbage collection or a busy phone can
+  // never delay or drop a note (the live sequencer below schedules only 0.12 s ahead from timers on the main thread,
+  // which is where the music used to stutter). Until a song's stems are ready, or with no OfflineAudioContext, the
+  // live sequencer plays it, and hands over at the next step when the stems arrive.
+  const PRE = { on: true, rate: 32000, cache: new Map(), cur: null, keep: 2 };
+  function loopSteps(S) {
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    let n = S.chords.length * S.spb;
+    for (const tr of S.tracks) { const m = tr.hitsArr ? tr.hitsArr.length : tr.parsed ? tr.parsed.n : 0; if (m) n = n / gcd(n, m) * m; }
+    return n;
+  }
+  // the reverb's impulse and the noise are made once and shared by every render (an AudioBuffer plays in any context)
+  function offlineGraph(oc, stepDur) {
+    const X = { ctx: oc };
+    if (!PRE.ir) {
+      PRE.ir = impulse(oc, 1.8, 2.6);
+      PRE.noise = oc.createBuffer(1, oc.sampleRate, oc.sampleRate);
+      const d = PRE.noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    X.musicIn = oc.createGain(); X.musicIn.connect(oc.destination);
+    X.verb = oc.createConvolver(); X.verb.buffer = PRE.ir;
+    const vo = oc.createGain(); vo.gain.value = 0.5; X.verb.connect(vo); vo.connect(oc.destination);
+    X.delayIn = oc.createGain();
+    const dl = oc.createDelay(1.5); dl.delayTime.value = Math.min(1.4, stepDur * 3);
+    const fb = oc.createGain(); fb.gain.value = 0.32;
+    const tone = oc.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2600;
+    X.delayIn.connect(dl); dl.connect(tone); tone.connect(fb); fb.connect(dl); tone.connect(oc.destination);
+    X.noise = PRE.noise;
+    return X;
+  }
+  function renderStems(src) {
+    if (PRE.cache.has(src)) { const v = PRE.cache.get(src); PRE.cache.delete(src); PRE.cache.set(src, v); return v; }
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC || !PRE.on) return Promise.resolve(null);
+    const S = compileSong(src), steps = loopSteps(S), stepDur = 60 / S.bpm / 4, dur = steps * stepDur;
+    if (steps > 1024 || dur > 60) return Promise.resolve(null);
+    // a lead-in of the loop's own end first, so the reverb and echo tails that cross the loop point are in it
+    const rate = PRE.rate, leadSteps = Math.ceil(Math.min(dur, 6) / stepDur), L = leadSteps * stepDur;
+    const groups = [{ name: '', pick: tr => tr.on }].concat(S.tracks.filter(t => !t.on).map(t => ({ name: t.name, pick: tr => tr === t })));
+    const p = (async () => {
+      const stems = [];
+      for (const gr of groups) {
+        const oc = new OAC(2, Math.ceil((L + dur) * rate) + 1, rate), X = offlineGraph(oc, stepDur);
+        // the notes are set up a few steps at a time, so a song rendering during play never holds up a frame
+        for (let s = -leadSteps; s < steps; s++) {
+          const sm = ((s % steps) + steps) % steps;
+          scheduleStep(sm, L + s * stepDur + (sm % 2 ? S.swing * stepDur * 0.66 : 0), X, S, gr.pick);
+          if ((s + leadSteps) % 8 === 7) await new Promise(r => setTimeout(r, 0));
+        }
+        // the base keeps its stereo; the layers (a single track each) are kept in mono, half the memory
+        const all = await oc.startRendering(), n = Math.round(dur * rate), from = Math.round(L * rate);
+        const buf = oc.createBuffer(gr.name ? 1 : 2, n, rate);
+        if (gr.name) { const l = all.getChannelData(0), r = all.getChannelData(1), m = buf.getChannelData(0); for (let i = 0; i < n; i++) m[i] = (l[from + i] + r[from + i]) * 0.5; }
+        else for (let ch = 0; ch < 2; ch++) buf.getChannelData(ch).set(all.getChannelData(ch).subarray(from, from + n));
+        stems.push({ name: gr.name, buf });
+        await new Promise(r => setTimeout(r, 0));
+      }
+      return { steps, stepDur, dur, stems };
+    })().catch(e => { if (DEBUG) console.warn('Kit.music: rendering stems failed', e); return null; });
+    PRE.cache.set(src, p);
+    while (PRE.cache.size > PRE.keep) PRE.cache.delete(PRE.cache.keys().next().value);
+    return p;
+  }
+  function stopStems(fade) {
+    const P = PRE.cur;
+    if (!P) return;
+    PRE.cur = null;
+    const c = au.ctx, t = c ? c.currentTime : 0;
+    for (const st of P.parts) {
+      try {
+        if (fade && c) { st.g.gain.setTargetAtTime(0, t, fade / 4); st.src.stop(t + fade + 0.05); } else st.src.stop();
+      } catch (e) { /* already stopped */ }
+    }
+  }
+  // start the stems of the playing song at a given step, at context time `at`
+  function startStems(R, step, at) {
+    const c = au.ctx;
+    stopStems(0);
+    const parts = [], off = (step % R.steps) * R.stepDur;
+    for (const st of R.stems) {
+      const src = c.createBufferSource(); src.buffer = st.buf; src.loop = true;
+      const g = c.createGain();
+      const on = !st.name || seq.song.tracks.some(tr => tr.name === st.name && tr.on);
+      g.gain.value = on ? 1 : 0;
+      src.connect(g); g.connect(au.musicIn);
+      src.start(at, off);
+      parts.push({ name: st.name, src, g });
+    }
+    PRE.cur = { src: seq.src, parts };
+  }
+  // the stems for the playing song are ready: take over from the live sequencer at its next step
+  function handOver(src, R) {
+    if (!R || seq.src !== src || !seq.song || !au.ctx || au.ctx.state === 'closed') return;
+    const c = au.ctx;
+    if (seq.timer) { clearInterval(seq.timer); seq.timer = 0; }
+    let at = seq.next, step = seq.step;
+    if (!(at > c.currentTime + 0.01)) { at = c.currentTime + 0.05; }
+    startStems(R, step, at);
+  }
+
   // Starts the scheduler once audio exists (music may be requested before the first gesture).
   function seqKick() {
+    if (!seq.song || !au.ctx || seq.timer || PRE.cur) return;
+    const src = seq.src;
+    const cached = PRE.cache.get(src);
+    if (cached) {
+      // rendered already: play the stems from the song's current step, no live sequencer at all
+      cached.then(R => {
+        if (R && seq.src === src && !PRE.cur && au.ctx) { if (seq.timer) { clearInterval(seq.timer); seq.timer = 0; } au.musicOut.gain.cancelScheduledValues(au.ctx.currentTime); setLevels(); startStems(R, seq.step, au.ctx.currentTime + 0.06); }
+        else if (!R && seq.src === src && !seq.timer) liveKick();
+      });
+      return;
+    }
+    liveKick();
+    renderStems(src).then(R => handOver(src, R));
+  }
+  function liveKick() {
     if (!seq.song || !au.ctx || seq.timer) return;
     seq.next = au.ctx.currentTime + 0.06;
     au.delay.delayTime.setValueAtTime(Math.min(1.4, (60 / seq.song.bpm / 4) * 3), au.ctx.currentTime);
@@ -1923,7 +2044,14 @@
       seq.step = 0;
       seqKick();
     },
+    // render a song's stems ahead of time (in a menu), so it plays from stems from its first note
+    prepare(song) { if (song) renderStems(song); },
+    // 'stems' when the playing song plays from rendered stems, 'live' from the live sequencer, '' when silent
+    get mode() { return PRE.cur ? 'stems' : seq.timer ? 'live' : ''; },
+    // for tests: the playing song's stems { names, seconds, bytes }
+    stemInfo() { const P = PRE.cur; if (!P) return null; const b = P.parts.map(x => x.src.buffer); const d = b[0].getChannelData(0); let e = 0, n = 0; for (let i = 0; i < d.length; i += 64, n++) e += d[i] * d[i]; return { names: P.parts.map(x => x.name || 'base'), seconds: +(b[0].duration).toFixed(2), bytes: b.reduce((s, x) => s + x.length * x.numberOfChannels * 4, 0), rms: +Math.sqrt(e / Math.max(1, n)).toFixed(4) }; },
     stop(ms) {
+      stopStems(ms === 0 ? 0 : (ms || 400) / 1000);
       if (seq.timer) { clearInterval(seq.timer); seq.timer = 0; }
       seq.song = null; seq.src = null;
       if (au.ctx && ms !== 0) {
@@ -1937,6 +2065,8 @@
       if (!seq.song) return false;
       let hit = false;
       for (const t of seq.song.tracks) if (t.name === name) { t.on = !!on; hit = true; }
+      // playing from stems: fade that layer's stem in or out, in time with the rest
+      if (PRE.cur && au.ctx) for (const st of PRE.cur.parts) if (st.name === name) st.g.gain.setTargetAtTime(on ? 1 : 0, au.ctx.currentTime, 0.12);
       if (!hit && DEBUG) console.warn(`Kit.music.layer: no track '${name}' (tracks: ${music.tracks().map(t => t.name).join(', ')})`);
       return hit;
     },

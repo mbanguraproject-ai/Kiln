@@ -9,6 +9,8 @@
     const canvas = document.getElementById('game');
     PP.R.init(canvas);
     PP.settings.apply();
+    // start where this device ran smoothly last time (js/render/quality.js)
+    PP.R.quality.learned();
     if (PP.keyart) document.documentElement.classList.add('kiln-keyart');
 
     // a screen refreshing over 100 times a second (120 or 144 Hz) is drawn every other refresh: a steady 60 fps
@@ -23,7 +25,7 @@
         if (alpha < 1 && rafEma < 10 && last && t0 - last < 14) return;
         PP.R.frame(alpha);
         const now = performance.now();
-        if (last && loop.running && !loop.paused) PP.R.quality.frame(now - last, work + (now - t0));
+        if (last && loop.running && !loop.paused) PP.R.quality.frame(now - last, work + (now - t0), PP.R.scene === 'cave');
         last = now; work = 0;
       },
       ready: false,
@@ -56,6 +58,8 @@
     loop.step(40);
     loop.start();
     U.show('title', {}, { reset: true });
+    // the menu's song, rendered ahead while the title shows (vendor/kit.js, PRE)
+    setTimeout(() => PP.audio.prepare('chalk'), 900);
     PP.booted = true;
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

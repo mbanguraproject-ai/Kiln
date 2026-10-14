@@ -1,7 +1,7 @@
 // Pipistrelle's tests (docs/pipistrelle/BRIEF.md, Engineering): the economy simulator, save migration, every cave
 // generates, the bot finishes every cave and earns every Moon with Pip, The Long Night runs, every screen opens,
 // native resolution up to 4K, the pixels a frame covers, the frame-time budget and the safety net.
-// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,roost,rescue,play,frames] [--port=8920]
+// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,roost,music,rescue,play,frames] [--port=8920]
 //        node tests/test.cjs --unit    (no browser: economy, saves and campaign data; what CI runs)
 // Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally), except for --unit.
 const args = process.argv.slice(2);
@@ -171,7 +171,7 @@ const GOALS = {
           const cnt = rr(document.querySelector('.rqcount')), bar = rr(document.querySelector('.rqbar'));
           return { tiles, widths, cut, cnt: cnt.right, bar: bar.right, segs: document.querySelectorAll('.rqbar i').length, reqs: PP.data.requests.length, yellow: [...document.querySelectorAll('.hero *')].filter(e => /255, 2(07|24), (90|138)|255, 178, 46/.test(getComputedStyle(e).backgroundImage + getComputedStyle(e).backgroundColor)).map(e => e.className) };
         });
-        check(T.tiles.every(t => t <= 88) && new Set(T.tiles).size === 1 && T.widths.every(x => x <= 124) && !T.cut, 'roost: the four tiles are compact (shorter and narrower), the same size, every title whole', T.widths[0] + ' x ' + T.tiles[0] + ' px');
+        check(T.tiles.every(t => t <= 88) && new Set(T.tiles).size === 1 && T.widths.every(x => x <= 114) && !T.cut, 'roost: the four tiles are compact (shorter and narrower), the same size, every title whole', T.widths[0] + ' x ' + T.tiles[0] + ' px');
         check(Math.abs(T.cnt - T.bar) <= 2 && T.segs === T.reqs, 'roost: Requests has one segment per request, its count over the bar\'s end', `count ends ${Math.round(T.cnt)}, bar ${Math.round(T.bar)}, ${T.segs} segments`);
         check(T.yellow.length === 1 && /hero-fly/.test(T.yellow[0]), 'roost: on the Long Rain card only Fly is gold', T.yellow.join(' | '));
         // the Long Rain: the next cave, and Fly starts it
@@ -198,6 +198,45 @@ const GOALS = {
       }
       await pg.close();
     }
+  }
+
+  if (want('music')) {
+    // The music plays from stems rendered ahead, off the main thread (vendor/kit.js, PRE), so a long frame can never
+    // delay or drop a note (the owner, 14 October: the music stutters at particular times). Each song renders, takes
+    // over from the live sequencer, is not silent, and keeps its adaptive layers as stems of their own.
+    const pg = await open(390, 844, 1);
+    await pg.mouse.click(195, 760); // the first touch starts the audio
+    const mu = await pg.evaluate(async () => {
+      const out = {};
+      for (const id of ['chalk', 'drowned', 'glass', 'owlstone', 'hush']) {
+        Kit.music.play(PP.audio.song(id), { restart: true });
+        for (let i = 0; i < 300 && Kit.music.mode !== 'stems'; i++) await new Promise(r => setTimeout(r, 50));
+        out[id] = { mode: Kit.music.mode, info: Kit.music.stemInfo() };
+      }
+      out.layer = Kit.music.layer('danger', true);
+      return out;
+    });
+    for (const id of ['chalk', 'drowned', 'glass', 'owlstone', 'hush']) {
+      const m = mu[id], i = m.info || {};
+      check(m.mode === 'stems' && i.rms > 0.002 && ['pups', 'danger', 'exit', 'deep'].every(n => (i.names || []).includes(n)), `music: ${id}'s song plays from rendered stems, with its four layers`, `${m.mode}, ${i.seconds} s loop, ${((i.bytes || 0) / 1e6).toFixed(1)} MB, rms ${i.rms}`);
+    }
+    check(mu.layer === true, 'music: a layer still fades in on cue');
+    // the safety net counts only frames that draw a cave, and remembers what it learned for the next session
+    const sn = await pg.evaluate(() => {
+      const Q = PP.R.quality;
+      Q.set('native');
+      for (let i = 0; i < 200; i++) Q.frame(40, 30, true);
+      const down = Q.steps.length;
+      for (let i = 0; i < 2000; i++) Q.frame(8, 2, false);
+      const afterMenu = Q.steps.length, tier = Q.tier.id, g = Q.g;
+      Q.tier = PP.R.TIERS.ultra; Q.g = 1;
+      const back = Q.learned();
+      return { down, afterMenu, tier, g, back, restored: Q.tier.id + ' ' + Q.g.toFixed(2) };
+    });
+    check(sn.down > 0 && sn.afterMenu === sn.down, 'safety net: slow cave frames step it down; fast menu frames do not climb it back', `${sn.down} steps in the cave, ${sn.afterMenu - sn.down} in the menus`);
+    check(sn.back && sn.restored === sn.tier + ' ' + sn.g.toFixed(2), 'safety net: the next session starts where this device ran smoothly', sn.restored);
+    await pg.evaluate(() => { try { localStorage.removeItem('pp.quality'); } catch (e) {} PP.R.quality.set('native'); });
+    await pg.close();
   }
 
   if (want('rescue')) {
