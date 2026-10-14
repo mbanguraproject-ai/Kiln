@@ -33,7 +33,7 @@
     // input: a relative drag stick, taps and holds, keys
     const input = PP.input.kit = Kit.input(canvas);
     const canControl = () => { const G = PP.G; return !!(G && G.mode === 'play' && U.curName === 'flight' && !loop.paused); };
-    input.on('down', p => { if (canControl()) PP.input.down(p); else if (PP.G && PP.G.sub === 'rescue' && !loop.paused) PP.rescue.tap(); });
+    input.on('down', p => { if (canControl()) PP.input.down(p); else if (PP.G && PP.G.sub === 'rescue' && !loop.paused) PP.rescue.tap(); else if (U.curName === 'roost' && PP.R.scene === 'roost') PP.roost.tap(p.x, p.y); });
     input.on('move', p => { if (canControl()) PP.input.move(p); });
     input.on('up', p => PP.input.up(p, canControl()));
     addEventListener('keydown', e => {
