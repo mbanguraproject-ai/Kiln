@@ -61,7 +61,10 @@
 
   // The Long Night travels through every biome the player has opened, three caves in each (the finale excepted)
   R.endlessBiome = function (G, n) {
-    if (G.kind === 'attract') return 'chalk';
+    if (G.kind === 'attract') {
+      if (!R.attractBiome) { const ids = PP.data.campaign.order.filter(id => PP.biomes[id] && PP.biomes[id].ready); R.attractBiome = ids[Math.floor(Math.random() * ids.length)] || 'chalk'; }
+      return R.attractBiome;
+    }
     const list = PP.data.campaign.order.filter(id => { const B = PP.biomes[id]; return B && B.ready && !B.finale && PP.profile.caveOpen(id, 0); });
     return list.length ? list[Math.floor((n - 1) / 3) % list.length] : 'chalk';
   };
@@ -87,7 +90,7 @@
     G.ct = 0;
     G.rings.length = 0; G.reechoes.length = 0; G.minis.length = 0; G.answers.length = 0; G.hint = null; G.toasts.length = 0;
     G.carried = 0; G.trail.length = 0; G.pupsHome = 0;
-    G.stats = newStats();
+    G.stats = newStats(); G.hungry = false;
     const st = PP.bat.stats();
     const b = G.bat;
     if (G.kind !== 'endless' || n === 1) G.energy = st.energy;
@@ -117,6 +120,20 @@
   R.normalTime = () => { Kit.tween(R.loop, { timeScale: 1 }, 1); R.loop.timeScale = 1; };
 
   const gentle = () => PP.settings.get('gentle');
+  // the dark grows hungry: past a cave's par time (6.5 s a screen) the drain climbs, to double at twice par
+  function hunger(G) {
+    if (G.kind === 'practice' || G.mode !== 'play') return 1;
+    const H = T.hunger, L = PP.L, scr = L && L.pathLen ? L.pathLen / 420 / 1.12 : (G.caveDef && G.caveDef.screens) || 9, par = scr * H.perScreen;
+    const over = G.stats.time - par;
+    if (over <= 0) return 1;
+    if (!G.hungry) { G.hungry = true; R.hint('The dark grows hungry: find the arch'); PP.sfx('heartbeat', { vol: 0.6 }); }
+    return Math.min(H.max, 1 + over / par * H.ramp);
+  }
+  R.hunger = hunger;
+  // a cave whose route winds more than a plain tunnel (shafts, the crypt's steps) drains more slowly, so the energy
+  // a cave costs follows the distance flown, not its width (a tunnel's route is about 1.12 times its width)
+  const routeK = L => (L && L.pathLen ? clamp(1.12 * L.W / L.pathLen, 0.5, 1.1) : 1);
+  R.routeK = routeK;
   // energy loss from any source (bumps are free with Gentle Wings; other damage is halved)
   R.damage = function (amount, why, isBump) {
     const G = PP.G;
@@ -334,7 +351,7 @@
 
     // ---- energy ----
     if (play) {
-      const drain = (G.kind === 'practice' ? 0 : (R.specDrain(G) * st.drain)) * (gentle() ? 0.75 : 1);
+      const drain = (G.kind === 'practice' ? 0 : (R.specDrain(G) * st.drain * (T.drainScale || 1) * routeK(L))) * (gentle() ? 0.75 : 1) * hunger(G);
       G.energy -= drain * dt;
       if (G.energy < 25 && (G.lowBeat -= dt) <= 0) { PP.sfx('heartbeat'); G.lowBeat = 0.55 + G.energy / 50; }
       if (safeFlag || G.kind === 'practice') G.energy = Math.max(G.energy, 40);

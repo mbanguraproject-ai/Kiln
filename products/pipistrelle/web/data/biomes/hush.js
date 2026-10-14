@@ -56,7 +56,7 @@
     ],
     ambient: { motes: { color: '#f2f2f8', drift: -3 }, shafts: 0, glowworms: false },
     hazards: ['chorus', 'owls', 'crystal', 'webs', 'stals'],
-    gen: { drain: 1.6, rad: 116, H: 1300, screens: 14, moths: 30, branches: 3, loops: 0.2 },
+    gen: { drain: 1.6, rad: 116, H: 1300, screens: 14, moths: 30, branches: 3, loops: 0.2, layout: 'cavern' },
     audio: {
       echo: { verb: 0.9, cut: 2600 },
       ambience: { hum: 0.25 },

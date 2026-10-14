@@ -89,7 +89,11 @@
         const order = PP.data.campaign.order, bi = order.indexOf(biome);
         if (bi <= 0) return true;
         const prev = PP.biomes[order[bi - 1]];
-        return !!(prev && prev.caves.length && PR.cleared(prev.caves[prev.caves.length - 1].id));
+        if (!prev || !prev.caves.length) return false;
+        // the next biome opens after the third cave of the one before (the owner, 14 October: more of the world,
+        // sooner); the finale still waits for the last set piece
+        const need = B.finale ? prev.caves.length - 1 : Math.min(2, prev.caves.length - 1);
+        return PR.cleared(prev.caves[need].id);
       }
       return PR.cleared(B.caves[idx - 1].id);
     },

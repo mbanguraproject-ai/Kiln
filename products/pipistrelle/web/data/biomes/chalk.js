@@ -86,7 +86,7 @@
     ],
     ambient: { motes: { color: '#dfe8ff', drift: -14 }, shafts: 2, glowworms: true, crickets: true },
     hazards: ['webs', 'stals', 'drips', 'river', 'crystal', 'gust', 'owls'],
-    gen: { drain: 1.55, rad: 114, H: 1120, screens: 8, moths: 22, branches: 3, loops: 0.25 },
+    gen: { drain: 1.55, rad: 114, H: 1120, screens: 8, moths: 22, branches: 3, loops: 0.25, layout: 'tunnel' },
     audio: {
       echo: { verb: 0.3, cut: 4200 },
       ambience: { wind: 0.5, crickets: true, owlFar: true },
@@ -127,7 +127,7 @@
         scratch: { at: 0.3, text: 'The little ones answer before you see them. Listen for the pink.' },
       },
       {
-        id: '1-3', name: 'The Loud Dark', seed: 1303, mission: 'kin',
+        id: '1-3', name: 'The Loud Dark', seed: 1303, mission: 'kin', layout: 'cavern',
         screens: 10, H: 1120, rad: 112, moths: 22, drain: 1.55, branches: 3, loops: 0,
         pups: [{ at: 'chamber' }, { at: 'chamber', deep: true }, { at: 0.56 }],
         hazards: { stals: { n: 6, from: 0.6, to: 0.94, stage: 0.17 } },
@@ -145,7 +145,7 @@
         scratch: { at: 'chamber', text: 'Every wall you hear is a wall you will not hit.' },
       },
       {
-        id: '1-5', name: 'Silk Gallery', seed: 1505, mission: 'homing',
+        id: '1-5', name: 'Silk Gallery', seed: 1505, mission: 'homing', layout: 'shafts',
         screens: 10, H: 1200, rad: 106, moths: 32, drain: 1.65, branches: 3, loops: 0.2,
         pups: [{ at: 'chamber' }, { at: 0.45 }, { at: 'chamber' }],
         hazards: { webs: { n: 5, from: 0.5, to: 0.95, stage: 0.14 }, drips: { n: 5, from: 0.2, to: 0.75 } },
@@ -154,7 +154,7 @@
         scratch: { at: 0.62, text: 'The silk is patient. Be wigglier than the silk.' },
       },
       {
-        id: '1-6', name: 'The Chalk Stair Falls', seed: 1606, mission: 'escape', setPiece: true,
+        id: '1-6', name: 'The Chalk Stair Falls', seed: 1606, mission: 'escape', setPiece: true, layout: 'shafts',
         screens: 15, H: 1180, rad: 116, moths: 26, drain: 1.6, branches: 1, loops: 0,
         pups: [{ at: 0.3, ledge: true }, { at: 0.55, ledge: true }, { at: 0.8, ledge: true }],
         hazards: { collapse: { delay: 4, x0: -240, v0: 90, v1: 140, ramp: 50 }, stals: { n: 3, from: 0.4, to: 0.9 }, webs: { n: 2, from: 0.55, to: 0.9 } },

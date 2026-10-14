@@ -33,7 +33,13 @@
     if (r.chance(0.7)) hz.stals = { n: 5, from: 0.15, to: 0.92 };
     if (lun.light > 0.5) hz.river = { at: [0.3, 0.45], level: 0.38 };
     if (r.chance(0.5)) hz.drips = { n: 4, from: 0.2, to: 0.8 };
-    return { id: 'nightly', name: 'The Nightly Cave', biome: 'chalk', seed, mission: 'homing', screens: 9, H: 1140, rad: 108, moths: 22 + Math.round(lun.light * 6), drain: 1.6, pups: 2 + Math.round(lun.light), hazards: hz, moons: [], intro: lun.name + ' tonight', moonLight: lun.light };
+    // a different biome each night, opened or not: the Nightly Cave is where the whole world shows itself early
+    const ids = PP.data.campaign.order.filter(id => PP.biomes[id] && PP.biomes[id].ready && !PP.biomes[id].finale);
+    const biome = ids[Math.floor(Date.parse(day + 'T00:00:00Z') / 86400000) % ids.length] || 'chalk';
+    if (biome === 'drowned') hz.river = { at: [[0.22, 0.32], [0.56, 0.66]], level: 0.38 };
+    if (biome === 'glass') { hz.crystal = { chamber: true, patches: 3 }; hz.tiger = { n: 2 }; }
+    if (biome === 'owlstone') hz.owls = { n: 2, light: true };
+    return { id: 'nightly', name: 'The Nightly Cave', biome, seed, mission: 'homing', screens: 9, H: 1140, rad: 108, moths: 22 + Math.round(lun.light * 6), drain: 1.6, pups: 2 + Math.round(lun.light), hazards: hz, moons: [], intro: lun.name + ' tonight, in ' + PP.biome(biome).name, moonLight: lun.light };
   };
   GM.toMap = () => { U.show('roost', {}, { reset: true }); U.show('map'); };
   GM.home = () => U.show('roost', {}, { reset: true });
