@@ -17,7 +17,7 @@
   const rnd = Kit.rng(4242);
   let cache = null, keep = null;
   // things that move: rings of sound, dust, moths, a bat on the wing, wild bats outside, the hint
-  const S = { rings: [], motes: null, moths: [], flier: null, wild: [], calls: [], nextFly: 9, nextCall: 3, nextStretch: 5, nextWild: 2, last: 0, tapped: false, shown: 0, boost: 0 };
+  const S = { rings: [], motes: null, moths: [], flier: null, wild: [], calls: [], col: [], nextFly: 9, nextCall: 3, nextStretch: 5, nextWild: 2, last: 0, tapped: false, shown: 0, boost: 0, colT: 0, scatter: 0, ropeA: 0, ropeV: 0 };
   const NM = 56;
 
   // where the menu sits, in canvas units (CSS px): the two columns of tiles, the top bar and the bottom cards
@@ -48,28 +48,39 @@
     let ya = wy + wh + 30 * u, yb = K.menu.y0 - 62 * u;
     if (gx1 - gx0 < 160 * u) ya = Math.max(ya, tilesBottom + 14 * u);
     if (yb < ya) { ya = Math.min(ya, K.menu.y0 - 62 * u); yb = ya; }
-    const room = yb - ya, nb = room >= 150 * u ? 3 : room >= 70 * u ? 2 : 1;
-    const beams = [], spans = [];
-    for (let i = 0; i < nb; i++) {
-      const y = nb === 1 ? (ya + yb) / 2 : ya + (yb - ya) * i / (nb - 1);
-      beams.push(y);
-      // what hangs from a beam stays clear of the tiles beside it
-      const band0 = y - 12 * u, band1 = y + 52 * u, edge = Math.max(w * 0.04, 12 * u);
-      const l = band1 > K.L.y0 && band0 < K.L.y1 ? K.L.x1 + 8 * u : edge, r = band1 > K.Rt.y0 && band0 < K.Rt.y1 ? K.Rt.x0 - 8 * u : w - edge;
-      spans.push([l, r]);
-    }
-    const x0 = spans[0][0], x1 = spans[0][1];
+    const room = yb - ya, roomBeams = room >= 150 * u ? 3 : room >= 70 * u ? 2 : 1, edge = Math.max(w * 0.04, 12 * u);
     const sp = 15 * u, gap = 22 * u, fs = 9 * u;
     ctx.font = '700 ' + fs + 'px Figtree, system-ui, sans-serif';
     // what is to hang: your bats first (under the window, by the lantern), then the pups, cave by cave, spread evenly
     // over the beams
     const items = p.bats.owned.map(id => ({ bat: id, need: 36 * u }));
     for (const g of groups) { const lw = ctx.measureText(g.name + (g.n > 1 ? ' ×' + g.n : '')).width; items.push({ g, lw, need: Math.max((g.n - 1) * sp + 14 * u, lw + 6 * u) }); }
-    const totalNeed = items.reduce((s, it) => s + it.need + gap, 0), target = totalNeed / nb;
-    const slots = [];
+    const totalNeed = items.reduce((s, it) => s + it.need + gap, 0);
+    // only as many beams as the colony needs (two at least, the belfry's frame), a beam's height apart; what is left
+    // below them is the lower belfry, where the colony flies (the owner, 14 October: use the space for the world)
+    const nb = Math.min(roomBeams, Math.max(2, Math.ceil((totalNeed + 60 * u) / ((w - 2 * edge) * 0.9))));
+    const step = nb > 1 ? Math.min(112 * u, (yb - ya) / (nb - 1)) : 0;
+    const beams = [], spans = [];
+    for (let i = 0; i < nb; i++) {
+      const y = nb === 1 ? (ya + yb) / 2 : ya + step * i;
+      beams.push(y);
+      // what hangs from a beam stays clear of the tiles beside it
+      const band0 = y - 12 * u, band1 = y + 52 * u;
+      const l = band1 > K.L.y0 && band0 < K.L.y1 ? K.L.x1 + 8 * u : edge, r = band1 > K.Rt.y0 && band0 < K.Rt.y1 ? K.Rt.x0 - 8 * u : w - edge;
+      spans.push([l, r]);
+    }
+    const last = beams[nb - 1], low = { y0: last + 58 * u, y1: K.menu.y0 - 10 * u };
+    low.h = low.y1 - low.y0;
+    // the bell rope, hanging from the lowest beam at its far end; nothing else hangs there
+    const ropeLen = Math.min(190 * u, low.y1 - 30 * u - last);
+    const rope = ropeLen > 90 * u ? { x: spans[nb - 1][1] - 16 * u, y0: last + 2 * u, len: ropeLen } : null;
+    if (rope) spans[nb - 1][1] = rope.x - 20 * u;
+    const x0 = spans[0][0], x1 = spans[0][1];
+    const target = totalNeed / nb;
+    const slots = [], ends = spans.map(sp2 => sp2[0] + 14 * u);
     let bi = 0, x = spans[0][0] + 44 * u, more = 0, used = 0;
     for (const it of items) {
-      if (bi + 1 < nb && (x + it.need > spans[bi][1] || (it.g && used + it.need / 2 > target))) { bi++; x = spans[bi][0] + 14 * u; used = 0; }
+      if (bi + 1 < nb && (x + it.need > spans[bi][1] || (it.g && used + it.need / 2 > target))) { ends[bi] = x; bi++; x = spans[bi][0] + 14 * u; used = 0; }
       const R1 = spans[bi][1];
       if (it.bat) { slots.push({ kind: 'bat', id: it.bat, x: x + 10 * u, y: beams[bi], beam: bi, ph: rnd.range(0, 6), a: 0, v: 0, lit: 0, st: 0 }); x += it.need; used += it.need; continue; }
       const g = it.g;
@@ -85,10 +96,21 @@
       for (let k = 0; k < n; k++) { const s = { kind: 'pup', g, x: c0 + k * sp, y: beams[bi], beam: bi, ph: (k * 1.7 + g.id.length) % 6, a: 0, v: 0, lit: 0 }; slots.push(s); g.slots.push(s); }
       x += need + gap; used += need + gap;
     }
+    ends[bi] = Math.max(ends[bi], x);
     // the rest (a long campaign's worth) are counted, at the end of the last beam if there is room
     let moreAt = null;
-    if (more) { const lw = ctx.measureText('+' + more + ' more in the Journal').width; if (x + lw < spans[bi][1]) moreAt = { x: x + lw / 2, y: beams[bi] + 40 * u }; }
-    return { moreAt, groups, beams, spans, slots, x0, x1, land, wx, wy, ww, wh, K, more, total: groups.reduce((s, g) => s + g.n, 0) };
+    if (more) { const lw = ctx.measureText('+' + more + ' more in the Journal').width; if (x + lw < spans[bi][1]) { moreAt = { x: x + lw / 2, y: beams[bi] + 40 * u }; ends[bi] = x + lw + 10 * u; } }
+    // a new colony: say what the beams are for, under the second beam
+    const total = groups.reduce((s2, g) => s2 + g.n, 0);
+    let msgAt = null;
+    if (!total) { const mb = Math.min(1, nb - 1); msgAt = { x: Math.max(ends[mb], spans[mb][0] + 14 * u) + 72 * u, y: beams[mb] + 24 * u }; ends[mb] = msgAt.x + 82 * u; }
+    // the old colony sleeps in the dark at the free ends of the beams, so the belfry is never empty
+    const looks = PP.data.bats;
+    for (let b = 0; b < nb; b++) {
+      const f0 = ends[b] + 10 * u, f1 = spans[b][1] - 8 * u, n = Math.min(b === 0 ? 2 : 3, Math.floor((f1 - f0) / (44 * u)));
+      for (let k = 0; k < n; k++) slots.push({ kind: 'elder', x: f1 - 14 * u - k * 44 * u, y: beams[b], beam: b, ph: rnd.range(0, 6), a: 0, v: 0, lit: 0, st: 0, look: R.shadowLook(looks[(b * 3 + k) % looks.length].look), sc: rnd.range(0.85, 1) });
+    }
+    return { moreAt, msgAt, groups, beams, spans, slots, x0, x1, land, wx, wy, ww, wh, K, more, total, low, rope };
   }
   RO.invalidate = () => { cache = null; S.flier = null; S.calls.length = 0; };
 
@@ -108,6 +130,9 @@
 
   function step(dt, Lo, w, h, u) {
     S.boost = Math.max(0, S.boost - dt * 0.4);
+    // the bell rope swings back; the colony below circles, faster for a while when startled
+    S.ropeV += (-14 * S.ropeA - 1.1 * S.ropeV) * dt; S.ropeA += S.ropeV * dt;
+    S.colT += dt * (0.32 + S.scatter * 1.1); S.scatter = Math.max(0, S.scatter - dt * 0.3);
     // pendulums: every hanging thing swings back to rest
     for (const s of Lo.slots) {
       s.v += (-38 * s.a - 2.6 * s.v) * dt; s.a += s.v * dt;
@@ -119,15 +144,16 @@
     let answers = 0;
     for (let i = S.rings.length - 1; i >= 0; i--) {
       const g = S.rings[i], r0 = g.r;
-      g.r += (g.kind === 'chirp' ? 330 : 190) * u * dt;
+      g.r += (g.kind === 'chirp' ? 330 : g.kind === 'toll' ? 420 : 190) * u * dt;
       if (g.r > g.max) { S.rings.splice(i, 1); continue; }
       for (const s of Lo.slots) {
         if (g.hit.has(s)) continue;
         const d = Math.hypot(s.x - g.x, s.y + 14 * u - g.y);
         if (d < r0 || d > g.r) continue;
         g.hit.add(s);
-        const push = (s.x >= g.x ? 1 : -1) * (g.kind === 'chirp' ? 1.6 : 0.6) * Math.max(0.25, 1 - d / g.max);
+        const push = (s.x >= g.x ? 1 : -1) * (g.kind === 'chirp' ? 1.6 : g.kind === 'toll' ? 2.2 : 0.6) * Math.max(0.25, 1 - d / g.max);
         s.v += push;
+        if (g.kind === 'toll' && s.kind === 'elder') s.lit = 1;
         if (g.kind === 'chirp') { s.lit = 1; if (s.kind === 'pup' && answers < 6 && rnd.chance(0.5)) { answers++; pupCall(s, 0.25 + rnd.range(0, 0.6), answers <= 2 && g.loud); } }
       }
     }
@@ -142,7 +168,7 @@
     // now and then: a pup calls, a bat stretches, a bat flies a lap
     const bats = Lo.slots.filter(s => s.kind === 'bat'), pups = Lo.slots.filter(s => s.kind === 'pup');
     if ((S.nextCall -= dt) <= 0) { S.nextCall = rnd.range(4, 9); if (pups.length) { const s = pups[rnd.int(0, pups.length - 1)]; pupCall(s, 0, false); for (const o of s.g.slots) if (o !== s && rnd.chance(0.5)) pupCall(o, rnd.range(0.4, 1.1), false); } }
-    if ((S.nextStretch -= dt) <= 0) { S.nextStretch = rnd.range(7, 14); const s = bats[rnd.int(0, Math.max(0, bats.length - 1))]; if (s && (!S.flier || S.flier.s !== s)) s.st = 1.8; }
+    if ((S.nextStretch -= dt) <= 0) { const el = Lo.slots.filter(o => o.kind === 'elder'); if (el.length && rnd.chance(0.5)) el[rnd.int(0, el.length - 1)].v += rnd.range(-0.9, 0.9); S.nextStretch = rnd.range(7, 14); const s = bats[rnd.int(0, Math.max(0, bats.length - 1))]; if (s && (!S.flier || S.flier.s !== s)) s.st = 1.8; }
     if ((S.nextFly -= dt) <= 0) { S.nextFly = rnd.range(16, 28); if (bats.length) fly(bats[rnd.int(0, bats.length - 1)], w, h, u, false); }
     // the bat on the wing
     const F = S.flier;
@@ -186,13 +212,28 @@
     const u = R.u, w = Lo.K.w, h = Lo.K.h;
     S.tapped = true;
     for (const m of S.moths) if (!m.gone && Math.hypot(m.x - x, m.y - y) < 30 * u) { const a = Math.atan2(m.y - y, m.x - x) + rnd.range(-0.6, 0.6); m.vx += Math.cos(a) * 420 * u; m.vy += Math.sin(a) * 420 * u; sfx('tick', { vol: 0.25 }); return; }
+    // the bell rope: pull it and the bell above tolls through the whole belfry
+    if (Lo.rope) {
+      const R0 = Lo.rope, a = S.ropeA, ex = R0.x + Math.sin(a) * R0.len, ey = R0.y0 + Math.cos(a) * R0.len, mx = R0.x + Math.sin(a) * R0.len * 0.5, my = R0.y0 + R0.len * 0.5;
+      const t2 = Math.max(0, Math.min(1, ((x - mx) * (ex - mx) + (y - my) * (ey - my)) / ((ex - mx) ** 2 + (ey - my) ** 2 || 1)));
+      if (Math.hypot(x - (mx + (ex - mx) * t2), y - (my + (ey - my) * t2)) < 22 * u) {
+        S.ropeV += 2.4; S.scatter = 1;
+        ring(w / 2, Lo.K.top.y1 + 10 * u, 'toll', h); S.rings[S.rings.length - 1].loud = true;
+        sfx('ring', { vol: 0.35 });
+        return;
+      }
+    }
+    // the colony circling below scatters, chittering
+    for (const c of S.col) if (Math.hypot(c.x - x, c.y - y) < 26 * u) { S.scatter = 1; sfx('squeak', { pitch: 8, vol: 0.25 }); setTimeout(() => sfx('squeak', { pitch: 10, vol: 0.18 }), 110); ring(c.x, c.y, 'call', 70 * u); return; }
     let best = null, bd = 1e9;
     for (const s of Lo.slots) {
       if (S.flier && S.flier.s === s) continue;
-      const cy = s.y + (s.kind === 'bat' ? 20 : 13) * u, d = Math.hypot(s.x - x, cy - y), r = (s.kind === 'bat' ? 26 : 15) * u;
+      const big = s.kind !== 'pup', cy = s.y + (big ? 20 : 13) * u, d = Math.hypot(s.x - x, cy - y), r = (big ? 26 : 15) * u;
       if (d < r && d < bd) { bd = d; best = s; }
     }
     if (best && best.kind === 'bat') { fly(best, w, h, u, true); return; }
+    // an elder of the old colony wakes, grumbles and settles again
+    if (best && best.kind === 'elder') { best.v += (x < best.x ? 1 : -1) * 1.8; best.lit = 1; sfx('squeak', { pitch: 2, vol: 0.2 }); return; }
     if (best) {
       best.v += (x < best.x ? 1 : -1) * 2.4; best.lit = 1;
       ring(best.x, best.y + 14 * u, 'call', 90 * u);
@@ -208,6 +249,66 @@
     S.rings[S.rings.length - 1].loud = true;
     sfx('chirp', { vol: 0.32 });
   };
+
+  // the bell rope: a long rope from the lowest beam with a striped woollen grip (the sally) and a knot at the end
+  function drawRope(ctx, R0, now, u, lit) {
+    const a = S.ropeA + Math.sin(now * 0.9) * 0.025, L = R0.len, px = f => R0.x + Math.sin(a * f) * L * f, py = f => R0.y0 + Math.cos(a * f) * L * f;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#2a1d12'; ctx.lineWidth = 3.4 * u;
+    ctx.beginPath(); ctx.moveTo(R0.x, R0.y0); for (let f = 0.1; f <= 1.001; f += 0.1) ctx.lineTo(px(f), py(f)); ctx.stroke();
+    ctx.strokeStyle = '#7a5c3a'; ctx.lineWidth = 1.8 * u;
+    ctx.beginPath(); ctx.moveTo(R0.x, R0.y0); for (let f = 0.1; f <= 1.001; f += 0.1) ctx.lineTo(px(f), py(f)); ctx.stroke();
+    // the sally: red, cream and blue bands of wool
+    const cols = ['#9a2f35', '#e2d2ae', '#2d4785'];
+    ctx.lineCap = 'butt'; ctx.lineWidth = 6.5 * u;
+    for (let i = 0; i < 9; i++) {
+      const f0 = 0.6 + i * 0.03, f1 = f0 + 0.03;
+      ctx.strokeStyle = cols[i % 3];
+      ctx.beginPath(); ctx.moveTo(px(f0), py(f0)); ctx.lineTo(px(f1), py(f1)); ctx.stroke();
+    }
+    ctx.globalAlpha = 0.25 * lit; ctx.strokeStyle = '#dfe8ff'; ctx.lineWidth = 1.2 * u;
+    ctx.beginPath(); ctx.moveTo(px(0.6) - 2.2 * u, py(0.6)); ctx.lineTo(px(0.87) - 2.2 * u, py(0.87)); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#5a4128'; ctx.beginPath(); ctx.arc(px(1), py(1), 3.4 * u, 0, TAU); ctx.fill();
+    ctx.lineCap = 'round';
+  }
+
+  function drawLower(ctx, Lo, now, u, w, lit, ang, by) {
+    const L = Lo.low;
+    // where the moonbeam lands, a pool of light on the mist
+    const fx = Lo.wx + (L.y1 - by) * Math.tan(ang) + Lo.ww * 0.3;
+    ctx.save(); ctx.translate(fx, L.y1 - 8 * u); ctx.scale(1, 0.32);
+    R.glow(ctx, 0, 0, Lo.ww * 1.7, PP.P.moon, 0.16 * lit);
+    ctx.restore();
+    for (let i = 0; i < 5; i++) {
+      const span = w + 240 * u, x = ((now * (5 + i * 1.3) * u + i * span / 5) % span) - 120 * u, y = L.y1 - 16 * u - (i % 2) * 14 * u;
+      R.glow(ctx, x, y, (95 + i * 9) * u, '#7d93c9', 0.06 * (0.6 + 0.4 * lit));
+    }
+    // the colony, circling the lower belfry (nearer when lower: bigger and brighter), lit as it crosses the moonbeam
+    S.col.length = 0;
+    if (L.h > 70 * u) {
+      const cx = w / 2, cy = L.y0 + L.h * 0.4, rx = w * 0.3, ry = Math.min(L.h * 0.24, 46 * u), looks = PP.data.bats;
+      for (let i = 0; i < 7; i++) {
+        const th = S.colT + i * 0.31 + (i % 2) * 0.05, sn = Math.sin(th), d = (sn + 1) / 2;
+        const x = cx + Math.cos(th) * rx, y = cy + sn * ry + Math.sin(now * 2.6 + i) * 3 * u;
+        const beam = Lo.wx + (y - by) * Math.tan(ang) + Lo.ww * 0.3, inBeam = Math.abs(x - beam) < Lo.ww;
+        S.col.push({ x, y });
+        // far off in the dark: small, dim, nearly silhouettes until the moonbeam catches them
+        ctx.globalAlpha = (0.3 + 0.32 * d) * (inBeam ? 1.4 : 1);
+        R.drawBat(ctx, { x, y, vx: -sn * 400, face: sn > 0 ? -1 : 1, flap: now * (13 + i) + i, glide: 0, blink: 1, rim: inBeam ? 0.8 * lit : 0.05 }, now, (0.36 + 0.2 * d) * u, inBeam ? looks[(i + 1) % looks.length].look : R.shadowLook(looks[(i + 1) % looks.length].look), { glow: false, still: true });
+        ctx.globalAlpha = 1;
+      }
+    }
+    // fireflies rising slowly through the dark
+    ctx.fillStyle = '#e9ffb0';
+    for (let i = 0; i < 7; i++) {
+      const xb = w * (0.08 + 0.84 * ((i * 0.377) % 1)), x = xb + Math.sin(now * 0.45 + i * 1.3) * 24 * u, y = L.y1 - ((now * 7 * u + i * 41 * u) % Math.max(1, L.h));
+      const a = Math.max(0, Math.sin(now * 2.1 + i * 2.3));
+      if (a < 0.05) continue;
+      R.glow(ctx, x, y, 10 * u, '#c8ff6a', 0.4 * a);
+      ctx.globalAlpha = a; ctx.fillRect(x - u, y - u, 2 * u, 2 * u); ctx.globalAlpha = 1;
+    }
+  }
 
   RO.draw = function (ctx, w, h, t, k) {
     const u = R.u, p = PP.profile.get(), now = performance.now() / 1000;
@@ -313,6 +414,7 @@
         ctx.fillStyle = 'rgba(255,200,120,' + (0.55 + 0.3 * fl).toFixed(3) + ')'; ctx.fillRect(lx - 4 * u, ly - 6 * u, 8 * u, 12 * u);
       }
     }
+    if (Lo.rope) drawRope(ctx, Lo.rope, now, u, lit);
     // pups and bats hanging upside down, each on its own pendulum
     for (const s of Lo.slots) {
       if (S.flier && S.flier.s === s) continue;
@@ -321,6 +423,13 @@
         if (s.lit > 0) R.glow(ctx, 0, 14 * u, 26 * u, PP.P.teal, 0.55 * s.lit);
         R.glow(ctx, 0, 16 * u, 16 * u, PP.P.pink, 0.08 + 0.05 * Math.sin(now * 2 + s.ph));
         R.drawPup(ctx, 0, 12 * u, now * 0.6 + s.ph, 0, 1.15 * u);
+      } else if (s.kind === 'elder') {
+        // asleep in the dark, eyes shut, until a sound reaches them
+        if (s.lit > 0) R.glow(ctx, 0, 22 * u, 34 * u, PP.P.teal, 0.3 * s.lit);
+        ctx.translate(0, 19 * u * s.sc); ctx.rotate(Math.PI);
+        ctx.globalAlpha = 0.9;
+        R.drawBat(ctx, { x: 0, y: 0, face: s.x > Lo.wx ? -1 : 1, flap: 0, glide: 0, blink: s.lit > 0.15 ? 1 : -1, rim: 0.12 + s.lit * 0.6 }, now, 1.05 * u * s.sc, s.look, { glow: false, folded: true, still: true });
+        ctx.globalAlpha = 1;
       } else {
         const bat = PP.batById(s.id), sel = p.bats.selected === s.id;
         if (sel) R.glow(ctx, 0, 24 * u, 40 * u, PP.P.warm, 0.22);
@@ -339,7 +448,12 @@
       Kit.gfx.text(ctx, gq.name + (gq.n > 1 ? ' ×' + gq.n : ''), gq.cx, Lo.beams[gq.beam] + 40 * u, { size: 9 * u, weight: 700, font: 'body', color: 'rgba(255,190,220,0.7)' });
     }
     if (Lo.moreAt) Kit.gfx.text(ctx, '+' + Lo.more + ' more in the Journal', Lo.moreAt.x, Lo.moreAt.y, { size: 9 * u, weight: 700, font: 'body', color: 'rgba(255,190,220,0.5)' });
-    if (!Lo.total) Kit.gfx.text(ctx, 'Bring the lost pups home, and they will hang here.', w / 2, Lo.beams[Lo.beams.length - 1] + 40 * u, { size: 11 * u, weight: 600, font: 'body', color: 'rgba(214,240,246,0.55)' });
+    if (Lo.msgAt) {
+      Kit.gfx.text(ctx, 'Bring the lost pups home,', Lo.msgAt.x, Lo.msgAt.y, { size: 10 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.62)' });
+      Kit.gfx.text(ctx, 'and they will hang here.', Lo.msgAt.x, Lo.msgAt.y + 13 * u, { size: 10 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.62)' });
+    }
+    // the lower belfry: moonlit mist on the floor, the colony circling, fireflies rising
+    if (Lo.low.h > 50 * u) drawLower(ctx, Lo, now, u, w, lit, ang, by);
 
     // moths round the light
     for (const m of S.moths) {
@@ -369,6 +483,9 @@
         for (let i = 0; i < n; i++) { const an = i / n * TAU + gr.x * 0.01; ctx.globalAlpha = a * (0.6 + 0.4 * Math.sin(i * 2.7)); ctx.fillRect(gr.x + Math.cos(an) * gr.r - d / 2, gr.y + Math.sin(an) * gr.r - d / 2, d, d); }
         R.glow(ctx, gr.x, gr.y, Math.min(gr.r * 0.6, 80 * u), PP.P.teal, 0.25 * a * a);
         ctx.globalAlpha = a * 0.3; ctx.strokeStyle = PP.P.teal; ctx.lineWidth = Math.max(1, 1.5 * u); ctx.beginPath(); ctx.arc(gr.x, gr.y, gr.r, 0, TAU); ctx.stroke();
+      } else if (gr.kind === 'toll') {
+        ctx.globalAlpha = a * 0.5; ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = Math.max(1.5, 3 * u); ctx.beginPath(); ctx.arc(gr.x, gr.y, gr.r, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = a * 0.2; ctx.lineWidth = Math.max(1, 1.2 * u); ctx.beginPath(); ctx.arc(gr.x, gr.y, gr.r * 0.9, 0, TAU); ctx.stroke();
       } else {
         ctx.globalAlpha = a * 0.55; ctx.strokeStyle = PP.P.pink; ctx.lineWidth = Math.max(1, 1.4 * u); ctx.beginPath(); ctx.arc(gr.x, gr.y, gr.r, 0, TAU); ctx.stroke();
       }
@@ -387,7 +504,7 @@
     // a hint, until the first tap
     if (!S.tapped && now - S.shown > 1.2) {
       const a = Math.min(1, (now - S.shown - 1.2) / 0.8) * (0.55 + 0.25 * Math.sin(now * 2.4));
-      const hy = Lo.beams.length > 1 ? (Lo.beams[0] + Lo.beams[1]) / 2 + 18 * u : Math.min(Lo.K.menu.y0 - 14 * u, Lo.beams[0] + 62 * u);
+      const hy = Lo.low.h > 70 * u ? Lo.low.y1 - 12 * u : Lo.beams.length > 1 ? (Lo.beams[0] + Lo.beams[1]) / 2 + 18 * u : Math.min(Lo.K.menu.y0 - 14 * u, Lo.beams[0] + 62 * u);
       Kit.gfx.text(ctx, 'Tap the roost to chirp', w / 2, hy, { size: 10 * u, weight: 700, font: 'body', color: '#4ff0d8', alpha: a });
     }
     Kit.gfx.vignette(ctx, 0.55, '#000000');
@@ -397,15 +514,15 @@
   RO._dbg = function () {
     const Lo = cache, u = R.u;
     if (!Lo) return null;
-    const pup = Lo.slots.find(s => s.kind === 'pup' && s.g.slots.length > 2) || Lo.slots.find(s => s.kind === 'pup'), bat = Lo.slots.find(s => s.kind === 'bat');
-    return { open: { x: Lo.wx + Lo.ww, y: (Lo.beams[0] + (Lo.beams[1] || Lo.K.menu.y0)) / 2 + 20 * u }, pup: pup && { x: pup.x, y: pup.y + 13 * u }, bat: bat && { x: bat.x, y: bat.y + 20 * u }, flier: !!S.flier, rings: S.rings.length, calls: S.calls.length, beams: Lo.beams.length, slots: Lo.slots.length, more: Lo.more };
+    const pup = Lo.slots.find(s => s.kind === 'pup' && s.g.slots.length > 2) || Lo.slots.find(s => s.kind === 'pup'), bat = Lo.slots.find(s => s.kind === 'bat'), R0 = Lo.rope;
+    return { open: { x: Lo.wx + Lo.ww, y: (Lo.beams[0] + (Lo.beams[1] || Lo.K.menu.y0)) / 2 + 20 * u }, pup: pup && { x: pup.x, y: pup.y + 13 * u }, bat: bat && { x: bat.x, y: bat.y + 20 * u }, rope: R0 && { x: R0.x + Math.sin(S.ropeA) * R0.len * 0.75, y: R0.y0 + R0.len * 0.75 }, ropeV: S.ropeV, toll: S.rings.some(g => g.kind === 'toll'), colony: S.col.length, elders: Lo.slots.filter(s => s.kind === 'elder').length, low: Lo.low, flier: !!S.flier, rings: S.rings.length, calls: S.calls.length, beams: Lo.beams.length, slots: Lo.slots.length, more: Lo.more };
   };
 
   // for tests: the box each hanging thing (and its name) takes up
   RO._hang = function () {
     const Lo = cache, u = R.u;
     if (!Lo) return [];
-    const out = Lo.slots.map(s => s.kind === 'bat' ? { x0: s.x - 16 * u, x1: s.x + 16 * u, y0: s.y, y1: s.y + 46 * u } : { x0: s.x - 7 * u, x1: s.x + 7 * u, y0: s.y, y1: s.y + 24 * u });
+    const out = Lo.slots.map(s => s.kind !== 'pup' ? { x0: s.x - 16 * u, x1: s.x + 16 * u, y0: s.y, y1: s.y + 46 * u } : { x0: s.x - 7 * u, x1: s.x + 7 * u, y0: s.y, y1: s.y + 24 * u });
     for (const g of Lo.groups) if (g.cx !== undefined) out.push({ x0: g.cx - 30 * u, x1: g.cx + 30 * u, y0: Lo.beams[g.beam] + 34 * u, y1: Lo.beams[g.beam] + 46 * u });
     return out;
   };
@@ -466,24 +583,35 @@
     if (kind === 'owlstone') for (let i = 0; i < 2; i++) { const x = w * (0.42 + i * 0.2), y = h * 0.26; for (let e = -1; e <= 1; e += 2) { R.glow(g, x + e * 3.5 * pu, y, 7 * pu, '#ffb347', 0.8); g.fillStyle = '#ffd27a'; g.fillRect(x + (e * 3.5 - 1) * pu, y - pu, 2 * pu, 2 * pu); } }
     if (kind === 'chalk' || kind === 'hush') for (let i = 0; i < 14; i++) { const x = rr.range(0.05, 0.8) * w, y = h * rr.range(0.08, 0.2); R.glow(g, x, y, 5 * pu, P.glowworm, 0.7); }
     if (kind === 'hush') { g.fillStyle = 'rgba(200,200,214,0.12)'; for (let i = 0; i < 9; i++) { g.beginPath(); g.ellipse(rr.range(0, w), h * 0.88, rr.range(14, 30) * pu, rr.range(4, 8) * pu, 0, 0, TAU); g.fill(); } }
-    // the route, lit by echoes, from the bat to the arch
-    const bx = w * 0.18, by = h * 0.5;
-    for (let i = 0; i <= 26; i++) {
-      const k = i / 26, x = bx + (ax - aw * 0.6 - bx) * k, y = by + Math.sin(k * Math.PI * 2 + ph[0]) * h * 0.12 * Math.sin(k * Math.PI);
-      g.globalAlpha = 0.85 * (1 - k * 0.6); g.fillStyle = PP.P.teal; g.fillRect(x - pu, y - pu, 2 * pu, 2 * pu);
-      if (i % 3 === 0) R.glow(g, x, y, 6 * pu, PP.P.teal, 0.3 * (1 - k));
+    // the route, lit by echoes, from the bat into the moonlit arch, with arrows pointing the way
+    const bx = w * 0.2, by = h * 0.55, ex = ax, ey = ay + ah * 0.18;
+    const rx = k => bx + 16 * pu + (ex - bx - 16 * pu) * k, ry = k => by + (ey - by) * k + Math.sin(k * Math.PI * 2 + ph[0]) * h * 0.1 * Math.sin(k * Math.PI);
+    R.glow(g, ex, ey, aw * 0.9, P.moon, 0.35);
+    const N = 30;
+    for (let i = 0; i <= N; i++) {
+      const k = i / N, x = rx(k), y = ry(k);
+      g.globalAlpha = 0.95 - k * 0.35; g.fillStyle = PP.P.teal;
+      if (i % 6 === 3 && i < N - 2) {
+        // a chevron along the route
+        const a = Math.atan2(ry(k + 0.01) - y, rx(k + 0.01) - x), c = 4.2 * pu;
+        g.save(); g.translate(x, y); g.rotate(a);
+        g.strokeStyle = PP.P.teal; g.lineWidth = 1.6 * pu; g.lineCap = 'round'; g.lineJoin = 'round';
+        g.beginPath(); g.moveTo(-c * 0.6, -c); g.lineTo(c * 0.4, 0); g.lineTo(-c * 0.6, c); g.stroke();
+        g.restore();
+        R.glow(g, x, y, 9 * pu, PP.P.teal, 0.35 * (1 - k * 0.5));
+      } else g.fillRect(x - pu, y - pu, 2 * pu, 2 * pu);
     }
     g.globalAlpha = 1;
     // the pups waiting, if this cave has pups to bring home
     if (def.mission === 'kin' || (def.pups && (def.pups.length || def.pups > 0))) {
       const n = Math.min(3, Array.isArray(def.pups) ? def.pups.length : def.pups || 2);
-      for (let i = 0; i < n; i++) { const x = w * (0.4 + i * 0.13), y = h * 0.3 + i % 2 * 4 * pu; R.glow(g, x, y + 6 * pu, 12 * pu, PP.P.pink, 0.45); R.drawPup(g, x, y, 0.4 + i, 0, 0.85 * pu); }
+      for (let i = 0; i < n; i++) { const x = w * (0.42 + i * 0.12), y = h * 0.24 + i % 2 * 4 * pu; R.glow(g, x, y + 6 * pu, 12 * pu, PP.P.pink, 0.45); R.drawPup(g, x, y, 0.4 + i, 0, 0.85 * pu); }
     }
     // an escape: what is coming, behind you
     if (def.mission === 'escape') { const eg = g.createLinearGradient(0, 0, w * 0.16, 0); eg.addColorStop(0, kind === 'drowned' ? 'rgba(40,110,200,0.75)' : 'rgba(255,74,107,0.45)'); eg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = eg; g.fillRect(0, 0, w * 0.16, h); }
     // your bat, on the wing
     const bat = PP.batById(batId) || PP.batById('pip');
-    R.drawBat(g, { x: bx, y: by, vx: 200, face: 1, flap: 1.1, glide: 0, blink: 1, rim: 0.4 }, 0, Math.min(h / 68, w / 200), bat.look, { glow: true, still: true });
+    R.drawBat(g, { x: bx, y: by, vx: 200, face: 1, flap: 1.1, glide: 0, blink: 1, rim: 0.4 }, 0, Math.min(h / 74, w / 210), bat.look, { glow: true, still: true });
     R.ppu = ppu;
   };
 })();

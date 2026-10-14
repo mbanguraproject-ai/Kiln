@@ -163,6 +163,17 @@ const GOALS = {
       await pg.waitForTimeout(5200);
       check(!(await pg.evaluate(() => PP.roost._dbg().flier)), `roost ${tag}: the bat hangs back up`);
       if (w === 390) {
+        // the tiles are compact (the owner, 14 October: 10-15% shorter than the first Roost's 98 px), and Requests' count
+        // sits right over the end of its bar
+        const T = await pg.evaluate(() => {
+          const rr = el => el.getBoundingClientRect();
+          const tiles = [...document.querySelectorAll('.mtile')].map(t => Math.round(rr(t).height)), widths = [...document.querySelectorAll('.mtile')].map(t => Math.round(rr(t).width)), cut = [...document.querySelectorAll('.mtile h3')].filter(e => e.scrollWidth > e.clientWidth + 1).length;
+          const cnt = rr(document.querySelector('.rqcount')), bar = rr(document.querySelector('.rqbar'));
+          return { tiles, widths, cut, cnt: cnt.right, bar: bar.right, segs: document.querySelectorAll('.rqbar i').length, reqs: PP.data.requests.length, yellow: [...document.querySelectorAll('.hero *')].filter(e => /255, 2(07|24), (90|138)|255, 178, 46/.test(getComputedStyle(e).backgroundImage + getComputedStyle(e).backgroundColor)).map(e => e.className) };
+        });
+        check(T.tiles.every(t => t <= 88) && new Set(T.tiles).size === 1 && T.widths.every(x => x <= 124) && !T.cut, 'roost: the four tiles are compact (shorter and narrower), the same size, every title whole', T.widths[0] + ' x ' + T.tiles[0] + ' px');
+        check(Math.abs(T.cnt - T.bar) <= 2 && T.segs === T.reqs, 'roost: Requests has one segment per request, its count over the bar\'s end', `count ends ${Math.round(T.cnt)}, bar ${Math.round(T.bar)}, ${T.segs} segments`);
+        check(T.yellow.length === 1 && /hero-fly/.test(T.yellow[0]), 'roost: on the Long Rain card only Fly is gold', T.yellow.join(' | '));
         // the Long Rain: the next cave, and Fly starts it
         const nx = await pg.evaluate(() => [PP.game.nextUp().cv.id, document.querySelector('.hero h3').textContent, PP.game.nextUp().why]);
         check(nx[0] === '2-3' && nx[1] === 'The Siphon Pool' && nx[2] === 'Next cave', 'roost: the Long Rain shows the next cave', nx.join(' · '));
@@ -170,6 +181,15 @@ const GOALS = {
         const fl = await pg.evaluate(() => [PP.ui.curName, PP.game.last && PP.game.last.cave && PP.game.last.cave.id]);
         check(fl[0] === 'flight' && fl[1] === '2-3', 'roost: the Long Rain\'s Fly starts that cave', fl.join(' '));
         const fresh = await pg.evaluate(() => { __ppTest.reset(); return [PP.game.nextUp().cv.id, PP.game.nextUp().why]; });
+        // a new player's belfry is not empty: the old colony sleeps on the beams, the lower belfry has the colony
+        // circling and the bell rope, and pulling the rope tolls the bell through the whole belfry
+        await pg.evaluate(() => __ppTest.show('roost'));
+        await pg.waitForTimeout(900);
+        const lo = await pg.evaluate(() => PP.roost._dbg());
+        check(lo.elders >= 3 && lo.colony >= 5 && lo.rope && lo.low.h > 70, 'roost: a new player\'s belfry is alive (sleeping elders, a circling colony, the bell rope)', `${lo.elders} elders, ${lo.colony} flying, low ${Math.round(lo.low.h)} px`);
+        await pg.mouse.click(lo.rope.x, lo.rope.y);
+        const tl = await pg.evaluate(() => PP.roost._dbg());
+        check(tl.toll && tl.ropeV > 0, 'roost: pulling the bell rope tolls the bell');
         const done = await pg.evaluate(() => { __ppTest.clearAll(); return [PP.game.nextUp().cv.id, PP.game.nextUp().why]; });
         check(fresh[0] === '1-1' && fresh[1] === 'Next cave' && done[0] === '5-1', 'roost: a new player is sent to 1-1; a finished campaign to the finale', fresh.concat(done).join(' · '));
         await pg.evaluate(() => __ppTest.show('roost'));
