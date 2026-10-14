@@ -14,7 +14,7 @@ const { serve } = require('./serve.cjs');
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : d; };
 const W = +arg('w', 1920), H = +arg('h', 1080), DPR = +arg('dpr', 1), FPS = +arg('fps', 60);
 const OUT = path.resolve(arg('out', path.join(__dirname, '..', 'store', `trailer-${H * DPR}p${FPS}.mp4`)));
-const only = arg('only', '').split(',').filter(Boolean);
+const only = arg('only', '').split(',').filter(Boolean), PREVIEW = process.argv.includes('--preview');
 const TMP = fs.mkdtempSync(path.join(require('os').tmpdir(), 'pp-trailer-'));
 const XF = 0.4; // crossfade between shots, seconds
 
@@ -24,20 +24,20 @@ const SHOTS = [
   { id: 'title', secs: 3.4, layers: [],
     setup: `__ppTest.reset(); __ppTest.show('title'); document.querySelector('.title .actions').style.visibility = 'hidden'; __ppTest.step(1.5);` },
   { id: 'chalk', secs: 5.6, kicker: 'Chalk Hollows', title: 'Chirp to see in the dark', layers: ['deep'],
-    setup: `__trailer.campaign(); __ppTest.startCave('1-3', 'pip'); __ppTest.autopilot(true, {}); __ppTest.step(3.2);` },
+    setup: `__trailer.campaign(); __ppTest.startCave('1-2', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'pups', secs: 5, kicker: 'Kin', title: 'Bring the lost pups home', layers: ['pups'],
-    setup: `__trailer.campaign(); __ppTest.startCave('1-5', 'pip'); __ppTest.autopilot(true, {}); __ppTest.step(9); for (let i = 0; i < 3; i++) __ppTest.give('pup'); __ppTest.step(0.8);` },
+    setup: `__trailer.campaign(); __ppTest.startCave('1-4', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(11); for (let i = 0; i < 3; i++) __ppTest.give('pup'); __ppTest.step(0.8);` },
   { id: 'flood', secs: 5, kicker: 'The Drowned Halls', title: 'Outrun the flood', layers: ['danger'],
     setup: `__trailer.campaign(); __ppTest.startCave('2-6', 'skimmer'); __ppTest.autopilot(true, { fast: true }); __ppTest.step(8.5);` },
   { id: 'glass', secs: 5, kicker: 'The Glass Vaults', title: 'Crystal holds your echo', layers: ['deep'],
-    setup: `__trailer.campaign(); __ppTest.startCave('3-1', 'comb'); __ppTest.autopilot(true, {}); __ppTest.step(5.5);` },
+    setup: `__trailer.campaign(); __ppTest.startCave('3-1', 'comb'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'owls', secs: 5, kicker: 'The Owlstone Crypt', title: 'Slip past the owls', layers: ['danger', 'deep'],
     setup: `__trailer.campaign(); __ppTest.startCave('4-1', 'hark'); __ppTest.autopilot(true, { careful: true }); __trailer.until(() => PP.L.owls.some(o => Math.hypot(o.x - PP.G.bat.x, o.y - PP.G.bat.y) < 620), 40);`,
     frames: { 150: `__ppTest.shriek();` } },
   { id: 'lady', secs: 5, kicker: 'Set piece', title: 'Something hunts by ear', layers: ['danger'],
     setup: `__trailer.campaign(); __ppTest.startCave('4-6', 'pip'); __ppTest.autopilot(true, { fast: true }); __ppTest.step(10);` },
   { id: 'hush', secs: 4.4, kicker: 'The Hush', title: 'Five biomes. Twenty-five caves.', layers: ['exit'],
-    setup: `__trailer.campaign(); __ppTest.startCave('5-1', 'pip'); __ppTest.autopilot(true, {}); __ppTest.step(7);` },
+    setup: `__trailer.campaign(); __ppTest.startCave('5-1', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'roost', secs: 5.2, kicker: 'The Roost', title: 'Your colony comes home', layers: ['pups', 'exit'],
     setup: `__trailer.campaign(); __ppTest.show('roost'); __ppTest.step(0.5);`,
     frames: { 40: `__trailer.tapOpen();`, 120: `__trailer.tapBat();` } },
@@ -75,6 +75,8 @@ function prelude() {
   await page.evaluate(() => {
     __ppTest.quality('ultra');
     PP.R.quality.frame = () => {};
+    // no tutorial tips or toasts over the captions
+    PP.run.hint = () => {}; PP.run.toast = () => {};
     // every sound the game plays is logged at the virtual time, nothing plays live
     Kit.sfx = (name, o) => { __trailer.log.push([__vt / 1000, name, o ? JSON.parse(JSON.stringify(o)) : null]); return true; };
     // the caption: a kicker over a title, in the game's own type, lower left
@@ -90,6 +92,21 @@ function prelude() {
   });
 
   const shots = SHOTS.filter(s => !only.length || only.includes(s.id));
+  // --preview: one still from the middle of each shot, to choose shots quickly
+  if (PREVIEW) {
+    const dir = path.resolve(arg('dir', path.join(__dirname, '..', 'shots')));
+    fs.mkdirSync(dir, { recursive: true });
+    for (const S of shots) {
+      await page.evaluate(src => { window.__vtOn = false; PP.loop.start(); (0, eval)(src); PP.loop.stop(); window.__vt = performance.now(); window.__vtOn = true; }, S.setup);
+      await page.evaluate(([k, t]) => { const c = document.getElementById('tcap'); c.children[0].textContent = k || ''; c.children[1].textContent = t || ''; c.style.opacity = t ? 1 : 0; }, [S.kicker, S.title]);
+      const N = Math.round(S.secs * FPS / 2);
+      for (let f = 0; f < N; f++) await page.evaluate(([dt, act]) => { window.__vt += dt; if (act) (0, eval)(act); PP.loop.step(1); }, [1000 / FPS, S.frames && S.frames[f] || null]);
+      await page.screenshot({ path: path.join(dir, `trailer-${S.id}.png`) });
+      console.log('preview', S.id);
+    }
+    await browser.close(); srv.close(); fs.rmSync(TMP, { recursive: true, force: true });
+    return;
+  }
   const segs = [], soundtrack = [];
   let tFinal = 0;
   for (let si = 0; si < shots.length; si++) {
