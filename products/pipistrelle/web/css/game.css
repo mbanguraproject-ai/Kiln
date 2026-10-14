@@ -113,9 +113,9 @@ button.card:active { transform: scale(0.99); }
 .mcard .dot-new, .mtile .dot-new { position: absolute; top: 0.5rem; right: 0.5rem; }
 
 /* the four ways to play: compact tiles in the belfry's top corners */
-.roost-modes { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; margin-top: 0.5rem; pointer-events: none; }
-.mcol { display: flex; flex-direction: column; gap: 0.45rem; width: min(7.6rem, 32vw); }
-.mtile { pointer-events: auto; padding: 0.46rem 0.55rem 0.5rem; gap: 0.2rem; border-radius: 0.9rem; animation: tile-in 0.45s ease-out backwards; }
+.roost-modes { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.6rem; margin-top: 0.7rem; pointer-events: none; }
+.mcol { display: flex; flex-direction: column; gap: 0.85rem; width: min(7rem, 29vw); }
+.mtile { pointer-events: auto; padding: 0.46rem 0.5rem 0.5rem; gap: 0.2rem; border-radius: 0.9rem; animation: tile-in 0.45s ease-out backwards; }
 .mcol:first-child .mtile:nth-child(2), .mcol:last-child .mtile:nth-child(2) { animation-delay: 0.06s; }
 @keyframes tile-in { from { opacity: 0; transform: translateY(-0.4rem) scale(0.97); } }
 .mhead { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 0.3rem; }
@@ -123,7 +123,7 @@ button.card:active { transform: scale(0.99); }
 .mtile .medal svg { width: 1.02rem; height: 1.02rem; }
 .mchip { font: 800 0.58rem/1 var(--display); letter-spacing: 0.03em; color: color-mix(in srgb, var(--acc) 70%, #ffffff); padding: 0.24rem 0.4rem; border-radius: 1rem; background: color-mix(in srgb, var(--acc) 14%, rgba(0,0,0,0.4)); box-shadow: inset 0 0 0 0.07rem color-mix(in srgb, var(--acc) 40%, transparent); white-space: nowrap; }
 .mtile.done .mchip { color: #c9ffe8; background: rgba(79,240,170,0.14); box-shadow: inset 0 0 0 0.07rem rgba(79,240,170,0.45); }
-.mtile h3 { position: relative; font-size: 0.74rem; line-height: 1.1; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mtile h3 { position: relative; font-size: 0.7rem; line-height: 1.1; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mtile p { position: relative; font-size: 0.645rem; line-height: 1.2; min-height: 2.4em; color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* the bottom: the Long Rain (the next cave, as a picture of its biome) and Requests */
@@ -182,9 +182,9 @@ button.card:active { transform: scale(0.99); }
 .rqbar i b { position: absolute; inset: 0 auto 0 0; width: var(--k); border-radius: inherit; background: color-mix(in srgb, var(--acc) 45%, transparent); }
 .rqbar i.on b { width: 100%; background: var(--acc); box-shadow: 0 0 0.45rem var(--acc); }
 /* the narrowest phones: the tiles' type a touch smaller, so every title fits */
-@media (max-width: 380px) { .mtile { padding-left: 0.5rem; padding-right: 0.5rem; } .mtile h3 { font-size: 0.7rem; } }
+@media (max-width: 380px) { .mtile { padding-left: 0.42rem; padding-right: 0.42rem; } .mtile h3 { font-size: 0.66rem; } }
 @media (orientation: landscape) and (min-aspect-ratio: 4/3) {
-  .mcol { width: min(9.3rem, 19.5vw); }
+  .mcol { width: min(8.4rem, 17.5vw); gap: 0.9rem; }
   .mtile h3 { font-size: 0.78rem; }
   /* side by side at the bottom: the Long Rain as a wide card, its picture on the left, and Requests beside it */
   .roost-ui .home-menu { flex-direction: row; align-items: stretch; width: min(52rem, 76vw); }

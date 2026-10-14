@@ -127,6 +127,9 @@
       A.cur = { pups: false, danger: false, exit: false, deep: false };
     },
     menu() { Kit.music.play(A.song('chalk')); },
+    // render a biome's song ahead (in the menus), so the cave's music plays from rendered stems from its first note
+    // and never stutters (vendor/kit.js, PRE)
+    prepare(biomeId) { if (Kit.music.prepare) Kit.music.prepare(A.song(biomeId)); },
     layers(G, L) {
       if (!A.cur) return;
       const want = {

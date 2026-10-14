@@ -165,6 +165,27 @@ Kiln hub.
 - Store-safe names for each game (see D3).
 - The owner's reference phone (D4), privacy policy URL and support contact (D9).
 
+## D16. Pipistrelle stays one Android app with a web renderer; stutter is fixed at its causes (14 October 2026)
+
+The owner, on 14 October: "the game is super laggy, stutter in game music when playing at particular time, if the
+problem is because it's a web game make it a full Android game." Pipistrelle already ships as a full Android app
+(Capacitor, its own APK and Play listing); what runs inside it is the game's JavaScript and a 2D canvas. The
+stutters had two causes, neither of which a native rewrite would have removed by itself:
+
+- **The music was synthesised live on the main thread**, note by note, scheduled only 0.12 s ahead from timers, so
+  any long frame delayed or dropped notes. Songs are short loops, so each is now rendered once, off the main thread
+  (an OfflineAudioContext), into looping stems: the base and one per adaptive layer, which fade in and out in sync.
+  The music no longer depends on the frame rate at all (`web/vendor/kit.js`, PRE).
+- **The graphics safety net re-learned the device at the start of every cave.** It counted the cheap menu frames
+  too, so it climbed back to full quality in every menu and then stepped down again in the cave, repainting its
+  caches at every step: several hitches each time. It now counts only frames that draw a cave and remembers what the
+  device can hold between sessions (`web/js/render/quality.js`).
+
+A native rewrite (Kotlin with OpenGL, or a game engine) would mean months of work redoing 25 caves, their hazards,
+missions, tests and art, for the same rendering cost unless the renderer were redesigned anyway. If a phone still
+cannot hold a steady frame, the next step is a GPU (WebGL) renderer inside the same app, judged on that phone's
+numbers: Settings → Display now shows the frame rate measured in the caves.
+
 ## Roadmap status (blueprint §18)
 
 | Phase | State |

@@ -35,6 +35,8 @@
     upAt: -1e9, locked: false, // a step down soon after a step up means the device sits at the edge: stay put
     log: [],             // recent frame intervals, for tests
     steps: [],           // what the safety net did, for tests: 'level:<id>' or 'scale:<g>'
+    idle: true,          // not drawing a cave right now (a menu): frames are not counted
+    caveEma: 16.7,       // the frame interval in the caves, for Settings
     set(id) {
       if (R.TIERS[id]) { Q.setting = 'native'; Q.pinned = id; }
       else { Q.setting = id === 'saver' ? 'saver' : 'native'; Q.pinned = null; }
@@ -50,8 +52,13 @@
       const full = cssW * cssH * dpr * dpr, max = Q.setting === 'saver' ? SAVER_MAX : NATIVE_MAX;
       return Math.min(1, Math.sqrt(max / full)) * Q.g;
     },
-    // called once per displayed frame with the interval since the last one and the CPU time spent
-    frame(dtMs, workMs) {
+    // called once per displayed frame with the interval since the last one, the CPU time spent, and whether the
+    // frame drew a cave. Only cave frames count (the owner, 14 October: stutters at particular times): a menu draws
+    // far less, so counting it let the net climb back to full quality in every menu and then step down again,
+    // repainting the caches at every step, at the start of every cave.
+    frame(dtMs, workMs, cave) {
+      if (cave === false) { Q.idle = true; return; }
+      if (Q.idle) { Q.idle = false; Q.frames = 0; Q.slowT = 0; Q.fastT = 0; Q.ema = 16.7; Q.work = 4; }
       // a gap over a second is a pause (app hidden, a breakpoint), not a slow frame; anything else counts, capped,
       // so a device that is very slow still steps down instead of being ignored
       if (!(dtMs > 0) || dtMs > 1000) return;
@@ -60,7 +67,9 @@
       Q.ema += (dtMs - Q.ema) * 0.08;
       Q.work += (workMs - Q.work) * 0.08;
       Q.log.push(dtMs); if (Q.log.length > 240) Q.log.shift();
-      if (Q.frames < 20 || Q.pinned) return;
+      if (Q.frames > 30) Q.caveEma += (dtMs - Q.caveEma) * 0.05;
+      // the first frames of a cave paint its caches: not a measure of the device
+      if (Q.frames < 30 || Q.pinned) return;
       const slow = Q.ema > 19.5, fast = Q.ema < 17.6 && Q.work < 9;
       Q.slowT = slow ? Q.slowT + dtMs : 0;
       Q.fastT = fast ? Q.fastT + dtMs : 0;
@@ -70,16 +79,33 @@
         Q.slowT = 0;
         if (now - Q.upAt < 20000) Q.locked = true;
         // shed effects first; lower the resolution only when there is nothing left to shed
-        if (i > 0) { Q.tier = R.TIERS[ORDER[i - 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; }
-        else if (Q.g > FLOOR + 0.001) { Q.g = Math.max(FLOOR, Q.g * 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; }
+        if (i > 0) { Q.tier = R.TIERS[ORDER[i - 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; Q.save(); }
+        else if (Q.g > FLOOR + 0.001) { Q.g = Math.max(FLOOR, Q.g * 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; Q.save(); }
       } else if (Q.fastT > 6000 && !Q.locked) {
         Q.fastT = 0;
         // and climb back the same way, slowly: resolution first, then effects. Each change costs a moment of
         // repainting, so a device that bounces between two levels is left at the lower one (locked) instead of
         // stuttering every few seconds.
-        if (Q.g < 1) { Q.g = Math.min(1, Q.g / 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; Q.upAt = now; }
-        else if (i < ORDER.indexOf(Q.top())) { Q.tier = R.TIERS[ORDER[i + 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; Q.upAt = now; }
+        if (Q.g < 1) { Q.g = Math.min(1, Q.g / 0.92); Q.steps.push('scale:' + Q.g.toFixed(2)); R.dirty = true; Q.upAt = now; Q.save(); }
+        else if (i < ORDER.indexOf(Q.top())) { Q.tier = R.TIERS[ORDER[i + 1]]; Q.steps.push('level:' + Q.tier.id); R.dirty = true; Q.upAt = now; Q.save(); }
       }
+    },
+    // What the net learned is kept for this screen (and setting), so the next session starts where this device
+    // runs smoothly: the stepping (and the repainting each step costs) happens once, not at the start of every
+    // session's first cave.
+    key() { return (screen.width || 0) + 'x' + (screen.height || 0) + '@' + (window.devicePixelRatio || 1) + '|' + Q.setting; },
+    save() {
+      if (Q.pinned) return;
+      try { localStorage.setItem('pp.quality', JSON.stringify({ key: Q.key(), tier: Q.tier.id, g: +Q.g.toFixed(3), locked: Q.locked })); } catch (e) { /* storage unavailable */ }
+    },
+    learned() {
+      if (Q.pinned) return false;
+      let v = null;
+      try { v = JSON.parse(localStorage.getItem('pp.quality') || 'null'); } catch (e) { v = null; }
+      if (!v || v.key !== Q.key() || !R.TIERS[v.tier] || ORDER.indexOf(v.tier) > ORDER.indexOf(Q.top())) return false;
+      Q.tier = R.TIERS[v.tier]; Q.g = Math.max(FLOOR, Math.min(1, +v.g || 1)); Q.locked = !!v.locked;
+      R.dirty = true;
+      return true;
     },
     stats() {
       const a = Q.log.slice().sort((x, y) => x - y);
