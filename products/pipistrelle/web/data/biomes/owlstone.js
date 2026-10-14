@@ -80,7 +80,7 @@
     ],
     ambient: { motes: { color: '#efe2cc', drift: -9 }, shafts: 3, glowworms: false },
     hazards: ['owls', 'greylady', 'crystal', 'webs', 'stals', 'drips'],
-    gen: { drain: 1.66, rad: 110, H: 1200, screens: 10, moths: 24, branches: 3, loops: 0.25 },
+    gen: { drain: 1.66, rad: 110, H: 1200, screens: 10, moths: 24, branches: 3, loops: 0.25, layout: 'crypt' },
     audio: {
       echo: { verb: 0.8, cut: 3600 },
       ambience: { wind: 0.3, owlFar: true },
@@ -102,7 +102,7 @@
 
     caves: [
       {
-        id: '4-1', name: 'Feathers', seed: 4101, mission: 'hush',
+        id: '4-1', name: 'Feathers', seed: 4101, mission: 'hush', layout: 'tunnel',
         screens: 9, H: 1140, rad: 114, moths: 24, drain: 1.62, branches: 3, loops: 0.15,
         pups: [{ at: 'chamber' }, { at: 0.6 }],
         hazards: { owls: { n: 3, light: true } },
@@ -129,7 +129,7 @@
         scratch: { at: 0.58, text: 'The deep sleepers dream of mice. Do not be the loudest mouse.' },
       },
       {
-        id: '4-4', name: 'Decoy', seed: 4404, mission: 'kin',
+        id: '4-4', name: 'Decoy', seed: 4404, mission: 'kin', layout: 'tunnel',
         screens: 10, H: 1200, rad: 110, moths: 24, drain: 1.66, branches: 3, loops: 0.2,
         pups: [{ at: 'chamber' }, { at: 'chamber' }, { at: 0.7 }],
         hazards: { owls: { n: 3, light: true }, crystal: { chamber: true, patches: 3 } },

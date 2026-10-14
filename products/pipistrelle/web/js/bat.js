@@ -209,10 +209,19 @@
     b.bumpCd = 0.25;
     // Glean: brushing a wall to pluck a moth is not a bump
     if (B.ability('glean') && PP.L.moths.some(m => !m.dead && dist(m.x, m.y, b.x, b.y) < 60)) return;
-    const cost = T.bump.base + impact / T.bump.perSpeed;
+    const crash = impact > T.bump.crashAbove;
+    const cost = T.bump.base + impact / T.bump.perSpeed + (crash ? T.bump.crash : 0);
     G.lastBumpCost = cost;
     PP.run.damage(cost, 'bump', true);
-    if (impact > T.bump.stunAbove) b.stun = st.bumpStun;
+    if (impact > T.bump.stunAbove) b.stun = st.bumpStun * (crash ? 1.6 : 1);
+    if (crash && G.mode === 'play' && G.kind !== 'practice' && !PP.settings.get('gentle')) {
+      // a crash, not a brush: the player sees and feels what it cost
+      Kit.fx.float('-' + Math.round(cost), b.x, b.y - 22, { color: PP.P.red, size: 18 });
+      Kit.fx.flash(PP.P.red, 120, 0.16);
+      Kit.fx.shake(7, 200);
+      PP.sfx('thud', { vol: 0.8 });
+      PP.haptic(28);
+    }
     b.sx = 1 + Math.abs(ny) * 0.25 - Math.abs(nx) * 0.18; b.sy = 1 + Math.abs(nx) * 0.25 - Math.abs(ny) * 0.18;
     Kit.tween(b, { sx: 1, sy: 1 }, 380, 'elasticOut');
     const cx = b.x - nx * b.r, cy = b.y - ny * b.r;

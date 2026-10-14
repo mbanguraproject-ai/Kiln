@@ -89,6 +89,14 @@ Quit to map).
   resolution ... not lousy tiers"). A safety net sheds effects first and lowers resolution only as a last resort,
   never below 75%. Battery saver is the one setting. Effects change fidelity, never information: echo pools, ray
   counts and lifetimes are the same at every level.
+- Losing is real (the owner, 14 October: "the game is too easy for reward ads to be meaningful"):
+  - the drain is doubled, and moths are worth 6;
+  - hazards hit hard and full-speed crashes cost more;
+  - past a cave's par time the drain climbs to double.
+
+  The bot must still earn every Moon (the tests check it).
+- Variety (14 October): six cave architectures. Biomes open after the third cave of the one before, the Nightly Cave
+  visits every biome, and colony bats fly by.
 - Rock and echo memory in 256 px chunks (LRU cache) with vector rims stroked from the segments, a per-biome 512 px
   detail pattern composited at device resolution, a dithered glow atlas (64, 256, 512 px), bloom as core plus halo
   sprites (no `ctx.filter`, no `shadowBlur`), nothing drawn below 2 device px, high detail only from 6 device px,

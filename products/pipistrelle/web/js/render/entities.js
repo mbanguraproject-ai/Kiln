@@ -164,10 +164,11 @@
       const fl = Math.sin(t * 16 + k * 1.7);
       ctx.save();
       ctx.translate(p.x, p.y);
+      ctx.scale(1.3, 1.3);
       ctx.fillStyle = '#5a3a40';
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 2, -1); ctx.quadraticCurveTo(s * 9, -6 - fl * 5, s * 14, -2 - fl * 6); ctx.quadraticCurveTo(s * 8, 2, s * 2, 3); ctx.fill(); }
+      for (let s = -1; s <= 1; s += 2) { ctx.beginPath(); ctx.moveTo(s * 2, -1); ctx.quadraticCurveTo(s * 9, -6 - fl * 5, s * 14, -2 - fl * 6); ctx.quadraticCurveTo(s * 8, 2, s * 2, 3); ctx.fill(); }
       ctx.restore();
-      R.drawPup(ctx, p.x, p.y, t + k, p.flip, 1);
+      R.drawPup(ctx, p.x, p.y, t + k, p.flip, 1.3);
       if (p.heart > 0.02) R.drawHeart(ctx, p.x, p.y - 18 - (1 - p.heart) * 14, 6, PP.P.pink, p.heart);
     }
   };
@@ -195,6 +196,8 @@
   const lBuckets = [];
   for (let c = 0; c < NC; c++) { lBuckets.push([]); for (let b = 0; b < LB; b++) lBuckets[c].push(new Int32Array(P0.LN)); }
   const lCount = new Int32Array(NC * LB);
+  const DB = 12, DCAP = 2048, dBuf = new Int32Array(NC * DB * DCAP * 3), dCount = new Int32Array(NC * DB), DA = [];
+  for (let k = 0; k < DB; k++) DA.push((k + 0.5) / DB);
   R.drawEcho = function (ctx, V, t) {
     const P = PP.echo.pools, { x0, y0, x1, y1 } = V;
     const shapes = PP.settings.get('shapes');
@@ -221,6 +224,9 @@
       ctx.stroke();
       if (bk === LB - 1 && R.quality.tier.bloom) { ctx.globalAlpha = 0.1; ctx.lineWidth = 6; ctx.stroke(); }
     }
+    // dots: grouped by colour and brightness, so each group sets its alpha once, and drawn in whole half-units
+    // (fractional arguments to canvas calls allocate, and there are hundreds of dots a frame)
+    dCount.fill(0);
     for (let i = 0; i < P.EN; i++) {
       const a = t - P.et[i], life = P.el[i];
       if (a < 0 || a > life) continue;
@@ -230,10 +236,24 @@
       const v = a < 0.06 ? 1 : Math.pow(1 - (a - 0.06) / (life - 0.06), 1.4);
       const al = Math.min(1, v * (0.75 + fresh * 0.5));
       if (al < 0.03) continue;
-      const r = P.es[i] * (4.2 + fresh * 4.2) * (shapes ? 1.25 : 1);
-      ctx.globalAlpha = al;
-      ctx.drawImage(R.dotSprite(P.ec[i], shapes), x - r, y - r, r * 2, r * 2);
+      const c = P.ec[i], bk = Math.min(DB - 1, (al * DB) | 0), slot = c * DB + bk, o = (slot * DCAP + dCount[slot]) * 3;
+      if (dCount[slot] >= DCAP) continue;
+      const r2 = (P.es[i] * (4.2 + fresh * 4.2) * (shapes ? 1.25 : 1) * 2 + 0.5) | 0;
+      dBuf[o] = (x * 2 - r2) | 0; dBuf[o + 1] = (y * 2 - r2) | 0; dBuf[o + 2] = r2 * 2;
+      dCount[slot]++;
     }
+    ctx.save();
+    ctx.scale(0.5, 0.5);
+    for (let c = 0; c < NC; c++) {
+      const spr = R.dotSprite(c, shapes);
+      for (let bk = 0; bk < DB; bk++) {
+        const slot = c * DB + bk, n = dCount[slot];
+        if (!n) continue;
+        ctx.globalAlpha = DA[bk];
+        for (let k = 0; k < n; k++) { const o = (slot * DCAP + k) * 3; ctx.drawImage(spr, dBuf[o], dBuf[o + 1], dBuf[o + 2], dBuf[o + 2]); }
+      }
+    }
+    ctx.restore();
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
   };

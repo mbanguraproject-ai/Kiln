@@ -25,7 +25,7 @@
       g.scale(k, k);
       g.translate(9, 8);
       g.beginPath();
-      for (const sd of [-1, 1]) {
+      for (let sd = -1; sd <= 1; sd += 2) {
         g.moveTo(0, -1); g.bezierCurveTo(sd * 2, -6.5, sd * 7.5, -5.5, sd * 6.6, -0.6); g.bezierCurveTo(sd * 4.5, 0.6, sd * 2, 0.4, 0, -1);
         g.moveTo(0, 0.6); g.bezierCurveTo(sd * 4.6, 0.4, sd * 5, 4.6, sd * 2.2, 5); g.bezierCurveTo(sd * 1, 4.8, 0, 3, 0, 0.6);
       }

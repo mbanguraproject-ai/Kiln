@@ -85,13 +85,17 @@
   // buffer at the silhouettes' own resolution, which then goes to the screen in a single opaque copy. Drawing the
   // far layers straight to such a screen would blend nearly three full screens of pixels for detail they do not
   // have.
+  const DENS = [0.75, 1, 1.25, 1.5, 2, 2.5], MA = [];
+  for (let i = 0; i < 6; i++) MA.push((i + 0.5) / 6 * 0.45);
   BD.draw = function (ctx, V) {
     const B = BD.biome, pal = B.palette, tier = R.quality.tier, z = V.zoom;
     let dens = 0;
-    for (const l of BD.layers) {
-      const d = l.def, cap = 2048 / Math.max(d.tw, d.th);
+    for (let i = 0; i < BD.layers.length; i++) {
+      const l = BD.layers[i], d = l.def, cap = 2048 / Math.max(d.tw, d.th);
       const want = Math.min(cap, z * V.k, tier.bgMax || 1.5);
-      tiles(l, Math.min(cap, [0.75, 1, 1.25, 1.5, 2, 2.5].find(s => s >= want - 1e-6) || 2.5));
+      let db = 2.5;
+      for (let j = 0; j < DENS.length; j++) if (DENS[j] >= want - 1e-6) { db = DENS[j]; break; }
+      tiles(l, Math.min(cap, db));
       dens = Math.max(dens, l.db);
     }
     // the buffer only where it saves at least a third of the pixels (phones and 4K screens); otherwise straight to
@@ -114,8 +118,8 @@
       Kit.gfx.sky(ctx, pal.sky);
     }
     const pxs = useBuf ? bs : V.k;
-    for (const l of BD.layers) {
-      const d = l.def, tw = d.tw * z, th = d.th * z;
+    for (let li = 0; li < BD.layers.length; li++) {
+      const l = BD.layers[li], d = l.def, tw = d.tw * z, th = d.th * z;
       const ox = -Kit.wrap(V.camX * z * d.depth, 0, tw), oy = -Kit.wrap(V.camY * z * d.depth, 0, th);
       g.globalAlpha = 0.85;
       tileDraw(g, l.dark, tw, th, ox, oy, V.w, V.h, d.band || 0.42, l.db / z);
@@ -125,7 +129,8 @@
         g.fillStyle = pal.glowworm;
         const ww = Math.max(z, 1.5 / pxs);
         for (let y = oy; y < V.h; y += th) for (let x = ox; x < V.w; x += tw) {
-          for (const wm of l.worms) {
+          for (let wi = 0; wi < l.worms.length; wi++) {
+            const wm = l.worms[wi];
             const px = x + wm.x * z, py = y + wm.y * z, len = wm.len * (d.depth < 0.3 ? 0.6 : 1) * z;
             if (px < -4 || px > V.w + 4 || py < -30 * z || py > V.h) continue;
             g.globalAlpha = (d.depth < 0.3 ? 0.18 : 0.3) * (0.55 + 0.45 * Math.sin(V.t * wm.sp + wm.ph));
@@ -232,24 +237,34 @@
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = amb.motes.color || '#dfe8ff';
     const sz = Vw.minW(1.6), rr = sz * 0.55, round = Vw.ppu >= 2, ex = L.W, ey = L.exitY, LV = 6; // round dust where pixels are fine enough to show it
-    const buckets = BD.moteBuckets || (BD.moteBuckets = Array.from({ length: LV }, () => []));
-    for (const bk of buckets) bk.length = 0;
-    for (const m of BD.motes) {
-      const x = Vw.x0 + Kit.wrap(m[0] * vw + t * drift * m[2], 0, vw), y = Vw.y0 + Kit.wrap(m[1] * vh + Math.sin(t * 0.5 + m[3]) * 10, 0, vh);
+    if (!BD.moteBuf || BD.moteBuf.length < LV * n * 2) { BD.moteBuf = new Int32Array(LV * n * 2); BD.moteN = new Int32Array(LV); }
+    const buf = BD.moteBuf, cnt = BD.moteN;
+    cnt.fill(0);
+    for (let mi = 0; mi < BD.motes.length; mi++) {
+      const m = BD.motes[mi];
+      const px = (m[0] * vw + t * drift * m[2]) % vw, py = (m[1] * vh + Math.sin(t * 0.5 + m[3]) * 10) % vh;
+      const x = Vw.x0 + (px < 0 ? px + vw : px), y = Vw.y0 + (py < 0 ? py + vh : py);
       const db = (x - b.x) * (x - b.x) + (y - b.y) * (y - b.y), de = (x - ex) * (x - ex) + (y - ey) * (y - ey);
       const a = Math.max(db < 25600 ? 1 - db / 25600 : 0, de < 250000 ? (1 - de / 250000) * 0.8 : 0) * (0.5 + 0.5 * Math.sin(t * 2 + m[3]));
       if (a < 0.06) continue;
-      buckets[Math.min(LV - 1, Math.floor(a * LV))].push(x, y);
+      const bi = Math.min(LV - 1, Math.floor(a * LV)), o = (bi * n + cnt[bi]++) * 2;
+      buf[o] = (x * 4) | 0; buf[o + 1] = (y * 4) | 0; // quarter units, whole numbers: no allocation per call
     }
+    ctx.save();
+    ctx.scale(0.25, 0.25);
+    const r4 = Math.max(1, (rr * 4 + 0.5) | 0), s4 = Math.max(1, (sz * 4 + 0.5) | 0);
     for (let i = 0; i < LV; i++) {
-      const bk = buckets[i];
-      if (!bk.length) continue;
-      ctx.globalAlpha = (i + 0.5) / LV * 0.45;
+      const c = cnt[i];
+      if (!c) continue;
+      ctx.globalAlpha = MA[i];
       ctx.beginPath();
-      if (round) for (let k = 0; k < bk.length; k += 2) { ctx.moveTo(bk[k] + rr, bk[k + 1]); ctx.arc(bk[k], bk[k + 1], rr, 0, TAU); }
-      else for (let k = 0; k < bk.length; k += 2) ctx.rect(bk[k], bk[k + 1], sz, sz);
+      for (let k = 0; k < c; k++) {
+        const o = (i * n + k) * 2;
+        if (round) { ctx.moveTo(buf[o] + r4, buf[o + 1]); ctx.arc(buf[o], buf[o + 1], r4, 0, TAU); } else ctx.rect(buf[o], buf[o + 1], s4, s4);
+      }
       ctx.fill();
     }
+    ctx.restore();
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
   };

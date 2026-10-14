@@ -22,8 +22,28 @@
     return tryCave(12345, Object.assign({}, spec, { rad: 110 }), true);
   };
 
+  // Cave architectures (the owner, 14 October: "why is it only one cave theme and structure"). Each biome has its
+  // own, and a cave can ask for another (data/biomes/*.js, layout):
+  //   tunnel  a winding passage with side branches (Chalk Hollows)
+  //   shafts  steep climbs and drops: the passage swings through most of the cave's height
+  //   halls   long, flat, wide halls held up by pillars you weave between (the Drowned Halls)
+  //   geodes  round geode rooms strung on narrow throats (the Glass Vaults)
+  //   crypt   straight corridors at right angles and rectangular rooms, kept square (the Owlstone Crypt)
+  //   cavern  one vast open cavern scattered with islands of rock (The Hush)
+  GEN.LAYOUTS = {
+    tunnel: { step: [190, 270], swing: 0.24, radK: 1, radVar: 1 },
+    shafts: { step: [140, 200], swing: 0.62, radK: 0.92, radVar: 0.8 },
+    halls: { step: [280, 380], swing: 0.06, radK: 1.32, radVar: 0.35, pillars: true, dips: true },
+    geodes: { step: [200, 280], swing: 0.2, radK: 0.6, radVar: 0.4, geodes: true },
+    crypt: { step: [240, 340], swing: 0, radK: 0.78, radVar: 0, ortho: true, rooms: true },
+    cavern: { step: [190, 270], swing: 0.3, radK: 0.9, radVar: 1, cavern: true },
+  };
+  GEN.layoutOf = sp => sp.layout || (PP.biome(sp.biome || 'chalk').gen || {}).layout || 'tunnel';
+
+  const pathLength = path => { let s = 0; for (let i = 1; i < path.length; i++) s += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y); return s; };
   function tryCave(seed, sp, force) {
     const r = Kit.rng(seed);
+    const LY = GEN.LAYOUTS[GEN.layoutOf(sp)] || GEN.LAYOUTS.tunnel;
     const W = Math.round(sp.screens * 420), WT = W + 320, H = sp.H;
     const cols = Math.ceil(WT / CELL), rows = Math.ceil(H / CELL), N = cols * rows;
     const exitCol = Math.floor((W - 30) / CELL);
@@ -37,23 +57,47 @@
         if (dx * dx + dy * dy <= r2) solid[j * cols + i] = 0;
       }
     };
+    // a square brush (the crypt's straight walls), and filling rock back in (pillars, islands)
+    const carveRect = (x, y, hw, hh) => {
+      if (hh === undefined) hh = hw;
+      const i0 = Math.max(0, Math.floor((x - hw) / CELL)), i1 = Math.min(cols - 1, Math.floor((x + hw) / CELL));
+      const j0 = Math.max(0, Math.floor((y - hh) / CELL)), j1 = Math.min(rows - 1, Math.floor((y + hh) / CELL));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) solid[j * cols + i] = 0;
+    };
+    const fill = (x, y, rad) => {
+      const i0 = Math.max(0, Math.floor((x - rad) / CELL)), i1 = Math.min(cols - 1, Math.floor((x + rad) / CELL));
+      const j0 = Math.max(0, Math.floor((y - rad) / CELL)), j1 = Math.min(rows - 1, Math.floor((y + rad) / CELL));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const dx = (i + 0.5) * CELL - x, dy = (j + 0.5) * CELL - y;
+        if (dx * dx + dy * dy <= rad * rad) solid[j * cols + i] = 1;
+      }
+    };
     // main path: control points across the cave, drifting up towards the exit on the right
     const exitY = H * r.range(0.22, 0.34);
     let x = 150, y = H * r.range(0.46, 0.6);
     const ctrl = [[120, y], [x + 20, y]];
     const m = sp.rad + 70;
     while (x < W - 420) {
-      x += r.range(190, 270);
+      x += r.range(LY.step[0], LY.step[1]);
       const pull = clamp((x - W * 0.45) / (W * 0.55), 0, 1);
-      y = clamp(y + r.range(-1, 1) * H * 0.24 + (exitY - y) * pull * 0.55, m, H - m);
+      if (LY.ortho) {
+        // a level run, then a straight drop or climb at the corner
+        ctrl.push([x, y]);
+        y = clamp(y + (r.chance(0.5) ? -1 : 1) * r.range(120, 260) + (exitY - y) * pull * 0.6, m, H - m);
+        ctrl.push([x, y]);
+        continue;
+      }
+      y = clamp(y + r.range(-1, 1) * H * LY.swing + (exitY - y) * pull * 0.55, m, H - m);
       ctrl.push([x, y]);
     }
+    if (LY.ortho) ctrl.push([W - 220, ctrl[ctrl.length - 1][1]]);
     ctrl.push([W - 220, exitY]);
     ctrl.push([W + 10, exitY]);
     const path = [];
     for (let i = 0; i < ctrl.length - 1; i++) {
       const p0 = ctrl[Math.max(0, i - 1)], p1 = ctrl[i], p2 = ctrl[i + 1], p3 = ctrl[Math.min(ctrl.length - 1, i + 2)];
       const steps = Math.ceil(dist(p1[0], p1[1], p2[0], p2[1]) / 8);
+      if (LY.ortho) { for (let k = 0; k < steps; k++) path.push({ x: lerp(p1[0], p2[0], k / steps), y: lerp(p1[1], p2[1], k / steps), r: 0 }); continue; }
       for (let k = 0; k < steps; k++) {
         const t = k / steps, t2 = t * t, t3 = t2 * t;
         const cr = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
@@ -64,14 +108,35 @@
     for (let i = 0; i < path.length; i++) {
       const p = path[i];
       p.y = clamp(p.y, sp.rad * 0.7 + 30, H - sp.rad * 0.7 - 30);
-      p.r = sp.rad * (0.86 + 0.26 * Math.sin(i * 0.021 + ph) * Math.sin(i * 0.0071 + ph * 2) + 0.14 * Math.sin(i * 0.057 + ph * 3));
+      p.r = sp.rad * LY.radK * (1 + LY.radVar * (0.26 * Math.sin(i * 0.021 + ph) * Math.sin(i * 0.0071 + ph * 2) + 0.14 * Math.sin(i * 0.057 + ph * 3) - 0.14));
       p.r = Math.max(p.r, 44);                                            // never narrower than a bat can turn in
       if (p.x < 260) p.r = Math.max(p.r, Math.min(110, sp.rad * 0.95));   // a roomy entrance
       if (sp.roomyMouth && p.x < W * 0.22) p.r = Math.max(p.r, sp.rad * 0.92);
       if (p.x > W - 300) p.r = Math.max(p.r * 0.95, 70);
       if (p.x > W) p.r = Math.min(p.r, 60);
     }
-    for (const p of path) carve(p.x, p.y, p.r);
+    if (LY.dips || sp.basins) {
+      // sunken basins along the flat halls, where water gathers into pools (rivers need a dip to fill): one where
+      // each river or flood of the cave's data lies, and a few more between
+      const hz = sp.hazards || {}, want = [];
+      for (const k of ['river', 'flood']) {
+        const at = hz[k] && (hz[k].at || (k === 'river' ? [0.3, 0.42] : [0.62, 0.74]));
+        if (at) for (const a of (Array.isArray(at[0]) ? at : [at])) want.push(path[Math.floor((a[0] + a[1]) / 2 * (path.length - 1))].x);
+      }
+      if (LY.dips) for (let dx = 560 + r.range(0, 120); dx < W - 560; dx += r.range(560, 720)) if (want.every(w => Math.abs(w - dx) > 420)) want.push(dx);
+      for (const dx of want) {
+        if (dx < 420 || dx > W - 520) continue;
+        // deep enough that the pool's surface sits below the hall floor on either side
+        let pc = path[0];
+        for (const p of path) if (Math.abs(p.x - dx) < Math.abs(pc.x - dx)) pc = p;
+        const depth = pc.r * r.range(1.1, 1.25);
+        for (const p of path) {
+          const d = Math.abs(p.x - dx);
+          if (d < 190) p.y = Math.min(H - p.r * 0.7 - 30, p.y + depth * Math.pow(Math.cos(d / 190 * Math.PI / 2), 2));
+        }
+      }
+    }
+    for (const p of path) if (LY.ortho) carveRect(p.x, p.y, p.r); else carve(p.x, p.y, p.r);
     carve(175, path[0].y, Math.min(125, sp.rad * 1.05));
     carve(W - 230, exitY, Math.max(80, sp.rad * 1.05));
     carve(W - 70, exitY, Math.max(76, sp.rad * 0.9));
@@ -112,6 +177,54 @@
     }
     for (const c of chambers) carve(c.x, c.y, c.r);
 
+    // the layout's own architecture
+    const pillars = [];
+    const pathAtX = xx => { let best = path[0]; for (const p of path) if (Math.abs(p.x - xx) < Math.abs(best.x - xx)) best = p; return best; };
+    if (LY.geodes) {
+      // geode rooms strung along the path, the narrow throats between them
+      for (let gx = 520 + r.range(0, 160); gx < W - 520; gx += r.range(520, 680)) {
+        const p = pathAtX(gx), gr = clamp(sp.rad * r.range(1.45, 1.8), 110, Math.min(220, H * 0.3));
+        const gy = clamp(p.y + r.range(-0.3, 0.3) * gr, gr + 40, H - gr - 40);
+        carve(p.x, gy, gr);
+        chambers.push({ x: p.x, y: gy, r: gr, branch: -1, used: false, geode: true });
+      }
+    }
+    if (LY.rooms) {
+      // rectangular rooms at some of the corners
+      for (let i = 2; i < ctrl.length - 3; i += 2) {
+        if (!r.chance(0.55)) continue;
+        const cx = ctrl[i][0], cy = ctrl[i][1], hw = r.range(120, 190), hh = r.range(95, 140);
+        const yy = clamp(cy, hh + 40, H - hh - 40);
+        carveRect(cx, yy, hw, hh);
+        chambers.push({ x: cx, y: yy, r: Math.min(hw, hh) * 0.9, branch: -1, used: false, room: true });
+      }
+    }
+    if (LY.cavern) {
+      // one vast cavern, then islands of rock that stay clear of the main path
+      const ex = W * 0.5, ey = H * 0.5, rx = W * 0.4, ry = H * 0.36;
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const dx = ((i + 0.5) * CELL - ex) / rx, dy = ((j + 0.5) * CELL - ey) / ry;
+        if (dx * dx + dy * dy <= 1) solid[j * cols + i] = 0;
+      }
+      const isles = r.int(6, 10);
+      for (let k = 0, tries = 0; k < isles && tries < 80; tries++) {
+        const ir = r.range(55, 130), ix = ex + r.range(-0.85, 0.85) * rx, iy = ey + r.range(-0.75, 0.75) * ry;
+        let clear = ix > 360 && ix < W - 420;
+        for (let q = 0; clear && q < path.length; q += 4) { const p = path[q]; if (dist(p.x, p.y, ix, iy) < p.r + ir + 30) clear = false; }
+        if (!clear) continue;
+        fill(ix, iy, ir);
+        k++;
+      }
+    }
+    if (LY.pillars) {
+      // pillars down the middle of the halls, with a way round on both sides
+      for (let px = 520 + r.range(0, 120); px < W - 520; px += r.range(300, 440)) {
+        const p = pathAtX(px);
+        if (p.r < 100) continue;
+        pillars.push({ x: p.x, y: p.y + r.range(-0.12, 0.12) * p.r, r: clamp(p.r * r.range(0.22, 0.3), 26, 46) });
+      }
+    }
+
     // chimneys for wind gusts: vertical shafts off the main path
     const gusts = [];
     const gcfg = sp.hazards && sp.hazards.gust;
@@ -135,10 +248,12 @@
       }
       return false;
     };
-    const s2 = solid.slice();
-    for (let j = 1; j < rows - 1; j++) for (let i = 1; i < cols - 1; i++) if (edgeAt(i, j)) s2[j * cols + i] = r.chance(0.5) ? 1 : 0;
-    solid = s2;
-    for (let it = 0; it < 4; it++) {
+    if (!LY.ortho) {
+      const s2 = solid.slice();
+      for (let j = 1; j < rows - 1; j++) for (let i = 1; i < cols - 1; i++) if (edgeAt(i, j)) s2[j * cols + i] = r.chance(0.5) ? 1 : 0;
+      solid = s2;
+    }
+    for (let it = 0; it < (LY.ortho ? 1 : 4); it++) {
       const nx = new Uint8Array(N);
       for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
         let c = 0;
@@ -151,8 +266,9 @@
       solid = nx;
     }
     // the core of every passage stays open, so the cave is always connected
-    for (const p of path) carve(p.x, p.y, Math.max(30, p.r * 0.6));
+    for (const p of path) if (LY.ortho) carveRect(p.x, p.y, Math.max(30, p.r * 0.6)); else carve(p.x, p.y, Math.max(30, p.r * 0.6));
     for (const pts of branches) for (const q of pts) carve(q.x, q.y, Math.max(26, q.r * 0.5));
+    for (const pl of pillars) fill(pl.x, pl.y, pl.r);
     for (const c of chambers) carve(c.x, c.y, c.r * 0.7);
     for (const g of gusts) for (let yy = g.y1; yy > g.y0 + 20; yy -= 10) carve(g.x + Math.sin(yy * 0.02) * 10, yy, 30);
     // frame: solid border, except the moonlit mouth on the right
@@ -208,7 +324,7 @@
     }
 
     const lv = {
-      id: sp.id || ('n' + sp.n), n: sp.n || 1, sp, biome: sp.biome || 'chalk', seed: sp.seed >>> 0,
+      id: sp.id || ('n' + sp.n), n: sp.n || 1, sp, biome: sp.biome || 'chalk', seed: sp.seed >>> 0, layout: GEN.layoutOf(sp), pathLen: pathLength(path),
       W, WT, H, cols, rows, archH: ah, type, solid, dist: dst, field, path, chambers, exitY, startY: path[0].y,
       moths: [], pups: [], webs: [], stals: [], rivers: [], crystals: [], gusts, owls: [], drips: [], scratches: [], siphons: [], fish: [], branches,
       collapse: null,
@@ -379,12 +495,14 @@
     if (biome === 'glass') { hz.crystal = { chamber: true, patches: 3 }; hz.tiger = { n: Math.min(5, 2 + Math.floor(n / 4)) }; }
     if (biome === 'owlstone') hz.owls = { n: Math.min(4, 2 + Math.floor(n / 6)), light: true, deep: 1 };
     const first = biome && biome !== 'chalk' && n > 1 && (n - 1) % 3 === 0;
+    const pool = LAYOUT_POOL[biome || 'chalk'] || LAYOUT_POOL.chalk, layout = n === 1 ? 'tunnel' : pool[Kit.rng(PP.hash2(runSeed, n * 131)).int(0, pool.length - 1)];
     return {
-      id: 'night-' + n, n, seed: PP.hash2(runSeed, n), biome: biome || 'chalk', mission: 'endless',
+      id: 'night-' + n, n, seed: PP.hash2(runSeed, n), biome: biome || 'chalk', mission: 'endless', layout,
       screens: T.screens(n), rad: T.rad(n), moths: T.moths(n), H: T.H(n), pups: T.pups(n), drain: T.drain(n), hazards: hz,
       intro: first ? PP.biome(biome).name + ': ' + PP.biome(biome).line.replace(/\.$/, '') : ENDLESS_INTRO[n] || (n % 3 === 0 ? 'Deeper. Narrower. Fewer moths.' : 'Every echo counts down here'),
     };
   };
+  const LAYOUT_POOL = { chalk: ['tunnel', 'shafts', 'cavern', 'tunnel'], drowned: ['halls', 'halls', 'tunnel'], glass: ['geodes', 'geodes', 'cavern'], owlstone: ['crypt', 'crypt', 'shafts'], hush: ['cavern'] };
   const ENDLESS_INTRO = {
     1: 'Chirp to see in the dark', 2: 'Spider webs: wiggle to break free', 3: 'Listen: stalactites tick before they fall',
     4: 'Underground rivers pull you along', 5: 'Crystals echo a second time', 6: 'Wind gusts up the chimneys',

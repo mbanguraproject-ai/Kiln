@@ -70,7 +70,7 @@
     ],
     ambient: { motes: { color: '#e2d6ff', drift: -6 }, shafts: 0, glowworms: false },
     hazards: ['crystal', 'bells', 'tiger', 'webs', 'stals', 'drips'],
-    gen: { drain: 1.62, rad: 112, H: 1180, screens: 10, moths: 24, branches: 3, loops: 0.25 },
+    gen: { drain: 1.62, rad: 112, H: 1180, screens: 10, moths: 24, branches: 3, loops: 0.25, layout: 'geodes' },
     audio: {
       echo: { verb: 0.7, cut: 5200 },
       ambience: { hum: 0.5 },
@@ -137,7 +137,7 @@
         scratch: { at: 0.45, text: 'Some moths shout back. Where the echoes fall apart, supper is waiting.' },
       },
       {
-        id: '3-6', name: 'The Chorister', seed: 3606, mission: 'kin', setPiece: true,
+        id: '3-6', name: 'The Chorister', seed: 3606, mission: 'kin', setPiece: true, layout: 'cavern',
         screens: 13, H: 1240, rad: 112, moths: 30, drain: 1.62, branches: 3, loops: 0.2,
         pups: [{ at: 'chamber', sealed: true }, { at: 0.5, sealed: true }, { at: 'chamber', sealed: true }],
         hazards: { crystal: { chamber: false, patches: 3 }, bells: {}, tiger: { n: 3, from: 0.3, to: 0.85 }, webs: { n: 2, from: 0.55, to: 0.9 } },

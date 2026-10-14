@@ -82,7 +82,7 @@
     ],
     ambient: { motes: { color: '#bfe2f0', drift: 5 }, shafts: 0, glowworms: false, fish: true },
     hazards: ['river', 'flood', 'drips', 'siphon', 'tide', 'stals', 'webs'],
-    gen: { drain: 1.6, rad: 114, H: 1160, screens: 9, moths: 24, branches: 3, loops: 0.2 },
+    gen: { drain: 1.6, rad: 114, H: 1160, screens: 9, moths: 24, branches: 3, loops: 0.2, layout: 'halls' },
     audio: {
       echo: { verb: 0.55, cut: 3200 },
       ambience: { lap: 0.8 },
@@ -140,7 +140,7 @@
         scratch: { at: 'chamber', text: 'Mother drew the halls in echoes, so the young would know the way home.' },
       },
       {
-        id: '2-5', name: 'Twice-Heard', seed: 2505, mission: 'kin',
+        id: '2-5', name: 'Twice-Heard', seed: 2505, mission: 'kin', layout: 'tunnel', basins: true,
         screens: 10, H: 1200, rad: 108, moths: 32, drain: 1.65, branches: 3, loops: 0.2,
         pups: [{ at: 'chamber' }, { at: 0.5 }, { at: 'chamber', deep: true }],
         hazards: { river: { at: [[0.25, 0.35], [0.62, 0.72]], level: 0.38 }, siphon: { n: 1 }, webs: { n: 3, from: 0.45, to: 0.9 }, drips: { n: 4, from: 0.2, to: 0.8 } },
@@ -149,7 +149,7 @@
         scratch: { at: 0.64, text: 'Here every call comes back twice. Trust the first voice.' },
       },
       {
-        id: '2-6', name: 'The Flood Stair', seed: 2606, mission: 'escape', setPiece: true,
+        id: '2-6', name: 'The Flood Stair', seed: 2606, mission: 'escape', layout: 'tunnel', setPiece: true,
         screens: 15, H: 1220, rad: 118, moths: 26, drain: 1.6, branches: 1, loops: 0,
         pups: [{ at: 0.3, ledge: true }, { at: 0.56, ledge: true }, { at: 0.8, ledge: true }],
         hazards: { tide: { delay: 4, x0: -260, v0: 85, v1: 128, ramp: 50, slope: 1.15 }, stals: { n: 3, from: 0.35, to: 0.9 }, drips: { n: 3, from: 0.1, to: 0.6 } },

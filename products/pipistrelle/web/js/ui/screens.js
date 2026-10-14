@@ -33,7 +33,13 @@
     if (r.chance(0.7)) hz.stals = { n: 5, from: 0.15, to: 0.92 };
     if (lun.light > 0.5) hz.river = { at: [0.3, 0.45], level: 0.38 };
     if (r.chance(0.5)) hz.drips = { n: 4, from: 0.2, to: 0.8 };
-    return { id: 'nightly', name: 'The Nightly Cave', biome: 'chalk', seed, mission: 'homing', screens: 9, H: 1140, rad: 108, moths: 22 + Math.round(lun.light * 6), drain: 1.6, pups: 2 + Math.round(lun.light), hazards: hz, moons: [], intro: lun.name + ' tonight', moonLight: lun.light };
+    // a different biome each night, opened or not: the Nightly Cave is where the whole world shows itself early
+    const ids = PP.data.campaign.order.filter(id => PP.biomes[id] && PP.biomes[id].ready && !PP.biomes[id].finale);
+    const biome = ids[Math.floor(Date.parse(day + 'T00:00:00Z') / 86400000) % ids.length] || 'chalk';
+    if (biome === 'drowned') hz.river = { at: [[0.22, 0.32], [0.56, 0.66]], level: 0.38 };
+    if (biome === 'glass') { hz.crystal = { chamber: true, patches: 3 }; hz.tiger = { n: 2 }; }
+    if (biome === 'owlstone') hz.owls = { n: 2, light: true };
+    return { id: 'nightly', name: 'The Nightly Cave', biome, seed, mission: 'homing', screens: 9, H: 1140, rad: 108, moths: 22 + Math.round(lun.light * 6), drain: 1.6, pups: 2 + Math.round(lun.light), hazards: hz, moons: [], intro: lun.name + ' tonight, in ' + PP.biome(biome).name, moonLight: lun.light };
   };
   GM.toMap = () => { U.show('roost', {}, { reset: true }); U.show('map'); };
   GM.home = () => U.show('roost', {}, { reset: true });
@@ -48,6 +54,21 @@
   });
 
   const card = (title, text, onclick, cls, kids) => h('button.card' + (cls || ''), { onclick: () => { PP.uiSfx(); onclick(); } }, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(kids || []));
+  // the Roost's menu cards: a glowing badge with an icon, the title and line beside it, an accent colour each
+  const ICON = {
+    rain: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2.5a7.5 7.5 0 1 0 7 10.2A6.2 6.2 0 0 1 14.5 2.5z" fill="currentColor"/><path d="M4.5 16.5l-1.2 3.2M8.5 17.5l-1.2 3.2M12.5 18.5l-1.2 3.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17a5.5 8.5 0 0 0 0-17z" fill="currentColor"/></svg>',
+    night: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V12a9 9 0 0 1 18 0v9" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M12 7.5l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" fill="currentColor"/><circle cx="7.5" cy="15" r="1" fill="currentColor"/><circle cx="16.5" cy="16" r="1" fill="currentColor"/></svg>',
+    bat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2l-1.2-2.6-.6 3c-2.3-.4-4.6.3-6.7 2-.6.5-1.4.4-2.5 0 1.6 2.8 3.4 4.2 5.3 4 1 .9 2.3 1.2 3.3.6L12 18l2.4-2.8c1 .6 2.3.3 3.3-.6 1.9.2 3.7-1.2 5.3-4-1.1.4-1.9.5-2.5 0-2.1-1.7-4.4-2.4-6.7-2l-.6-3z" fill="currentColor"/></svg>',
+    book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10 5 7.3 4.5 3.5 5v13c3.8-.5 6.5 0 8.5 1.5 2-1.5 4.7-2 8.5-1.5V5c-3.8-.5-6.5 0-8.5 1.5zM12 6.5v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    scroll: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h11a2.5 2.5 0 0 1 0 5h-1v10.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 19.5V18h9.5v1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 4a2.5 2.5 0 0 0-2.5 2.5V8H6M8.5 9h5M8.5 12.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
+  };
+  const mcard = (icon, acc, title, text, onclick, cls, kids) => {
+    const dots = (kids || []).filter(k => k.classList.contains('dot-new')), rest = (kids || []).filter(k => !k.classList.contains('dot-new'));
+    return h('button.card.mcard' + (cls || ''), { style: '--acc:' + acc, onclick: () => { PP.uiSfx(); onclick(); } }, [
+      h('span.medal', { html: ICON[icon] }), h('span.mtext', null, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(rest)),
+    ].concat(dots));
+  };
 
   /* ---------- Title ---------- */
   U.def('title', () => {
@@ -70,12 +91,14 @@
     const el = h('div.scr.roost-ui', null, [
       h('div.top', null, [h('h2', { text: 'The Roost' }), U.larder(), h('button.icon-btn', { 'aria-label': 'Settings', html: U.icon.gear, onclick: () => { PP.uiSfx(); U.show('settings'); } })]),
       h('div.home-menu', null, [
-        card(PP.data.campaign.name, got + ' of ' + total + ' Moons · ' + PP.plural(pupsN, 'pup') + ' home', () => U.show('map'), '.wide.lit'),
-        card('The Nightly Cave', PP.profile.nightlyDone() ? lun.name + ' · cleared today' : lun.name + ' · +' + PP.data.economy.nightly + ' first clear', () => U.show('nightly')),
-        card('The Long Night', p.longNight.best ? 'Best ' + fmt(p.longNight.best) + ' · cave ' + p.longNight.bestCave : 'Endless caves', () => U.show('longnight')),
-        card('Hangar', 'Bats and Practice Hollow', () => U.show('hangar'), '', newBats ? [h('span.dot-new')] : []),
-        card('Journal', 'Scratches, moths, pups', () => U.show('journal')),
-        card('Requests', Object.keys(p.requests.done).length + ' of ' + PP.data.requests.length + ' done', () => U.show('requests'), '.wide', newReq ? [h('span.dot-new')] : []),
+        mcard('rain', 'var(--gold)', PP.data.campaign.name, got + ' of ' + total + ' Moons · ' + PP.plural(pupsN, 'pup') + ' home', () => U.show('map'), '.wide.hero', [
+          h('span.mbar', null, h('i', { style: 'width:' + Math.round(got / Math.max(1, total) * 100) + '%' })), h('span.mplay', { text: 'Fly' }),
+        ]),
+        mcard('moon', 'var(--moon)', 'The Nightly Cave', PP.profile.nightlyDone() ? lun.name + ' · cleared today' : lun.name + ' · +' + PP.data.economy.nightly + ' first clear', () => U.show('nightly')),
+        mcard('night', '#b58cff', 'The Long Night', p.longNight.best ? 'Best ' + fmt(p.longNight.best) + ' · cave ' + p.longNight.bestCave : 'Endless caves', () => U.show('longnight')),
+        mcard('bat', 'var(--teal)', 'Hangar', 'Bats and Practice Hollow', () => U.show('hangar'), '', newBats ? [h('span.dot-new')] : []),
+        mcard('book', '#ffb46b', 'Journal', 'Scratches, moths, pups', () => U.show('journal')),
+        mcard('scroll', 'var(--pink)', 'Requests', Object.keys(p.requests.done).length + ' of ' + PP.data.requests.length + ' done', () => U.show('requests'), '.wide', newReq ? [h('span.dot-new')] : []),
       ]),
     ]);
     return { el, scene: 'roost', show() { PP.roost.invalidate(); PP.audio.menu(); PP.loop.resume(); } };
@@ -154,7 +177,7 @@
       why.textContent = S.why + (G.kind === 'endless' ? ' · cave ' + G.cave : G.caveDef ? ' · ' + G.caveDef.name : '');
       const ready = PP.ads.ready();
       watch.disabled = !ready || S.busy;
-      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad is ready right now (are you online?).';
+      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad right now. ' + PP.ads.status().text;
       ring.style.setProperty('--k', String(Math.max(0, S.offerT) / 9));
       ring.textContent = String(Math.ceil(Math.max(0, S.offerT)));
     };
@@ -375,6 +398,20 @@
       saverSw.classList.toggle('on', on); saverSw.setAttribute('aria-checked', String(on)); PP.uiSfx();
       setTimeout(() => { PP.R.frame(); const r = res(); resT.textContent = r.title; resL.textContent = r.line; }, 60);
     });
+    // the ad network's state in words, live: so an ad that cannot load says why instead of failing silently
+    const adStatus = h('p.ad-status'), retryB = h('button.btn.ghost', { text: 'Try again', onclick: () => { PP.uiSfx(); PP.ads.retry(); } });
+    const testB = h('button.btn.ghost', { text: 'Watch a test ad', onclick: () => { PP.uiSfx(); PP.ads.test(); } });
+    const adRow = h('div.row', null, [testB, retryB]);
+    const syncAds = () => {
+      const st = PP.ads.status();
+      adStatus.textContent = st.text; adStatus.classList.toggle('bad', !!st.error); adStatus.classList.toggle('good', !!st.ok);
+      retryB.hidden = PP.ads.state !== 'wait';
+      testB.hidden = !(PP.ads.testMode || PP.debug);
+      adRow.hidden = retryB.hidden && testB.hidden;
+    };
+    syncAds();
+    PP.on('adsStatus', () => { if (adStatus.isConnected) syncAds(); });
+    const adTick = setInterval(() => { if (!adStatus.isConnected) clearInterval(adTick); else syncAds(); }, 1000);
     const code = h('textarea', { readonly: true, 'aria-label': 'Save code' });
     code.hidden = true;
     const imp = h('textarea', { placeholder: 'Paste a save code here', 'aria-label': 'Import save code' });
@@ -382,7 +419,7 @@
     const el = h('div.scr.scrim-strong', null, [U.top('Settings', { larder: false }), h('div.body', null, h('div.wrap', null, [
       h('div.card', null, [toggle('sound', 'Sound'), slider('music', 'Music'), slider('sfx', 'Effects'), slider('echo', 'Echo volume'), toggle('vibration', 'Vibration')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Display' }), resT, resL, h('div.toggle', null, [h('span', null, ['Battery saver', h('small', { text: 'Draws at about 1080p with lighter effects. What you hear and see in the echoes never changes.' })]), saverSw])]),
-      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
+      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), adStatus, adRow, toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
       h('div.card', null, [toggle('gentle', 'Gentle Wings', 'Bumps cost nothing; other knocks and the dark’s hunger are softer.'), toggle('shapes', 'Echo shapes', 'Each echo colour also gets its own mark: rock dots, food diamonds, pup hearts, danger triangles.'), toggle('captions', 'Sound captions', 'Show what you hear at the edge of the screen.')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Save' }), h('div.row', null, [
         h('button.btn.ghost', { text: 'Export', onclick: () => { code.hidden = false; code.value = PP.profile.exportCode(); code.select(); try { navigator.clipboard.writeText(code.value); U.toast('Save code copied'); } catch (e) { /* select is enough */ } } }),

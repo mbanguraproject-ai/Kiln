@@ -1,7 +1,7 @@
 """Builds every Pipistrelle icon from the master art (art/icon.webp, 1254 x 1254, the owner's icon of 13 October
 2026): the Android adaptive launcher icon (foreground with the art inset to the 66 dp safe zone, so round and
 squircle masks never clip the wings, and a monochrome bat for Android 13+ themed icons), the legacy square and
-round icons, the splash screens, the 512 px Play Store icon and the web icons.
+round icons, the 512 px Play Store icon and the web icons. (There is no splash screen: the launch window is blank.)
 
 Run from products/pipistrelle:  python3 tools/make-icons.py   (needs Pillow: pip install pillow)
 The generated files are committed, so the app builds without running this."""
@@ -109,20 +109,6 @@ for name, k in DENSITIES.items():
     r = Image.new('RGBA', (lg, lg), (0, 0, 0, 0))
     r.paste(c, (0, 0), rm)
     save(r, d, 'ic_launcher_round.png')
-
-# splash screens (Android 8 to 11; 12+ draws the adaptive icon on the night colour): the art as a soft disc
-for folder in sorted(os.listdir(RES)):
-    p = os.path.join(RES, folder, 'splash.png')
-    if not folder.startswith('drawable') or not os.path.exists(p):
-        continue
-    w, h = Image.open(p).size
-    out = Image.new('RGB', (w, h), BG)
-    s = round(min(w, h) * 0.62)
-    disc = Image.new('L', (s, s), 0)
-    ImageDraw.Draw(disc).ellipse((s * 0.1, s * 0.1, s * 0.9, s * 0.9), fill=255)
-    disc = disc.filter(ImageFilter.GaussianBlur(s * 0.06))
-    out.paste(art.resize((s, s), Image.LANCZOS), ((w - s) // 2, (h - s) // 2), disc)
-    save(out, p)
 
 # the Play Store icon (512 x 512, full bleed: Play rounds the corners itself) and the web icons
 save(art.resize((512, 512), Image.LANCZOS), ROOT, 'store', 'play-icon-512.png')

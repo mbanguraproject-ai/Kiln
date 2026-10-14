@@ -11,12 +11,17 @@
     PP.settings.apply();
     if (PP.keyart) document.documentElement.classList.add('kiln-keyart');
 
-    let last = 0, work = 0;
+    // a screen refreshing over 100 times a second (120 or 144 Hz) is drawn every other refresh: a steady 60 fps
+    // at half the work, which a phone's GPU and battery need at native resolution; 60 and 90 Hz draw every frame
+    let last = 0, work = 0, lastRaf = 0, rafEma = 16.7;
     const loop = PP.loop = PP.run.loop = Kit.loop({
-      update(dt) { const t0 = performance.now(); PP.run.update(dt); work += performance.now() - t0; },
-      draw() {
+      update(dt) { const t0 = performance.now(); PP.R.beforeStep(); PP.run.update(dt); work += performance.now() - t0; },
+      draw(ctx, alpha) {
         const t0 = performance.now();
-        PP.R.frame();
+        if (lastRaf) rafEma += (Math.min(100, t0 - lastRaf) - rafEma) * 0.1;
+        lastRaf = t0;
+        if (alpha < 1 && rafEma < 10 && last && t0 - last < 14) return;
+        PP.R.frame(alpha);
         const now = performance.now();
         if (last && loop.running && !loop.paused) PP.R.quality.frame(now - last, work + (now - t0));
         last = now; work = 0;

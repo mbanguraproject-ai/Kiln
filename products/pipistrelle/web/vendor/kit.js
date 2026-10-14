@@ -1089,6 +1089,7 @@
       // Advance n fixed steps right now and draw once: for tests, scenes and pre-warming effects.
       step(n) {
         for (let i = 0; i < (n === undefined ? 1 : n); i++) tick(STEP);
+        L.alpha = 1;
         L.render();
         return L;
       },
