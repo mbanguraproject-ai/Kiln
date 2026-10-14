@@ -140,7 +140,7 @@
         scratch: { at: 'chamber', text: 'Mother drew the halls in echoes, so the young would know the way home.' },
       },
       {
-        id: '2-5', name: 'Twice-Heard', seed: 2505, mission: 'kin',
+        id: '2-5', name: 'Twice-Heard', seed: 2505, mission: 'kin', layout: 'tunnel', basins: true,
         screens: 10, H: 1200, rad: 108, moths: 32, drain: 1.65, branches: 3, loops: 0.2,
         pups: [{ at: 'chamber' }, { at: 0.5 }, { at: 'chamber', deep: true }],
         hazards: { river: { at: [[0.25, 0.35], [0.62, 0.72]], level: 0.38 }, siphon: { n: 1 }, webs: { n: 3, from: 0.45, to: 0.9 }, drips: { n: 4, from: 0.2, to: 0.8 } },

@@ -33,7 +33,7 @@
   GEN.LAYOUTS = {
     tunnel: { step: [190, 270], swing: 0.24, radK: 1, radVar: 1 },
     shafts: { step: [140, 200], swing: 0.62, radK: 0.92, radVar: 0.8 },
-    halls: { step: [280, 380], swing: 0.06, radK: 1.32, radVar: 0.35, pillars: true },
+    halls: { step: [280, 380], swing: 0.06, radK: 1.32, radVar: 0.35, pillars: true, dips: true },
     geodes: { step: [200, 280], swing: 0.2, radK: 0.6, radVar: 0.4, geodes: true },
     crypt: { step: [240, 340], swing: 0, radK: 0.78, radVar: 0, ortho: true, rooms: true },
     cavern: { step: [190, 270], swing: 0.3, radK: 0.9, radVar: 1, cavern: true },
@@ -114,6 +114,27 @@
       if (sp.roomyMouth && p.x < W * 0.22) p.r = Math.max(p.r, sp.rad * 0.92);
       if (p.x > W - 300) p.r = Math.max(p.r * 0.95, 70);
       if (p.x > W) p.r = Math.min(p.r, 60);
+    }
+    if (LY.dips || sp.basins) {
+      // sunken basins along the flat halls, where water gathers into pools (rivers need a dip to fill): one where
+      // each river or flood of the cave's data lies, and a few more between
+      const hz = sp.hazards || {}, want = [];
+      for (const k of ['river', 'flood']) {
+        const at = hz[k] && (hz[k].at || (k === 'river' ? [0.3, 0.42] : [0.62, 0.74]));
+        if (at) for (const a of (Array.isArray(at[0]) ? at : [at])) want.push(path[Math.floor((a[0] + a[1]) / 2 * (path.length - 1))].x);
+      }
+      if (LY.dips) for (let dx = 560 + r.range(0, 120); dx < W - 560; dx += r.range(560, 720)) if (want.every(w => Math.abs(w - dx) > 420)) want.push(dx);
+      for (const dx of want) {
+        if (dx < 420 || dx > W - 520) continue;
+        // deep enough that the pool's surface sits below the hall floor on either side
+        let pc = path[0];
+        for (const p of path) if (Math.abs(p.x - dx) < Math.abs(pc.x - dx)) pc = p;
+        const depth = pc.r * r.range(1.1, 1.25);
+        for (const p of path) {
+          const d = Math.abs(p.x - dx);
+          if (d < 190) p.y = Math.min(H - p.r * 0.7 - 30, p.y + depth * Math.pow(Math.cos(d / 190 * Math.PI / 2), 2));
+        }
+      }
     }
     for (const p of path) if (LY.ortho) carveRect(p.x, p.y, p.r); else carve(p.x, p.y, p.r);
     carve(175, path[0].y, Math.min(125, sp.rad * 1.05));

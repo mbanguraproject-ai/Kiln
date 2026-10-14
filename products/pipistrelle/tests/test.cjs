@@ -193,11 +193,20 @@ const GOALS = {
       const G = PP.G, par = PP.L.pathLen / 420 / 1.12 * PP.data.tuning.hunger.perScreen;
       const before = PP.run.hunger(G); G.stats.time = par * 1.5; const after = PP.run.hunger(G);
       const layouts = PP.game.allCaves().map(c => PP.gen.layoutOf(PP.gen.caveSpec(c)));
-      return { flocks, before, after: +after.toFixed(2), hint: !!(G.hint && /hungry/.test(G.hint.text)), layouts: [...new Set(layouts)].sort().join(' '), known: layouts.every(l => PP.gen.LAYOUTS[l]) };
+      // every river and flood a cave asks for is there, whatever its architecture
+      const dry = [];
+      for (const c of PP.game.allCaves()) {
+        const hz = c.hazards || {}, want = (hz.river ? (Array.isArray(hz.river.at && hz.river.at[0]) ? hz.river.at.length : 1) : 0) + (hz.flood ? 1 : 0);
+        if (!want) continue;
+        const L = PP.gen.cave(PP.gen.caveSpec(c));
+        if (L.rivers.length < want) dry.push(c.id + ' ' + L.rivers.length + '/' + want);
+      }
+      return { flocks, before, after: +after.toFixed(2), hint: !!(G.hint && /hungry/.test(G.hint.text)), layouts: [...new Set(layouts)].sort().join(' '), known: layouts.every(l => PP.gen.LAYOUTS[l]), dry };
     });
     check(r.flocks >= 1, 'bats of the colony fly by through the cave', r.flocks + ' flock');
     check(r.before === 1 && r.after > 1.4 && r.hint, 'past its par time the dark grows hungry, and says so', `drain x${r.before} then x${r.after}`);
     check(r.known && r.layouts.split(' ').length >= 6, 'the campaign uses all six cave architectures', r.layouts);
+    check(r.dry.length === 0, 'every river and flood a cave asks for is there, whatever its architecture', r.dry.join(', ') || 'all present');
     await pg.close();
     // an ad that cannot load says why (a stand-in for the Unity plugin that answers "no fill")
     const ap = await browser.newPage({ viewport: { width: 390, height: 844 } });

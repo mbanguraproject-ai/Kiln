@@ -7,14 +7,16 @@
 
   function addRiver(lv, r, Q, f, level, flood) {
     const { path, type } = lv, cols = Q.cols, N = Q.N, q = Q.q;
-    for (let attempt = 0; attempt < 7; attempt++) {
+    // try the asked-for spot, then further either side (never a basin another river already fills)
+    for (let attempt = 0; attempt < 14; attempt++) {
       let ci = clamp(Math.floor((f + (attempt % 2 ? 1 : -1) * attempt * 0.05) * path.length), 60, path.length - 61);
       const k0 = ci - 60, k1 = ci + 60;
       for (let k = k0; k <= k1; k++) if (path[k].y > path[ci].y) ci = k;
       const p = path[ci], surf = p.y + p.r * level, sj0 = Math.floor(surf / CELL) + 1, pi = Math.floor(p.x / CELL);
-      if (p.x < 400 || p.x > lv.W - 500) continue;
+      const why = lv.riverWhy || (lv.riverWhy = []);
+      if (p.x < 400 || p.x > lv.W - 500) { why.push('edge'); continue; }
       const s0 = sj0 * cols + pi;
-      if (type[s0] !== 0) continue;
+      if (type[s0] !== 0) { why.push(type[s0] === 2 ? 'taken' : 'surface in rock'); continue; }
       const sn = new Uint8Array(N), cells = [];
       let h = 0, tl = 0, bad = false, minI = pi, maxI = pi;
       q[tl++] = s0; sn[s0] = 1;
@@ -29,9 +31,9 @@
           sn[k] = 1; q[tl++] = k;
         }
       }
-      if (bad || cells.length < 40 || (maxI - minI) * CELL < 140) continue;
+      if (bad || cells.length < 40 || (maxI - minI) * CELL < 140) { why.push(bad ? 'spills (' + cells.length + ' cells)' : 'too small (' + cells.length + ')'); continue; }
       for (const id of cells) type[id] = 2;
-      if (!Q.passable()) { for (const id of cells) type[id] = 0; continue; }
+      if (!Q.passable()) { for (const id of cells) type[id] = 0; why.push('blocks the way'); continue; }
       const rv = { x0: minI * CELL + CELL, x1: maxI * CELL, y: sj0 * CELL, dir: r.chance(0.5) ? 1 : -1, speed: flood ? 70 : 105 + Math.min(60, ((lv.n || 4) - 4) * 8), flood: !!flood, ph: r.range(0, 9) };
       lv.rivers.push(rv);
       return rv;
