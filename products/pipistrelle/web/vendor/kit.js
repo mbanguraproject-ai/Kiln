@@ -2183,7 +2183,69 @@
     return { bpm: o.bpm || D.bpm, swing: D.swing, key, scale: D.scale, chords, tracks };
   }
 
+  // A soundtrack rendered offline, through the same synths and songs (for trailers and store videos, never in play):
+  // events are sound effects [[time s, name, opts]], music is [{ song, at, until, fade, layers: { name: on } }].
+  // Resolves to an AudioBuffer.
+  async function renderOffline(seconds, events, music, opts) {
+    opts = opts || {};
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const rate = opts.rate || 48000, oc = new OAC(2, Math.ceil(seconds * rate), rate);
+    // the music first (rendering its stems is asynchronous)
+    const mus = oc.createGain(); mus.gain.value = opts.music === undefined ? au.vol.music : opts.music;
+    const glue = oc.createDynamicsCompressor();
+    glue.threshold.value = -18; glue.knee.value = 12; glue.ratio.value = 3; glue.attack.value = 0.005; glue.release.value = 0.2;
+    const limiter = oc.createDynamicsCompressor();
+    limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.001; limiter.release.value = 0.12;
+    const master = oc.createGain(); master.gain.value = 0.9;
+    master.connect(glue); glue.connect(limiter); limiter.connect(oc.destination);
+    mus.connect(master);
+    for (const m of music || []) {
+      const R = await renderStems(m.song);
+      if (!R) continue;
+      const fade = m.fade === undefined ? 0.6 : m.fade, end = Math.min(seconds, m.until), lf = m.layerFade || 0.4;
+      const mg = oc.createGain();
+      mg.gain.setValueAtTime(0, m.at); mg.gain.linearRampToValueAtTime(1, m.at + fade);
+      mg.gain.setValueAtTime(1, Math.max(m.at + fade, end - fade)); mg.gain.linearRampToValueAtTime(0, end);
+      mg.connect(mus);
+      for (const st of R.stems) {
+        // a layer is on (true), off, or on during [[from, to], ...] (fading in and out)
+        const lay = st.name ? m.layers && m.layers[st.name] : true;
+        if (!lay) continue;
+        const src = oc.createBufferSource(); src.buffer = st.buf; src.loop = true;
+        const g = oc.createGain();
+        if (Array.isArray(lay)) {
+          g.gain.setValueAtTime(0, 0);
+          for (const [a, b] of lay) { g.gain.setValueAtTime(0, Math.max(0, a - lf / 2)); g.gain.linearRampToValueAtTime(1, a + lf / 2); g.gain.setValueAtTime(1, Math.max(a + lf / 2, b - lf / 2)); g.gain.linearRampToValueAtTime(0, b + lf / 2); }
+        }
+        src.connect(g); g.connect(mg);
+        src.start(m.at, (m.offset || 0) % R.dur); src.stop(end + 0.05);
+      }
+    }
+    // then the sound effects, through the live synth with its graph pointed at this render for a moment
+    const sfxBus = oc.createGain(); sfxBus.gain.value = opts.sfx === undefined ? au.vol.sfx : opts.sfx; sfxBus.connect(master);
+    const verb = oc.createConvolver(); verb.buffer = impulse(oc, 1.8, 2.6);
+    const verbOut = oc.createGain(); verbOut.gain.value = 0.5; verb.connect(verbOut); verbOut.connect(master);
+    const noise = oc.createBuffer(1, rate, rate), nd = noise.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const keep = { ctx: au.ctx, sfxBus: au.sfxBus, verb: au.verb, noise: au.noise, voices: au.voices };
+    Object.assign(au, { ctx: oc, sfxBus, verb, noise, voices: 0 });
+    try {
+      for (const [t, name, o0] of events || []) {
+        const o = o0 || {};
+        let p = typeof name === 'string' ? P[name] : name;
+        if (typeof p === 'function') p = p(o);
+        if (!p || !(t < seconds)) continue;
+        const when = t + (o.delay || 0) / 1000 + 0.005;
+        if (Array.isArray(p)) for (const l of p) voice(l, o, when); else voice(p, o, when);
+      }
+    } finally { Object.assign(au, keep); }
+    const buf = await oc.startRendering();
+    au.voices = Math.max(0, au.voices);
+    return buf;
+  }
+
   const audio = {
+    renderOffline,
     get ctx() { return au.ctx; },
     get ready() { return !!(au.ctx && au.ctx.state === 'running'); },
     get muted() { return !soundOn; },

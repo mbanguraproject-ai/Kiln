@@ -9,3 +9,5 @@ android/capacitor-cordova-android-plugins/
 android/local.properties
 tests/out/
 shots/
+# store videos are large; they go to YouTube, not to git
+store/*.mp4
