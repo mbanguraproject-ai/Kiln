@@ -55,7 +55,15 @@ node tests/test.cjs --unit    # data and economy checks, no browser (CI runs the
 node tests/test.cjs           # the full suite in Chromium: every cave, every Moon, screens, Last Echo, frame budgets
 npm run shots                 # screenshots into shots/ (every effect on; --quality=native keeps the safety net)
 npm run android:apk           # android/app/build/outputs/apk/debug/app-debug.apk
+node tools/trailer.cjs        # the store trailer: store/trailer-1080p60.mp4 (about 25 min; --preview for one still a shot)
 ```
+
+The trailer (`tools/trailer.cjs`) is real gameplay captured frame by frame: the game is stepped exactly 1/60 s per
+frame with its clock made virtual, so the video is perfectly smooth on any machine. Every sound the game plays is
+logged and the soundtrack (the music and those sounds) is rendered offline through the game's own synths
+(`Kit.audio.renderOffline`). ffmpeg joins the shots with crossfades into H.264 High at 1080p60 with AAC audio. For the
+Play listing, upload it to YouTube (public or unlisted, no ads) and paste the link into Play Console, Store listing,
+Video.
 
 Every push that touches this folder builds the APK in CI (`.github/workflows/pipistrelle.yml`) and publishes it to the
 `pipistrelle-preview` release as `pipistrelle-debug.apk`.
