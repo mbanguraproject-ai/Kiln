@@ -63,12 +63,64 @@
     book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10 5 7.3 4.5 3.5 5v13c3.8-.5 6.5 0 8.5 1.5 2-1.5 4.7-2 8.5-1.5V5c-3.8-.5-6.5 0-8.5 1.5zM12 6.5v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     scroll: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h11a2.5 2.5 0 0 1 0 5h-1v10.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 19.5V18h9.5v1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 4a2.5 2.5 0 0 0-2.5 2.5V8H6M8.5 9h5M8.5 12.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
   };
-  const mcard = (icon, acc, title, text, onclick, cls, kids) => {
-    const dots = (kids || []).filter(k => k.classList.contains('dot-new')), rest = (kids || []).filter(k => !k.classList.contains('dot-new'));
-    return h('button.card.mcard' + (cls || ''), { style: '--acc:' + acc, onclick: () => { PP.uiSfx(); onclick(); } }, [
-      h('span.medal', { html: ICON[icon] }), h('span.mtext', null, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(rest)),
-    ].concat(dots));
+  // the moon tonight, drawn at its real phase (the Nightly Cave's arch is as bright as this moon)
+  const moonIcon = k => {
+    // (a thin crescent is drawn a little fuller, so it reads at the size of a badge)
+    const c = Math.cos(k * PP.TAU), rx = (Math.min(Math.abs(c), c > 0 ? 0.62 : 1) * 8.5).toFixed(2), wax = k < 0.5;
+    const outer = wax ? 1 : 0, term = wax ? (c > 0 ? 0 : 1) : (c < 0 ? 0 : 1);
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.5"/><path d="M12 3.5A8.5 8.5 0 0 ' + outer + ' 12 20.5A' + rx + ' 8.5 0 0 ' + term + ' 12 3.5z" fill="currentColor"/></svg>';
   };
+  // a compact tile for one of the four ways to play: badge, a chip with the number that matters, the name, and a
+  // line saying what you will find there
+  const mtile = (icon, acc, title, chip, line, onclick, cls, dot) => h('button.card.mtile' + (cls || ''), { style: '--acc:' + acc, onclick: () => { PP.uiSfx(); onclick(); } }, [
+    h('span.mhead', null, [h('span.medal', { html: ICON[icon] || icon }), chip ? h('span.mchip', { text: chip }) : null]),
+    h('h3', { text: title }), h('p', { text: line }), dot ? h('span.dot-new') : null,
+  ]);
+  const shortName = n => n.replace(/^The /, '');
+
+  // what the Long Rain asks of you next: the first open cave not yet flown out of, else the first with a Moon still
+  // to find, else the last cave of all
+  GM.nextUp = function () {
+    const PR = PP.profile, open = [];
+    for (const id of PP.data.campaign.order) { const B = PP.biomes[id]; if (B && B.ready) B.caves.forEach((cv, i) => { if (PR.caveOpen(id, i)) open.push(cv); }); }
+    let cv = open.find(c => !PR.cleared(c.id));
+    if (cv) return { cv, why: PR.get().caves[cv.id] ? 'Try again' : 'Next cave' };
+    cv = open.find(c => PR.caveMoons(c.id).some(m => !m));
+    if (cv) return { cv, why: 'Moons to find' };
+    const all = GM.allCaves();
+    return { cv: all[all.length - 1], why: 'Fly it again' };
+  };
+
+  /* ---------- The Roost (home) ---------- */
+  // The Roost: the belfry is the home screen. Four compact tiles sit in its top corners, so the colony hanging in the
+  // middle stays in view (tap it: js/ui/roost.js); at the bottom, the Long Rain shows the next cave you will fly, as a
+  // little picture of its biome, with its mission, its Moons and how far through each biome you are, and Requests.
+  function hero() {
+    const p = PP.profile.get(), M = PP.data.missions, nx = GM.nextUp(), cv = nx.cv, B = PP.biome(cv.biome);
+    const total = GM.allCaves().length * 3, got = PP.profile.totalMoons();
+    const pc = h('canvas.postcard', { 'aria-hidden': 'true' });
+    const track = h('span.btrack');
+    for (const id of PP.data.campaign.order) {
+      const Bi = PP.biomes[id];
+      if (!Bi || !Bi.ready) continue;
+      const open = PP.profile.caveOpen(id, 0), k = PP.profile.moonsIn(Bi.index + '-') / (Bi.caves.length * 3);
+      track.appendChild(h('span.bseg' + (open ? '' : '.shut') + (id === cv.biome ? '.here' : ''), { style: '--bc:' + Bi.palette.accent, title: Bi.name }, h('i', { style: 'width:' + Math.round(k * 100) + '%' })));
+    }
+    const fly = h('button.btn.gold.hero-fly', { 'aria-label': 'Fly ' + cv.name, onclick: e => { e.stopPropagation(); PP.uiSfx(); Kit.audio.unlock(); GM.startCave(cv); } }, [h('span', { html: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>' }), 'Fly']);
+    const el = h('div.card.mcard.hero', { role: 'button', tabindex: '0', style: '--acc:' + B.palette.accent, onclick: () => { PP.uiSfx(); U.show('map'); } }, [
+      h('span.pcwrap', null, [pc, h('span.pcring')]),
+      h('span.hbody', null, [
+        h('span.hrow.htop', null, [h('span.pctag', { text: nx.why }), h('span.eyebrow', { text: PP.data.campaign.name + ' · ' + (B.finale ? 'Finale' : 'Biome ' + B.index) + ' · ' + shortName(B.name) })]),
+        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', null, [h('b', { text: M.types[cv.mission].name }), ' · ' + M.types[cv.mission].line])]), fly]),
+        h('span.hrow.hfoot', null, [U.moons(PP.profile.caveMoons(cv.id)), track, h('span.hcount', { text: got + '/' + total })]),
+      ]),
+    ]);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
+    // paint the postcard once the card has its size
+    const paint = () => { if (pc.isConnected && PP.roost.postcard) PP.roost.postcard(pc, cv, p.bats.selected); };
+    requestAnimationFrame(() => requestAnimationFrame(paint));
+    return { el, paint };
+  }
 
   /* ---------- Title ---------- */
   U.def('title', () => {
@@ -81,27 +133,41 @@
     return { el, scene: 'cave', show() { if (!PP.G || PP.G.mode !== 'attract') GM.attract(); PP.audio.menu(); }, back() { const app = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App; if (app && app.exitApp) app.exitApp(); return true; } };
   });
 
-  /* ---------- The Roost (home) ---------- */
   U.def('roost', () => {
-    const p = PP.profile.get(), lun = PP.lunar();
-    const total = GM.allCaves().length * 3, got = PP.profile.totalMoons();
+    const p = PP.profile.get(), lun = PP.lunar(), E = PP.data.economy;
     const newBats = PP.data.bats.some(b => b.id !== 'pip' && PP.profile.arrived(b) && !PP.profile.owns(b) && !p.seen.bats[b.id]);
     const newReq = Object.keys(p.requests.done).some(id => !p.seen.requests[id]);
-    const pupsN = p.stats.pups;
+    const night = GM.nightlyCave(), nB = PP.biome(night.biome), done = PP.profile.nightlyDone();
+    const LN = p.longNight, sel = PP.batById(p.bats.selected), caves = GM.allCaves();
+    const read = caves.filter(c => p.journal.scratches[c.id]).length, reqDone = Object.keys(p.requests.done).length;
+    const H = hero();
     const el = h('div.scr.roost-ui', null, [
       h('div.top', null, [h('h2', { text: 'The Roost' }), U.larder(), h('button.icon-btn', { 'aria-label': 'Settings', html: U.icon.gear, onclick: () => { PP.uiSfx(); U.show('settings'); } })]),
-      h('div.home-menu', null, [
-        mcard('rain', 'var(--gold)', PP.data.campaign.name, got + ' of ' + total + ' Moons · ' + PP.plural(pupsN, 'pup') + ' home', () => U.show('map'), '.wide.hero', [
-          h('span.mbar', null, h('i', { style: 'width:' + Math.round(got / Math.max(1, total) * 100) + '%' })), h('span.mplay', { text: 'Fly' }),
+      h('div.roost-modes', null, [
+        h('div.mcol', null, [
+          mtile(moonIcon(lun.phase), 'var(--moon)', 'Nightly Cave', done ? 'Done' : '+' + E.nightly, 'Tonight: ' + shortName(nB.name) + ' · ' + lun.name.toLowerCase(), () => U.show('nightly'), done ? '.done' : ''),
+          mtile('night', '#b58cff', 'Long Night', LN.best ? 'Cave ' + LN.bestCave : 'New', LN.best ? 'Endless caves, one life · best ' + fmt(LN.best) : 'Endless caves, one life. How deep?', () => U.show('longnight')),
         ]),
-        mcard('moon', 'var(--moon)', 'The Nightly Cave', PP.profile.nightlyDone() ? lun.name + ' · cleared today' : lun.name + ' · +' + PP.data.economy.nightly + ' first clear', () => U.show('nightly')),
-        mcard('night', '#b58cff', 'The Long Night', p.longNight.best ? 'Best ' + fmt(p.longNight.best) + ' · cave ' + p.longNight.bestCave : 'Endless caves', () => U.show('longnight')),
-        mcard('bat', 'var(--teal)', 'Hangar', 'Bats and Practice Hollow', () => U.show('hangar'), '', newBats ? [h('span.dot-new')] : []),
-        mcard('book', '#ffb46b', 'Journal', 'Scratches, moths, pups', () => U.show('journal')),
-        mcard('scroll', 'var(--pink)', 'Requests', Object.keys(p.requests.done).length + ' of ' + PP.data.requests.length + ' done', () => U.show('requests'), '.wide', newReq ? [h('span.dot-new')] : []),
+        h('div.mcol', null, [
+          mtile('bat', 'var(--teal)', 'Hangar', p.bats.owned.length + '/' + PP.data.bats.length, newBats ? 'A new bat has come to roost' : 'Flying ' + sel.name + ' · try the others', () => U.show('hangar'), '', newBats),
+          mtile('book', '#ffb46b', 'Journal', read + '/' + caves.length, 'Scratches read in your echoes, moths, pups', () => U.show('journal')),
+        ]),
+      ]),
+      h('div.home-menu', null, [
+        H.el,
+        h('button.card.mcard.wide.reqbar', { style: '--acc:var(--pink)', onclick: () => { PP.uiSfx(); U.show('requests'); } }, [
+          h('span.medal', { html: ICON.scroll }),
+          h('span.mtext', null, [h('h3', { text: 'Requests' }), h('span.mbar', null, h('i', { style: 'width:' + Math.round(reqDone / Math.max(1, PP.data.requests.length) * 100) + '%' }))]),
+          h('span.mcount', { text: reqDone + ' of ' + PP.data.requests.length }), newReq ? h('span.dot-new') : null,
+        ]),
       ]),
     ]);
-    return { el, scene: 'roost', show() { PP.roost.invalidate(); PP.audio.menu(); PP.loop.resume(); } };
+    let onResize = null;
+    return {
+      el, scene: 'roost',
+      show() { PP.roost.invalidate(); PP.audio.menu(); PP.loop.resume(); onResize = () => { H.paint(); PP.roost.invalidate(); }; addEventListener('resize', onResize); },
+      hide() { if (onResize) removeEventListener('resize', onResize); onResize = null; },
+    };
   });
 
   /* ---------- World map ---------- */

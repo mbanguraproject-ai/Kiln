@@ -1,7 +1,7 @@
 // Pipistrelle's tests (docs/pipistrelle/BRIEF.md, Engineering): the economy simulator, save migration, every cave
 // generates, the bot finishes every cave and earns every Moon with Pip, The Long Night runs, every screen opens,
 // native resolution up to 4K, the pixels a frame covers, the frame-time budget and the safety net.
-// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,rescue,play,frames] [--port=8920]
+// Usage: node tests/test.cjs [--only=economy,caves,moons,screens,roost,rescue,play,frames] [--port=8920]
 //        node tests/test.cjs --unit    (no browser: economy, saves and campaign data; what CI runs)
 // Needs Playwright (NODE_PATH=/opt/node22/lib/node_modules if it is installed globally), except for --unit.
 const args = process.argv.slice(2);
@@ -121,6 +121,62 @@ const GOALS = {
     for (const c of caves.filter((c, i) => i % 3 === 0)) {
       const cur = await page.evaluate(id => __ppTest.show('brief', { id }), c.id);
       check(cur === 'brief', `brief for ${c.id} opens`);
+    }
+  }
+
+  if (want('roost')) {
+    // The Roost (the owner, 14 October): four compact tiles in the top corners, only the Long Rain and Requests at the
+    // bottom, nothing hanging behind them, the Long Rain's Fly starts the next cave, and the belfry answers taps
+    const mid = () => PP.profile.update(p => {
+      for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '1-6', '2-1', '2-2']) p.caves[id] = { cleared: true, moons: [true, false, true], best: null, tries: 1 };
+      p.roost = { '1-1': 1, '1-2': 3, '1-3': 4, '1-4': 2, '1-5': 3, '1-6': 3, '2-1': 2, '2-2': 3 }; p.stats.pups = 21; p.bats.owned = ['pip', 'hark'];
+    });
+    for (const [w, h, d] of [[390, 844, 1], [360, 640, 1], [1280, 800, 1], [1920, 1080, 1]]) {
+      const pg = await open(w, h, d);
+      await pg.evaluate(`(${mid})()`);
+      await pg.evaluate(() => __ppTest.show('roost'));
+      await pg.waitForTimeout(900);
+      const L = await pg.evaluate(() => {
+        const rr = el => { const b = el.getBoundingClientRect(); return { x0: b.left, y0: b.top, x1: b.right, y1: b.bottom }; };
+        const cols = [...document.querySelectorAll('.roost-ui .mcol')].map(c => ({ r: rr(c), tiles: c.querySelectorAll('.mtile').length }));
+        const menu = document.querySelector('.roost-ui .home-menu'), kids = [...menu.children];
+        const tiles = [...document.querySelectorAll('.roost-ui .mtile')].map(rr);
+        PP.R.frame(1); PP.R.frame(1);
+        const D = PP.roost._dbg(), Lo = D && D.slots;
+        return { cols, tiles, kids: kids.map(k => k.className), hero: rr(kids[0]), req: rr(kids[1]), menu: rr(menu), D, w: innerWidth, h: innerHeight, hang: PP.roost._hang() };
+      });
+      const tag = `${w}x${h}`;
+      check(L.cols.length === 2 && L.cols.every(c => c.tiles === 2), `roost ${tag}: four tiles, two in each top corner`);
+      check(L.cols[0].r.x1 < L.w * 0.5 && L.cols[1].r.x0 > L.w * 0.5 && L.cols.every(c => c.r.y1 < L.h * 0.56), `roost ${tag}: the tiles sit in the opposite top corners`, L.cols.map(c => Math.round(c.r.x0) + '-' + Math.round(c.r.x1) + ',' + Math.round(c.r.y1)).join(' '));
+      check(L.kids.length === 2 && /hero/.test(L.kids[0]) && /reqbar/.test(L.kids[1]), `roost ${tag}: only the Long Rain and Requests at the bottom`);
+      check(L.menu.y1 <= L.h + 1 && L.tiles.every(t => t.y1 < L.menu.y0), `roost ${tag}: the bottom cards fit on screen, below the tiles`, Math.round(L.menu.y0) + '-' + Math.round(L.menu.y1));
+      const hidden = L.hang.filter(s => L.tiles.concat([L.menu]).some(r => s.x1 > r.x0 && s.x0 < r.x1 && s.y1 > r.y0 && s.y0 < r.y1));
+      check(L.hang.length >= 6 && !hidden.length, `roost ${tag}: nothing hangs behind a tile or a card`, L.hang.length + ' hanging, ' + hidden.length + ' hidden');
+      // taps: a chirp in the open, a pup (its group answers), one of your bats (a lap of the belfry)
+      await pg.mouse.click(L.D.open.x, L.D.open.y);
+      const a = await pg.evaluate(() => PP.roost._dbg());
+      await pg.mouse.click(L.D.pup.x, L.D.pup.y);
+      const b = await pg.evaluate(() => PP.roost._dbg());
+      await pg.mouse.click(L.D.bat.x, L.D.bat.y);
+      const c = await pg.evaluate(() => PP.roost._dbg());
+      check(a.rings > 0 && b.calls > 0 && c.flier, `roost ${tag}: a tap chirps, a tapped pup's group answers, a tapped bat flies a lap`, `rings ${a.rings}, calls ${b.calls}, flier ${c.flier}`);
+      await pg.waitForTimeout(5200);
+      check(!(await pg.evaluate(() => PP.roost._dbg().flier)), `roost ${tag}: the bat hangs back up`);
+      if (w === 390) {
+        // the Long Rain: the next cave, and Fly starts it
+        const nx = await pg.evaluate(() => [PP.game.nextUp().cv.id, document.querySelector('.hero h3').textContent, PP.game.nextUp().why]);
+        check(nx[0] === '2-3' && nx[1] === 'The Siphon Pool' && nx[2] === 'Next cave', 'roost: the Long Rain shows the next cave', nx.join(' · '));
+        await pg.click('.hero-fly', { force: true }); // it pulses, so it is never "stable" to Playwright
+        const fl = await pg.evaluate(() => [PP.ui.curName, PP.game.last && PP.game.last.cave && PP.game.last.cave.id]);
+        check(fl[0] === 'flight' && fl[1] === '2-3', 'roost: the Long Rain\'s Fly starts that cave', fl.join(' '));
+        const fresh = await pg.evaluate(() => { __ppTest.reset(); return [PP.game.nextUp().cv.id, PP.game.nextUp().why]; });
+        const done = await pg.evaluate(() => { __ppTest.clearAll(); return [PP.game.nextUp().cv.id, PP.game.nextUp().why]; });
+        check(fresh[0] === '1-1' && fresh[1] === 'Next cave' && done[0] === '5-1', 'roost: a new player is sent to 1-1; a finished campaign to the finale', fresh.concat(done).join(' · '));
+        await pg.evaluate(() => __ppTest.show('roost'));
+        await pg.click('.mtile >> nth=0', { force: true });
+        check(await pg.evaluate(() => PP.ui.curName) === 'nightly', 'roost: the Nightly Cave tile opens it');
+      }
+      await pg.close();
     }
   }
 
