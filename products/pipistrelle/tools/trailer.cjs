@@ -27,18 +27,19 @@ const SHOTS = [
     setup: `__trailer.campaign(); __ppTest.startCave('1-2', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'pups', secs: 5, kicker: 'Kin', title: 'Bring the lost pups home', layers: ['pups'],
     setup: `__trailer.campaign(); __ppTest.startCave('1-4', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(11); for (let i = 0; i < 3; i++) __ppTest.give('pup'); __ppTest.step(0.8);` },
-  { id: 'flood', secs: 5, kicker: 'The Drowned Halls', title: 'Outrun the flood', layers: ['danger'],
-    setup: `__trailer.campaign(); __ppTest.startCave('2-6', 'skimmer'); __ppTest.autopilot(true, { fast: true }); __ppTest.step(8.5);` },
+  { id: 'flood', secs: 5, kicker: 'The Drowned Halls', title: 'Skim the black water', layers: ['danger'],
+    // over the river (the bot takes over from there), so the water shows
+    setup: `__trailer.campaign(); __ppTest.startCave('2-2', 'skimmer'); __ppTest.step(1); const rv = PP.L.rivers[0]; __ppTest.teleport(rv.x0 + (rv.x1 - rv.x0) * 0.22, rv.y - 80); __trailer.botFrom({ survey: true, pups: false }); __ppTest.chirp(); __ppTest.step(0.4);` },
   { id: 'glass', secs: 5, kicker: 'The Glass Vaults', title: 'Crystal holds your echo', layers: ['deep'],
     setup: `__trailer.campaign(); __ppTest.startCave('3-1', 'comb'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'owls', secs: 5, kicker: 'The Owlstone Crypt', title: 'Slip past the owls', layers: ['danger', 'deep'],
-    setup: `__trailer.campaign(); __ppTest.startCave('4-1', 'hark'); __ppTest.autopilot(true, { careful: true }); __trailer.until(() => PP.L.owls.some(o => Math.hypot(o.x - PP.G.bat.x, o.y - PP.G.bat.y) < 620), 40);`,
-    frames: { 150: `__ppTest.shriek();` } },
+    setup: `__trailer.campaign(); __ppTest.startCave('4-1', 'hark'); __ppTest.autopilot(true, { careful: true }); __trailer.until(() => PP.L.owls.some(o => Math.hypot(o.x - PP.G.bat.x, o.y - PP.G.bat.y) < 420), 60);`,
+    frames: { 110: `__ppTest.shriek();` } },
   { id: 'lady', secs: 5, kicker: 'Set piece', title: 'Something hunts by ear', layers: ['danger'],
-    setup: `__trailer.campaign(); __ppTest.startCave('4-6', 'pip'); __ppTest.autopilot(true, { fast: true }); __ppTest.step(10);` },
+    setup: `__trailer.campaign(); __ppTest.startCave('4-6', 'pip'); __ppTest.autopilot(true, { fast: true }); __trailer.until(() => { const D = PP.L.lady; return D && (D.state === 'chase' || D.state === 'fly') && Math.hypot(D.x - PP.G.bat.x, D.y - PP.G.bat.y) < 520; }, 60);` },
   { id: 'hush', secs: 4.4, kicker: 'The Hush', title: 'Five biomes. Twenty-five caves.', layers: ['exit'],
     setup: `__trailer.campaign(); __ppTest.startCave('5-1', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
-  { id: 'roost', secs: 5.2, kicker: 'The Roost', title: 'Your colony comes home', layers: ['pups', 'exit'],
+  { id: 'roost', secs: 5.2, layers: ['pups', 'exit'],
     setup: `__trailer.campaign(); __ppTest.show('roost'); __ppTest.step(0.5);`,
     frames: { 40: `__trailer.tapOpen();`, 120: `__trailer.tapBat();` } },
   { id: 'end', secs: 4, layers: ['exit'], end: true,
@@ -55,9 +56,18 @@ function prelude() {
     campaign() {
       __ppTest.reset();
       __ppTest.clearAll();
+      PP.settings.set('captions', false);
       PP.profile.update(p => { p.bats.owned = PP.data.bats.map(b => b.id); p.bats.selected = 'pip'; p.tutorial = Object.assign({}, p.tutorial, { taught: true }); p.stats.pups = 21; });
     },
     until(fn, max) { for (let i = 0; i < max * 2 && !fn(); i++) __ppTest.step(0.5); },
+    // the autopilot, from wherever the bat is now: it skips the waypoints already behind
+    botFrom(goals) {
+      __ppTest.autopilot(true, goals || {});
+      const G = PP.G, L = PP.L, b = G.bat;
+      let bi = 0, bd = 1e18;
+      for (let i = 0; i < L.path.length; i += 3) { const p = L.path[i], d = (p.x - b.x) ** 2 + (p.y - b.y) ** 2; if (d < bd) { bd = d; bi = i; } }
+      while (G.bot.i < G.bot.wps.length - 1 && G.bot.wps[G.bot.i].pi <= bi) G.bot.i++;
+    },
     tapOpen() { const d = PP.roost._dbg(); if (d) PP.roost.tap(d.open.x, d.open.y); },
     tapBat() { const d = PP.roost._dbg(); if (d && d.bat) PP.roost.tap(d.bat.x, d.bat.y); },
   };
@@ -100,7 +110,7 @@ function prelude() {
       await page.evaluate(src => { window.__vtOn = false; PP.loop.start(); (0, eval)(src); PP.loop.stop(); window.__vt = performance.now(); window.__vtOn = true; }, S.setup);
       await page.evaluate(([k, t]) => { const c = document.getElementById('tcap'); c.children[0].textContent = k || ''; c.children[1].textContent = t || ''; c.style.opacity = t ? 1 : 0; }, [S.kicker, S.title]);
       const N = Math.round(S.secs * FPS / 2);
-      for (let f = 0; f < N; f++) await page.evaluate(([dt, act]) => { window.__vt += dt; if (act) (0, eval)(act); PP.loop.step(1); }, [1000 / FPS, S.frames && S.frames[f] || null]);
+      for (let f = 0; f < N; f++) await page.evaluate(([dt, act]) => { window.__vt += dt; if (act) (0, eval)(act); PP.loop.step(1); }, [1000 / FPS, (S.frames && S.frames[f]) || (S.every && f % S.every[0] === 0 ? S.every[1] : null)]);
       await page.screenshot({ path: path.join(dir, `trailer-${S.id}.png`) });
       console.log('preview', S.id);
     }
@@ -124,7 +134,7 @@ function prelude() {
         PP.loop.step(1);
         document.getElementById('tcap').style.opacity = a;
         __anim();
-      }, [1000 / FPS, capA, S.frames && S.frames[f] || null]);
+      }, [1000 / FPS, capA, (S.frames && S.frames[f]) || (S.every && f % S.every[0] === 0 ? S.every[1] : null)]);
       const png = await page.screenshot({ type: 'png' });
       if (!ff.stdin.write(png)) await new Promise(r => ff.stdin.once('drain', r));
     }
