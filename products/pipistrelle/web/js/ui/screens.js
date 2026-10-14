@@ -97,7 +97,8 @@
   // little picture of its biome, with its mission, its Moons and how far through each biome you are, and Requests.
   function hero() {
     const p = PP.profile.get(), M = PP.data.missions, nx = GM.nextUp(), cv = nx.cv, B = PP.biome(cv.biome);
-    const total = GM.allCaves().length * 3, got = PP.profile.totalMoons();
+    const total = GM.allCaves().length * 3, got = PP.profile.totalMoons(), mt = M.types[cv.mission];
+    const pups = Array.isArray(cv.pups) ? cv.pups.length : cv.pups || 0;
     const pc = h('canvas.postcard', { 'aria-hidden': 'true' });
     const track = h('span.btrack');
     for (const id of PP.data.campaign.order) {
@@ -106,17 +107,22 @@
       const open = PP.profile.caveOpen(id, 0), k = PP.profile.moonsIn(Bi.index + '-') / (Bi.caves.length * 3);
       track.appendChild(h('span.bseg' + (open ? '' : '.shut') + (id === cv.biome ? '.here' : ''), { style: '--bc:' + Bi.palette.accent, title: Bi.name }, h('i', { style: 'width:' + Math.round(k * 100) + '%' })));
     }
+    // where the cave takes you: from where you enter to the way out, and what waits on the way
+    const line = mt.line.replace(/\.$/, '') + (pups && cv.mission !== 'kin' ? ' · ' + PP.plural(pups, 'lost pup').replace(/ /g, '\u00a0') : '');
     const fly = h('button.btn.gold.hero-fly', { 'aria-label': 'Fly ' + cv.name, onclick: e => { e.stopPropagation(); PP.uiSfx(); Kit.audio.unlock(); GM.startCave(cv); } }, [h('span', { html: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>' }), 'Fly']);
     const el = h('div.card.mcard.hero', { role: 'button', tabindex: '0', style: '--acc:' + B.palette.accent, onclick: () => { PP.uiSfx(); U.show('map'); } }, [
-      h('span.pcwrap', null, [pc, h('span.pcring')]),
+      h('span.pcwrap', null, [pc, h('span.pcring'), h('span.pcl.from', { text: 'You' }), h('span.pcl.to', null, [h('span.pcl-long', { text: 'Moonlit ' }), 'arch'])]),
       h('span.hbody', null, [
-        h('span.hrow.htop', null, [h('span.pctag', { text: nx.why }), h('span.eyebrow', { text: PP.data.campaign.name + ' · ' + (B.finale ? 'Finale' : 'Biome ' + B.index) + ' · ' + shortName(B.name) })]),
-        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', null, [h('b', { text: M.types[cv.mission].name }), ' · ' + M.types[cv.mission].line])]), fly]),
-        h('span.hrow.hfoot', null, [U.moons(PP.profile.caveMoons(cv.id)), track, h('span.hcount', { text: got + '/' + total })]),
+        h('span.hmeta', null, [h('span.htag', { text: nx.why }), h('span.eyebrow', { text: shortName(B.name) + ' · cave ' + (B.caves.indexOf(cv) + 1) + ' of ' + B.caves.length })]),
+        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', null, [h('b', { text: mt.name }), ' · ' + line])]), fly]),
+        h('span.hprog', null, [
+          h('span.hpg', null, [h('span.hpl', { text: 'Moons' }), U.moons(PP.profile.caveMoons(cv.id))]),
+          h('span.hpg.grow', null, [h('span.hpl', { text: PP.data.campaign.name.replace(/^The /, '') }), track, h('span.hcount', null, [String(got), h('small', { text: '/ ' + total })])]),
+        ]),
       ]),
     ]);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
-    // paint the postcard once the card has its size
+    // paint the picture once the card has its size
     const paint = () => { if (pc.isConnected && PP.roost.postcard) PP.roost.postcard(pc, cv, p.bats.selected); };
     requestAnimationFrame(() => requestAnimationFrame(paint));
     return { el, paint };
@@ -139,26 +145,30 @@
     const newReq = Object.keys(p.requests.done).some(id => !p.seen.requests[id]);
     const night = GM.nightlyCave(), nB = PP.biome(night.biome), done = PP.profile.nightlyDone();
     const LN = p.longNight, sel = PP.batById(p.bats.selected), caves = GM.allCaves();
-    const read = caves.filter(c => p.journal.scratches[c.id]).length, reqDone = Object.keys(p.requests.done).length;
+    const read = caves.filter(c => p.journal.scratches[c.id]).length, reqs = PP.data.requests, reqDone = reqs.filter(rq => p.requests.done[rq.id]).length;
     const H = hero();
     const el = h('div.scr.roost-ui', null, [
       h('div.top', null, [h('h2', { text: 'The Roost' }), U.larder(), h('button.icon-btn', { 'aria-label': 'Settings', html: U.icon.gear, onclick: () => { PP.uiSfx(); U.show('settings'); } })]),
       h('div.roost-modes', null, [
         h('div.mcol', null, [
-          mtile(moonIcon(lun.phase), 'var(--moon)', 'Nightly Cave', done ? 'Done' : '+' + E.nightly, 'Tonight: ' + shortName(nB.name) + ' · ' + lun.name.toLowerCase(), () => U.show('nightly'), done ? '.done' : ''),
+          mtile(moonIcon(lun.phase), 'var(--moon)', 'Nightly Cave', done ? 'Done' : '+' + E.nightly, shortName(nB.name) + ' · ' + lun.name.toLowerCase(), () => U.show('nightly'), done ? '.done' : ''),
           mtile('night', '#b58cff', 'Long Night', LN.best ? 'Cave ' + LN.bestCave : 'New', LN.best ? 'Endless caves, one life · best ' + fmt(LN.best) : 'Endless caves, one life. How deep?', () => U.show('longnight')),
         ]),
         h('div.mcol', null, [
           mtile('bat', 'var(--teal)', 'Hangar', p.bats.owned.length + '/' + PP.data.bats.length, newBats ? 'A new bat has come to roost' : 'Flying ' + sel.name + ' · try the others', () => U.show('hangar'), '', newBats),
-          mtile('book', '#ffb46b', 'Journal', read + '/' + caves.length, 'Scratches read in your echoes, moths, pups', () => U.show('journal')),
+          mtile('book', '#ffb46b', 'Journal', read + '/' + caves.length, 'Scratches, moths and pups found', () => U.show('journal')),
         ]),
       ]),
       h('div.home-menu', null, [
         H.el,
-        h('button.card.mcard.wide.reqbar', { style: '--acc:var(--pink)', onclick: () => { PP.uiSfx(); U.show('requests'); } }, [
+        h('button.card.mcard.wide.reqbar', { style: '--acc:var(--pink)', 'aria-label': 'Requests, ' + reqDone + ' of ' + reqs.length + ' done', onclick: () => { PP.uiSfx(); U.show('requests'); } }, [
           h('span.medal', { html: ICON.scroll }),
-          h('span.mtext', null, [h('h3', { text: 'Requests' }), h('span.mbar', null, h('i', { style: 'width:' + Math.round(reqDone / Math.max(1, PP.data.requests.length) * 100) + '%' }))]),
-          h('span.mcount', { text: reqDone + ' of ' + PP.data.requests.length }), newReq ? h('span.dot-new') : null,
+          h('span.rq', null, [
+            h('h3', { text: 'Requests' }), h('span.rqcount', null, [reqDone + '/' + reqs.length, h('small', { text: 'done' })]),
+            // one segment per request: full when done, part-filled as you get closer
+            h('span.rqbar', null, reqs.map(rq => { const d = !!p.requests.done[rq.id], g = rq.goal(p), k = d ? 1 : Math.max(0, Math.min(1, g[0] / Math.max(1, g[1]))); return h('i' + (d ? '.on' : ''), { style: '--k:' + Math.round(k * 100) + '%' }, h('b')); })),
+          ]),
+          newReq ? h('span.dot-new') : null,
         ]),
       ]),
     ]);
