@@ -21,3 +21,22 @@ One line per finished step, newest last, so the work can be resumed.
 - Step 6 (the Roost polished, the owner's note of 14 October): the four tiles are 13% shorter and 12% narrower (122 x 85 px on a phone, was 138 x 98) and always the same size, titles whole even on a 360 px phone. The belfry hangs only as many beams as the colony needs; the old colony sleeps in the dark at the beams' free ends (eyes shut until a sound reaches them), and below the beams the lower belfry is alive: the colony circles as moonlit silhouettes, mist lies on the floor where the moonbeam lands, fireflies rise, and a bell rope hangs from the lowest beam (pull it and the bell tolls through the belfry). The Long Rain card: the title leads, a quiet "Next cave" tag (Fly is the only gold thing on it), the picture labels the route from You to the Moonlit arch with arrows along it, and one progress row with matching parts (this cave's Moons, a bar per biome, the Moons count). Requests: one segment per request (part-filled as you get closer), the count right over the bar's end.
 - Step 7 (lag and music stutter, the owner's play test of 14 October; D16): the music plays from stems rendered ahead off the main thread (each song's loop once, the base plus one stem per adaptive layer, about 10 to 15 MB a song, two kept), so no frame can delay or drop a note; the live sequencer only plays until a song's stems are ready, and hands over at the next step. The menus render the next cave's song ahead. The safety net counts only frames that draw a cave (menus used to climb it back to full quality, so every cave began with a run of downward steps and repaints) and remembers the level per screen for the next session. Settings shows the frame rate measured in the caves. Tiles narrower again (112 px on a phone) with more space between them.
 - Step 8 (the store trailer, 14 October): `tools/trailer.cjs` captures a 44 s landscape gameplay video at 1920 x 1080, 60 fps, frame by frame (the loop stopped, the clock virtual, CSS animations on the same clock), with captions in the game's type: the title, echoes in Chalk Hollows, a trail of pups, black water with cavefish in the Drowned Halls, the Glass Vaults, the owls, the Grey Lady, the Hush, the Roost and the end card. The soundtrack is the Chalk Hollows song with its layers following the shots, plus every sound the game played, rendered offline (`Kit.audio.renderOffline` in `web/vendor/kit.js`). `--preview` renders one still a shot.
+- Step 9 (the owner's note of 15 October; D17):
+  - **Ads**: Google AdMob replaces Unity Ads.
+    - Google Mobile Ads SDK 24 and UMP 3 consent, through `PipAdsPlugin.java`.
+    - The rewarded ad at the Last Echo.
+    - An interstitial at the break before the results after every third campaign, Nightly or Long Night run. Never after practice, a story flight or the demo; never within two minutes of another ad; a chosen rewarded ad restarts the count.
+    - Google's demo units in debug builds. Live unit IDs go in `web/js/ads.js`, the app ID in `strings.xml`.
+    - Settings: the status of both ads, Privacy options, and test buttons.
+  - **Hangar**:
+    - A one-line intro, with Practice Hollow and "What the stats mean" in small panels.
+    - Six stats from the real numbers: the bar places the bat among the colony, the figure is its difference from Pip.
+    - A smaller picture.
+    - Practice is the first action, the same size on every card. Flying is a small chip by the name.
+    - Locked bats are a greyed shadow, with no buttons and their arrival cave.
+  - **Roost**:
+    - Pups brought home since the last visit fly in through the window to their beam, once (`seen.roost`, at most eight).
+    - The circling colony grows with the pups, 5 to 13.
+    - The Long Rain drips from the beams and falls past the window.
+    - Quieter beam labels.
+    - The Long Rain card puts the lost pups on the route as pink waypoints, matching a pink "2 lost pups" in the mission line. It drops the "Next cave" tag, the mission's type name and the progress labels.

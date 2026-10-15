@@ -12,7 +12,7 @@
       stats: { caves: 0, pups: 0, moths: 0, chirps: 0, shrieks: 0, time: 0, moons: 0, cleanCaves: 0, quietest: 999, bestSurvey: 0, nightlies: 0, earned: 0, attempts: 0 },
       caves: {}, roost: {}, bats: { owned: ['pip'], selected: 'pip' },
       requests: { done: {} }, journal: { scratches: {} }, nightly: { last: '' }, longNight: { best: 0, bestCave: 0, runs: 0 },
-      flights: {}, seen: { bats: {}, requests: {}, night: false }, tutorial: { taught: false },
+      flights: {}, seen: { bats: {}, requests: {}, night: false, roost: null }, tutorial: { taught: false },
       settings: { sound: true, music: 0.8, sfx: 1, echo: 1, vibration: true, quality: 'native', gentle: false, shapes: false, captions: true, adsPersonal: false },
       legacy: { gift: 0 },
     };

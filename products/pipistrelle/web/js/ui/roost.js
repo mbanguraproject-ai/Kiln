@@ -2,7 +2,9 @@
  * named for the cave it came from; your bats hang among them. Drawn on the canvas behind the menus.
  *
  * It is alive (the owner, 14 October: "make the upper game world more interactive... subtle environmental
- * animation"). Moonlight falls through a tall window, and clouds drift across the moon, so the light comes and goes;
+ * animation"; 15 October: the rescued bats appear as you progress). Pups brought home since the last visit fly in
+ * through the window to their beams, the colony circling below grows with them, and the Long Rain drips from the
+ * beams and falls past the window. Moonlight falls through a tall window, and clouds drift across the moon, so the light comes and goes;
  * dust turns in the moonbeam; moths flutter round the light; wild bats cross the moon outside. Inside, everything
  * hangs on a pendulum: pups sway and call to each other now and then, your bats stretch their wings, and every so
  * often one drops from the beam, flies a lap of the belfry, snaps up a moth and hangs back up. And it answers you:
@@ -17,7 +19,7 @@
   const rnd = Kit.rng(4242);
   let cache = null, keep = null;
   // things that move: rings of sound, dust, moths, a bat on the wing, wild bats outside, the hint
-  const S = { rings: [], motes: null, moths: [], flier: null, wild: [], calls: [], col: [], nextFly: 9, nextCall: 3, nextStretch: 5, nextWild: 2, last: 0, tapped: false, shown: 0, boost: 0, colT: 0, scatter: 0, ropeA: 0, ropeV: 0 };
+  const S = { rings: [], motes: null, moths: [], flier: null, wild: [], calls: [], col: [], arr: [], drips: [], nextFly: 9, nextCall: 3, nextStretch: 5, nextWild: 2, nextDrip: 1.5, last: 0, tapped: false, shown: 0, boost: 0, colT: 0, scatter: 0, ropeA: 0, ropeV: 0 };
   const NM = 56;
 
   // where the menu sits, in canvas units (CSS px): the two columns of tiles, the top bar and the bottom cards
@@ -114,6 +116,28 @@
   }
   RO.invalidate = () => { cache = null; S.flier = null; S.calls.length = 0; };
 
+  // pups brought home since the roost was last seen fly in through the window, one after another, to their places
+  // on the beams (the owner, 15 October: "the rescued bats could appear gradually as the player progresses").
+  // What has been shown is kept in the profile (seen.roost), so each pup arrives once; at most eight fly in.
+  const slotOf = (Lo, a) => { for (const g of Lo.groups) if (g.id === a.gid) return g.slots ? g.slots[a.k] || null : null; return null; };
+  function arrivals(Lo) {
+    const p = PP.profile.get(), seen = p.seen.roost;
+    // an older save: what hangs there now is what it has seen
+    if (!seen) { p.seen.roost = Object.assign({}, p.roost); PP.profile.save(); return; }
+    const fresh = [];
+    for (const g of Lo.groups) {
+      const was = seen[g.id] || 0;
+      if (g.n > was && g.slots) for (let k = was; k < g.n && k < g.slots.length; k++) fresh.push({ gid: g.id, k });
+    }
+    let changed = false;
+    for (const id in p.roost) if ((seen[id] || 0) !== p.roost[id]) changed = true;
+    if (!changed) return;
+    fresh.splice(0, Math.max(0, fresh.length - 8));
+    fresh.forEach((a, i) => { a.T = -0.9 - i * 0.5; a.dur = 1.8; a.side = rnd.chance(0.5) ? 1 : -1; S.arr.push(a); });
+    p.seen.roost = Object.assign({}, p.roost);
+    PP.profile.save();
+  }
+
   // a ring of sound from (x, y): teal for a chirp (it lights what it touches, and the pups it reaches answer),
   // pink for a pup's call
   function ring(x, y, kind, max) { S.rings.push({ x, y, kind, r: 0, max: max || 260 * R.u, hit: new Set() }); if (S.rings.length > 14) S.rings.shift(); }
@@ -196,6 +220,32 @@
       M.x[i] += (M.vx[i] + Math.sin(S.last * 0.3 + i) * 3 * u) * dt; M.y[i] += M.vy[i] * dt;
       if (M.y[i] > h + 4) { M.y[i] = -4; M.x[i] = rnd.range(0, w); }
       if (M.x[i] < -4) M.x[i] = w + 4; else if (M.x[i] > w + 4) M.x[i] = -4;
+    }
+    // pups flying in; each squeaks as it lands, and its group answers
+    for (let i = S.arr.length - 1; i >= 0; i--) {
+      const a = S.arr[i];
+      a.T += dt;
+      if (a.T < a.dur) continue;
+      S.arr.splice(i, 1);
+      const s = slotOf(Lo, a);
+      if (!s) continue;
+      s.v += 1.4; s.lit = 0.7;
+      ring(s.x, s.y + 14 * u, 'call', 80 * u);
+      sfx('squeak', { pitch: 10 + rnd.range(0, 3), vol: 0.12 });
+      for (const o of s.g.slots) if (o !== s && !S.arr.some(b => slotOf(Lo, b) === o)) pupCall(o, rnd.range(0.2, 0.7), false);
+    }
+    // the Long Rain gets in: now and then a drop gathers under a beam, falls, and rings out on the floor below
+    if ((S.nextDrip -= dt) <= 0) {
+      S.nextDrip = rnd.range(1.8, 4.2);
+      const bi = rnd.int(0, Lo.beams.length - 1), sp = Lo.spans[bi], floor = Lo.low.h > 50 * u ? Lo.low.y1 - rnd.range(6, 22) * u : Lo.K.menu.y0 - 6 * u;
+      S.drips.push({ x: rnd.range(sp[0] + 20 * u, sp[1] - 20 * u), y: Lo.beams[bi] + 3 * u, vy: 0, hang: rnd.range(0.5, 1.1), floor, splash: 0 });
+    }
+    for (let i = S.drips.length - 1; i >= 0; i--) {
+      const d = S.drips[i];
+      if (d.splash > 0) { d.splash += dt; if (d.splash > 1.1) S.drips.splice(i, 1); continue; }
+      if (d.hang > 0) { d.hang -= dt; continue; }
+      d.vy += 900 * u * dt; d.y += d.vy * dt;
+      if (d.y >= d.floor) { d.y = d.floor; d.splash = 1e-3; }
     }
     // wild bats crossing the moon outside
     if ((S.nextWild -= dt) <= 0) {
@@ -288,7 +338,9 @@
     S.col.length = 0;
     if (L.h > 70 * u) {
       const cx = w / 2, cy = L.y0 + L.h * 0.4, rx = w * 0.3, ry = Math.min(L.h * 0.24, 46 * u), looks = PP.data.bats;
-      for (let i = 0; i < 7; i++) {
+      // the colony grows with the pups brought home: five at first, up to thirteen
+      const nc = Math.min(13, 5 + Math.floor(Lo.total / 4));
+      for (let i = 0; i < nc; i++) {
         const th = S.colT + i * 0.31 + (i % 2) * 0.05, sn = Math.sin(th), d = (sn + 1) / 2;
         const x = cx + Math.cos(th) * rx, y = cy + sn * ry + Math.sin(now * 2.6 + i) * 3 * u;
         const beam = Lo.wx + (y - by) * Math.tan(ang) + Lo.ww * 0.3, inBeam = Math.abs(x - beam) < Lo.ww;
@@ -317,6 +369,7 @@
       const settled = !!cache && cache.w === w && cache.h === h && cache.v === ver;
       const old = cache;
       cache = Object.assign(layout(ctx, w, h, u), { w, h, v: ver, t0: old && settled ? old.t0 : now, settled });
+      arrivals(cache);
       // keep the swing of anything still hanging in the same place
       if (old && settled) for (let i = 0; i < Math.min(old.slots.length, cache.slots.length); i++) { cache.slots[i].a = old.slots[i].a; cache.slots[i].v = old.slots[i].v; }
       if (S.flier) { const i = old ? old.slots.indexOf(S.flier.s) : -1; S.flier.s = settled && i >= 0 ? cache.slots[i] : null; if (!S.flier.s) S.flier = null; }
@@ -370,6 +423,14 @@
       cg.addColorStop(0, 'rgba(10,18,40,' + (0.75 * (0.6 + 0.4 * cl)).toFixed(3) + ')'); cg.addColorStop(1, 'rgba(10,18,40,0)');
       ctx.fillStyle = cg; ctx.fillRect(cx - 46 * u, cy - 46 * u, 92 * u, 92 * u);
     }
+    // the Long Rain, falling past the glass
+    ctx.strokeStyle = 'rgba(190,214,255,0.16)'; ctx.lineWidth = Math.max(1, 0.8 * u);
+    ctx.beginPath();
+    for (let r = 0; r < 16; r++) {
+      const rx = wx - ww / 2 + ((r * 41.3 + now * 26 * u) % (ww + 30 * u)) - 15 * u, ry = wy + (((r * 67 + now * 260) * u) % (wh + 40 * u)) - 20 * u;
+      ctx.moveTo(rx, ry); ctx.lineTo(rx - 3 * u, ry + 11 * u);
+    }
+    ctx.stroke();
     ctx.fillStyle = '#05070f';
     for (const b of S.wild) {
       const fl = Math.sin(now * 14 + b.ph), sz = 10 * u * b.s;
@@ -415,9 +476,12 @@
       }
     }
     if (Lo.rope) drawRope(ctx, Lo.rope, now, u, lit);
-    // pups and bats hanging upside down, each on its own pendulum
+    // pups and bats hanging upside down, each on its own pendulum (a pup still flying in is drawn on the wing below)
+    let arrBy = null;
+    if (S.arr.length) { arrBy = new Map(); for (const a of S.arr) { const s2 = slotOf(Lo, a); if (s2) arrBy.set(s2, a); } }
     for (const s of Lo.slots) {
       if (S.flier && S.flier.s === s) continue;
+      if (arrBy && arrBy.has(s)) continue;
       ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.a + Math.sin(now * 1.3 + s.ph) * 0.03);
       if (s.kind === 'pup') {
         if (s.lit > 0) R.glow(ctx, 0, 14 * u, 26 * u, PP.P.teal, 0.55 * s.lit);
@@ -445,15 +509,45 @@
     // names of the caves the pups came from
     for (const gq of Lo.groups) {
       if (gq.cx === undefined) continue;
-      Kit.gfx.text(ctx, gq.name + (gq.n > 1 ? ' ×' + gq.n : ''), gq.cx, Lo.beams[gq.beam] + 40 * u, { size: 9 * u, weight: 700, font: 'body', color: 'rgba(255,190,220,0.7)' });
+      Kit.gfx.text(ctx, gq.name + (gq.n > 1 ? ' ×' + gq.n : ''), gq.cx, Lo.beams[gq.beam] + 40 * u, { size: 8.5 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.42)' });
     }
-    if (Lo.moreAt) Kit.gfx.text(ctx, '+' + Lo.more + ' more in the Journal', Lo.moreAt.x, Lo.moreAt.y, { size: 9 * u, weight: 700, font: 'body', color: 'rgba(255,190,220,0.5)' });
+    if (Lo.moreAt) Kit.gfx.text(ctx, '+' + Lo.more + ' more in the Journal', Lo.moreAt.x, Lo.moreAt.y, { size: 8.5 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.34)' });
     if (Lo.msgAt) {
-      Kit.gfx.text(ctx, 'Bring the lost pups home,', Lo.msgAt.x, Lo.msgAt.y, { size: 10 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.62)' });
-      Kit.gfx.text(ctx, 'and they will hang here.', Lo.msgAt.x, Lo.msgAt.y + 13 * u, { size: 10 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.62)' });
+      Kit.gfx.text(ctx, 'Bring the lost pups home,', Lo.msgAt.x, Lo.msgAt.y, { size: 10 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.5)' });
+      Kit.gfx.text(ctx, 'and they will hang here.', Lo.msgAt.x, Lo.msgAt.y + 13 * u, { size: 10 * u, weight: 600, font: 'body', color: 'rgba(255,190,220,0.5)' });
     }
     // the lower belfry: moonlit mist on the floor, the colony circling, fireflies rising
     if (Lo.low.h > 50 * u) drawLower(ctx, Lo, now, u, w, lit, ang, by);
+    // drops of rain, catching the moon where they cross its beam, and their rings on the floor
+    for (const d of S.drips) {
+      const beam = wx + (d.y - by) * Math.tan(ang) + ww * 0.3, shine = d.y > by && Math.abs(d.x - beam) < ww ? 1 : 0.45;
+      if (d.splash > 0) {
+        const k2 = d.splash / 1.1, a = (1 - k2) * 0.5 * shine;
+        ctx.globalAlpha = a; ctx.strokeStyle = '#bcd6ff'; ctx.lineWidth = Math.max(1, u);
+        ctx.beginPath(); ctx.ellipse(d.x, d.y, (3 + 16 * k2) * u, (1 + 4 * k2) * u, 0, 0, TAU); ctx.stroke();
+        if (k2 < 0.35) { ctx.fillStyle = '#dfe8ff'; const j = k2 / 0.35; ctx.fillRect(d.x - 5 * j * u, d.y - 7 * Math.sin(Math.PI * j) * u, 1.5 * u, 1.5 * u); ctx.fillRect(d.x + 4 * j * u, d.y - 6 * Math.sin(Math.PI * j) * u, 1.5 * u, 1.5 * u); }
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      const sw = d.hang > 0 ? Math.max(0.3, 1 - d.hang) : 1;
+      R.glow(ctx, d.x, d.y, 7 * u, '#9fc2ff', 0.3 * shine);
+      ctx.globalAlpha = 0.8 * shine; ctx.fillStyle = '#d8e6ff';
+      ctx.beginPath(); ctx.ellipse(d.x, d.y + 1.5 * u * sw, 1.4 * u * sw, (d.hang > 0 ? 1.8 : 2.8) * u * sw, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // pups flying in from the window, with a pink trail, turning over to hang as they reach their beam
+    if (arrBy) for (const [s, a] of arrBy) {
+      if (a.T < 0) continue;
+      const k2 = Math.min(1, a.T / a.dur), e = k2 * k2 * (3 - 2 * k2);
+      const x0 = wx + a.side * ww * 0.2, y0 = wy + wh * 0.62, x1 = s.x, y1 = s.y + 12 * u, cx = (x0 + x1) / 2, cy = Math.max(y0, y1) + 60 * u;
+      const at = q => { const m = 1 - q; return [m * m * x0 + 2 * m * q * cx + q * q * x1, m * m * y0 + 2 * m * q * cy + q * q * y1]; };
+      const [px, py] = at(e);
+      for (let j = 1; j <= 6; j++) { const [tx, ty] = at(Math.max(0, e - j * 0.035)); ctx.globalAlpha = (1 - j / 7) * 0.45 * (1 - k2 * 0.6); ctx.fillStyle = PP.P.pink; ctx.fillRect(tx - u, ty - u, 2 * u, 2 * u); }
+      ctx.globalAlpha = 1;
+      R.glow(ctx, px, py, 24 * u, PP.P.pink, 0.4 * (1 - k2 * 0.5));
+      const flip = k2 < 0.78 ? 1 : 1 - (k2 - 0.78) / 0.22, bob = k2 < 0.78 ? Math.sin(now * 28 + s.ph) * 1.5 * u : 0;
+      R.drawPup(ctx, px, py + bob, now * 3 + s.ph, flip, 1.15 * u);
+    }
 
     // moths round the light
     for (const m of S.moths) {
@@ -515,7 +609,7 @@
     const Lo = cache, u = R.u;
     if (!Lo) return null;
     const pup = Lo.slots.find(s => s.kind === 'pup' && s.g.slots.length > 2) || Lo.slots.find(s => s.kind === 'pup'), bat = Lo.slots.find(s => s.kind === 'bat'), R0 = Lo.rope;
-    return { open: { x: Lo.wx + Lo.ww, y: (Lo.beams[0] + (Lo.beams[1] || Lo.K.menu.y0)) / 2 + 20 * u }, pup: pup && { x: pup.x, y: pup.y + 13 * u }, bat: bat && { x: bat.x, y: bat.y + 20 * u }, rope: R0 && { x: R0.x + Math.sin(S.ropeA) * R0.len * 0.75, y: R0.y0 + R0.len * 0.75 }, ropeV: S.ropeV, toll: S.rings.some(g => g.kind === 'toll'), colony: S.col.length, elders: Lo.slots.filter(s => s.kind === 'elder').length, low: Lo.low, flier: !!S.flier, rings: S.rings.length, calls: S.calls.length, beams: Lo.beams.length, slots: Lo.slots.length, more: Lo.more };
+    return { open: { x: Lo.wx + Lo.ww, y: (Lo.beams[0] + (Lo.beams[1] || Lo.K.menu.y0)) / 2 + 20 * u }, pup: pup && { x: pup.x, y: pup.y + 13 * u }, bat: bat && { x: bat.x, y: bat.y + 20 * u }, rope: R0 && { x: R0.x + Math.sin(S.ropeA) * R0.len * 0.75, y: R0.y0 + R0.len * 0.75 }, ropeV: S.ropeV, toll: S.rings.some(g => g.kind === 'toll'), colony: S.col.length, elders: Lo.slots.filter(s => s.kind === 'elder').length, low: Lo.low, flier: !!S.flier, rings: S.rings.length, calls: S.calls.length, beams: Lo.beams.length, slots: Lo.slots.length, more: Lo.more, arriving: S.arr.length, drips: S.drips.length };
   };
 
   // for tests: the box each hanging thing (and its name) takes up
@@ -583,13 +677,19 @@
     if (kind === 'owlstone') for (let i = 0; i < 2; i++) { const x = w * (0.42 + i * 0.2), y = h * 0.26; for (let e = -1; e <= 1; e += 2) { R.glow(g, x + e * 3.5 * pu, y, 7 * pu, '#ffb347', 0.8); g.fillStyle = '#ffd27a'; g.fillRect(x + (e * 3.5 - 1) * pu, y - pu, 2 * pu, 2 * pu); } }
     if (kind === 'chalk' || kind === 'hush') for (let i = 0; i < 14; i++) { const x = rr.range(0.05, 0.8) * w, y = h * rr.range(0.08, 0.2); R.glow(g, x, y, 5 * pu, P.glowworm, 0.7); }
     if (kind === 'hush') { g.fillStyle = 'rgba(200,200,214,0.12)'; for (let i = 0; i < 9; i++) { g.beginPath(); g.ellipse(rr.range(0, w), h * 0.88, rr.range(14, 30) * pu, rr.range(4, 8) * pu, 0, 0, TAU); g.fill(); } }
-    // the route, lit by echoes, from the bat into the moonlit arch, with arrows pointing the way
+    // the route, lit by echoes, from the bat into the moonlit arch, with arrows pointing the way; the lost pups wait
+    // on it, each in a pink ring, so the way home passes through them (the owner, 15 October: make the relationship
+    // between the pups and the destination clearer)
     const bx = w * 0.2, by = h * 0.55, ex = ax, ey = ay + ah * 0.18;
     const rx = k => bx + 16 * pu + (ex - bx - 16 * pu) * k, ry = k => by + (ey - by) * k + Math.sin(k * Math.PI * 2 + ph[0]) * h * 0.1 * Math.sin(k * Math.PI);
+    const np = def.mission === 'kin' || (def.pups && (def.pups.length || def.pups > 0)) ? Math.min(3, Array.isArray(def.pups) ? def.pups.length : def.pups || 2) : 0;
+    const pk = []; for (let i = 0; i < np; i++) pk.push(np === 1 ? 0.5 : 0.3 + i * 0.4 / (np - 1));
+    const nearPup = k => pk.some(q => Math.abs(q - k) < 0.07);
     R.glow(g, ex, ey, aw * 0.9, P.moon, 0.35);
     const N = 30;
     for (let i = 0; i <= N; i++) {
       const k = i / N, x = rx(k), y = ry(k);
+      if (nearPup(k)) continue;
       g.globalAlpha = 0.95 - k * 0.35; g.fillStyle = PP.P.teal;
       if (i % 6 === 3 && i < N - 2) {
         // a chevron along the route
@@ -602,10 +702,12 @@
       } else g.fillRect(x - pu, y - pu, 2 * pu, 2 * pu);
     }
     g.globalAlpha = 1;
-    // the pups waiting, if this cave has pups to bring home
-    if (def.mission === 'kin' || (def.pups && (def.pups.length || def.pups > 0))) {
-      const n = Math.min(3, Array.isArray(def.pups) ? def.pups.length : def.pups || 2);
-      for (let i = 0; i < n; i++) { const x = w * (0.42 + i * 0.12), y = h * 0.24 + i % 2 * 4 * pu; R.glow(g, x, y + 6 * pu, 12 * pu, PP.P.pink, 0.45); R.drawPup(g, x, y, 0.4 + i, 0, 0.85 * pu); }
+    for (let i = 0; i < np; i++) {
+      const x = rx(pk[i]), y = ry(pk[i]), rr2 = 8.5 * pu;
+      R.glow(g, x, y, 16 * pu, PP.P.pink, 0.5);
+      g.fillStyle = 'rgba(20,8,24,0.55)'; g.beginPath(); g.arc(x, y, rr2, 0, TAU); g.fill();
+      g.strokeStyle = PP.P.pink; g.lineWidth = 1.3 * pu; g.beginPath(); g.arc(x, y, rr2, 0, TAU); g.stroke();
+      R.drawPup(g, x, y - 1.5 * pu, 0.4 + i, 1, 0.78 * pu);
     }
     // an escape: what is coming, behind you
     if (def.mission === 'escape') { const eg = g.createLinearGradient(0, 0, w * 0.16, 0); eg.addColorStop(0, kind === 'drowned' ? 'rgba(40,110,200,0.75)' : 'rgba(255,74,107,0.45)'); eg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = eg; g.fillRect(0, 0, w * 0.16, h); }

@@ -109,16 +109,19 @@
       track.appendChild(h('span.bseg' + (open ? '' : '.shut') + (id === cv.biome ? '.here' : ''), { style: '--bc:' + Bi.palette.accent, title: Bi.name }, h('i', { style: 'width:' + Math.round(k * 100) + '%' })));
     }
     // where the cave takes you: from where you enter to the way out, and what waits on the way
-    const line = mt.line.replace(/\.$/, '') + (pups && cv.mission !== 'kin' ? ' · ' + PP.plural(pups, 'lost pup').replace(/ /g, '\u00a0') : '');
+    // (the owner, 15 October: fewer labels competing; the mission in a line, the lost pups in the route's pink)
+    const line = mt.line.replace(/\.$/, '');
+    const pupNote = pups ? h('span.hpup', null, [h('i'), PP.plural(pups, cv.mission === 'kin' ? 'pup' : 'lost pup').replace(/ /g, '\u00a0')]) : null;
     const fly = h('button.btn.gold.hero-fly', { 'aria-label': 'Fly ' + cv.name, onclick: e => { e.stopPropagation(); PP.uiSfx(); Kit.audio.unlock(); GM.startCave(cv); } }, [h('span', { html: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>' }), 'Fly']);
     const el = h('div.card.mcard.hero', { role: 'button', tabindex: '0', style: '--acc:' + B.palette.accent, onclick: () => { PP.uiSfx(); U.show('map'); } }, [
       h('span.pcwrap', null, [pc, h('span.pcring'), h('span.pcl.from', { text: 'You' }), h('span.pcl.to', null, [h('span.pcl-long', { text: 'Moonlit ' }), 'arch'])]),
       h('span.hbody', null, [
-        h('span.hmeta', null, [h('span.htag', { text: nx.why }), h('span.eyebrow', { text: shortName(B.name) + ' · cave ' + (B.caves.indexOf(cv) + 1) + ' of ' + B.caves.length })]),
-        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', null, [h('b', { text: mt.name }), ' · ' + line])]), fly]),
+        // the plain next cave needs no tag; a retry, Moons still to find or a last cave flown again say so
+        h('span.hmeta', null, [nx.why !== 'Next cave' ? h('span.htag', { text: nx.why }) : null, h('span.eyebrow', { text: shortName(B.name) + ' · cave ' + (B.caves.indexOf(cv) + 1) + ' of ' + B.caves.length })]),
+        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', { title: mt.name }, [line, pupNote ? ' ' : null, pupNote])]), fly]),
         h('span.hprog', null, [
-          h('span.hpg', null, [h('span.hpl', { text: 'Moons' }), U.moons(PP.profile.caveMoons(cv.id))]),
-          h('span.hpg.grow', null, [h('span.hpl', { text: PP.data.campaign.name.replace(/^The /, '') }), track, h('span.hcount', null, [String(got), h('small', { text: '/ ' + total })])]),
+          h('span.hpg', { title: 'Moons in this cave' }, [U.moons(PP.profile.caveMoons(cv.id))]),
+          h('span.hpg.grow', { title: PP.data.campaign.name + ': Moons in each biome' }, [track, h('span.hcount', { 'aria-label': got + ' of ' + total + ' Moons' }, [String(got), h('small', { text: '/' + total })])]),
         ]),
       ]),
     ]);

@@ -190,6 +190,21 @@ const GOALS = {
         await pg.mouse.click(lo.rope.x, lo.rope.y);
         const tl = await pg.evaluate(() => PP.roost._dbg());
         check(tl.toll && tl.ropeV > 0, 'roost: pulling the bell rope tolls the bell');
+        // the Hangar (15 October): Practice first, each stat compared with Pip from the real numbers, locked bats plain
+        const hg = await pg.evaluate(() => {
+          __ppTest.show('hangar');
+          const cards = [...document.querySelectorAll('.hcard')], gale = cards[cards.length - 1], b = cards[0].querySelector('.hacts .btn');
+          return { first: b && b.textContent, deltas: [...gale.querySelectorAll('.delta')].map(d => d.textContent).join(' '), locked: gale.classList.contains('locked') && !gale.querySelector('.btn'), chip: cards[0].querySelector('.hchip').textContent };
+        });
+        check(hg.first === 'Practice' && hg.chip === 'Flying', 'hangar: Practice is the first action; Flying is a small status beside the name', hg.first + ' / ' + hg.chip);
+        check(hg.deltas === '+29% +24% +33% −18% +20% −20%' && hg.locked, 'hangar: the stats show each bat\'s real difference from Pip, and a bat on its way is plainly locked', hg.deltas);
+        // pups brought home since the last visit fly in through the window, once
+        const ar = await pg.evaluate(() => {
+          PP.profile.update(p => { p.roost['1-1'] = 1; p.roost['1-2'] = 2; p.stats.pups = 3; p.seen.roost = { '1-1': 1 }; });
+          __ppTest.show('roost');
+          return new Promise(res => setTimeout(() => res({ n: PP.roost._dbg().arriving, seen: JSON.stringify(PP.profile.get().seen.roost) }), 400));
+        });
+        check(ar.n === 2 && ar.seen === '{"1-1":1,"1-2":2}', 'roost: pups brought home since the last visit fly in through the window, once', ar.n + ' flying in, seen ' + ar.seen);
         const done = await pg.evaluate(() => { __ppTest.clearAll(); return [PP.game.nextUp().cv.id, PP.game.nextUp().why]; });
         check(fresh[0] === '1-1' && fresh[1] === 'Next cave' && done[0] === '5-1', 'roost: a new player is sent to 1-1; a finished campaign to the finale', fresh.concat(done).join(' · '));
         await pg.evaluate(() => __ppTest.show('roost'));
