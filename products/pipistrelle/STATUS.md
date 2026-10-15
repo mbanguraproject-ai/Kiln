@@ -40,3 +40,4 @@ One line per finished step, newest last, so the work can be resumed.
     - The Long Rain drips from the beams and falls past the window.
     - Quieter beam labels.
     - The Long Rain card puts the lost pups on the route as pink waypoints, matching a pink "2 lost pups" in the mission line. It drops the "Next cave" tag, the mission's type name and the progress labels.
+- Step 10 (15 October; D18): the app is now `game.devbangs.pipistrelle` (app ID, namespace and Java package). The Roost's first beam sits closer under the top tiles: the window ends 6 px below them, not 18, and the beam 24 px below the window, not 30.

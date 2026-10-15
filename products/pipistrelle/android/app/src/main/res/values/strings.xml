@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">Pipistrelle</string>
     <string name="title_activity_main">Pipistrelle</string>
-    <string name="package_name">com.mbanguraproject.pipistrelle</string>
-    <string name="custom_url_scheme">com.mbanguraproject.pipistrelle</string>
+    <string name="package_name">game.devbangs.pipistrelle</string>
+    <string name="custom_url_scheme">game.devbangs.pipistrelle</string>
     <!-- the AdMob app ID (AdMob console, Apps, App settings): replace Google's sample ID below with Pipistrelle's -->
     <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
 </resources>

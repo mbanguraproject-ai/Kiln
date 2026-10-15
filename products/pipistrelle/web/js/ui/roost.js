@@ -44,10 +44,11 @@
     // the window, between the two columns of tiles and under the top bar
     const gx0 = K.L.x1, gx1 = K.Rt.x0, tilesBottom = Math.max(K.L.y1, K.Rt.y1);
     const ww = Math.max(34 * u, Math.min(gx1 - gx0 - 18 * u, 118 * u)), wx = (gx0 + gx1) / 2;
-    const wy = K.top.y1 + 2 * u, wh = Math.max(60 * u, Math.min(tilesBottom - wy + 18 * u, (K.menu.y0 - wy) * (land ? 0.42 : 0.5)));
+    const wy = K.top.y1 + 2 * u, wh = Math.max(60 * u, Math.min(tilesBottom - wy + 6 * u, (K.menu.y0 - wy) * (land ? 0.42 : 0.5)));
     // the beams, in the open belfry between the window and the cards at the bottom
-    // (on a narrow screen the tiles leave no room beside them, so the beams start below the tiles)
-    let ya = wy + wh + 30 * u, yb = K.menu.y0 - 62 * u;
+    // (on a narrow screen the tiles leave no room beside them, so the beams start below the tiles; the first beam sits
+    // close under them, the owner, 15 October)
+    let ya = wy + wh + 24 * u, yb = K.menu.y0 - 62 * u;
     if (gx1 - gx0 < 160 * u) ya = Math.max(ya, tilesBottom + 14 * u);
     if (yb < ya) { ya = Math.min(ya, K.menu.y0 - 62 * u); yb = ya; }
     const room = yb - ya, roomBeams = room >= 150 * u ? 3 : room >= 70 * u ? 2 : 1, edge = Math.max(w * 0.04, 12 * u);

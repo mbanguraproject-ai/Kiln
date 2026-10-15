@@ -223,6 +223,16 @@ The Last Echo itself (the Second Wind, then "Fly on?") is unchanged.
       for advertising and analytics and shared with Google;
     - keep the target audience 13+. Anything younger brings the Families policy.
 
+## D18. Pipistrelle's package name: `game.devbangs.pipistrelle` (15 October 2026)
+
+The owner, on 15 October: "Package name game.devbangs.pipistrelle". It replaces the placeholder
+`com.mbanguraproject.pipistrelle` as the app ID, Gradle namespace and Java package
+(`android/app/src/main/java/game/devbangs/pipistrelle/`). It becomes permanent with the first Play upload.
+
+- Android treats the renamed app as a new app. A phone that had the old build keeps it as a separate app, with its
+  own save. To move progress across: Settings, Save, Export in the old app, then Import in the new one.
+- When Pipistrelle is added in AdMob and the Play Console, use this package name.
+
 ## Roadmap status (blueprint §18)
 
 | Phase | State |

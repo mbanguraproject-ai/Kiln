@@ -8,7 +8,7 @@ current game is mapped in `research/map-code.md` and assessed in `research/map-p
 
 ## The product
 
-- Lives in `products/pipistrelle/`, self-contained: its own Android app (app ID `com.mbanguraproject.pipistrelle`,
+- Lives in `products/pipistrelle/`, self-contained: its own Android app (app ID `game.devbangs.pipistrelle` since D18,
   name Pipistrelle, own icon and splash), web root, build scripts, tests and README. Nothing at runtime or build
   time comes from outside the folder (copy what it reuses, such as `hub/kit.js`, and own the copy). Its CI is
   `.github/workflows/pipistrelle.yml`, which builds its APK and publishes `pipistrelle-debug.apk` to the release
