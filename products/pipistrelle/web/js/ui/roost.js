@@ -27,14 +27,16 @@
     const root = document.querySelector('.roost-ui');
     const rr = el => { const b = el.getBoundingClientRect(); return { x0: b.left, y0: b.top, x1: b.right, y1: b.bottom }; };
     if (root) {
-      const cols = root.querySelectorAll('.mcol'), top = root.querySelector('.top'), menu = root.querySelector('.home-menu');
-      if (cols.length === 2 && top && menu && cols[0].getBoundingClientRect().width > 1) keep = { L: rr(cols[0]), Rt: rr(cols[1]), top: rr(top), menu: rr(menu), w, h };
+      const cols = root.querySelectorAll('.mcol'), top = root.querySelector('.top'), menu = root.querySelector('.home-menu'), modes = root.querySelector('.roost-modes');
+      // how far the tiles sit below where the window and the beams are measured from (--tdrop in the stylesheet)
+      const drop = modes ? (parseFloat(getComputedStyle(modes).getPropertyValue('--tdrop')) || 0) * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) : 0;
+      if (cols.length === 2 && top && menu && cols[0].getBoundingClientRect().width > 1) keep = { L: rr(cols[0]), Rt: rr(cols[1]), top: rr(top), menu: rr(menu), drop, w, h };
     }
     if (keep && keep.w === w && keep.h === h) return keep;
     // not on the page (another screen is over the Roost): the same shape, from the stylesheet's sizes
     const rem = 16 * u, land = w > h * 1.15, cw = Math.min(land ? 10.5 * rem : 8.6 * rem, w * (land ? 0.22 : 0.36)), sx = Math.max(rem, R.safe.l), ty = Math.max(0.9 * rem, R.safe.t) + 2.9 * rem;
-    const th = 11.6 * rem, mh = land ? 13.5 * rem : 15.5 * rem;
-    return { L: { x0: sx, y0: ty + 0.5 * rem, x1: sx + cw, y1: ty + 0.5 * rem + th }, Rt: { x0: w - sx - cw, y0: ty + 0.5 * rem, x1: w - sx, y1: ty + 0.5 * rem + th }, top: { x0: 0, y0: 0, x1: w, y1: ty }, menu: { x0: 0, y0: h - mh, x1: w, y1: h }, w, h };
+    const th = 11.6 * rem, mh = land ? 13.5 * rem : 15.5 * rem, drop = land ? 0 : 17.6, ty0 = ty + 0.5 * rem + drop;
+    return { L: { x0: sx, y0: ty0, x1: sx + cw, y1: ty0 + th }, Rt: { x0: w - sx - cw, y0: ty0, x1: w - sx, y1: ty0 + th }, top: { x0: 0, y0: 0, x1: w, y1: ty }, menu: { x0: 0, y0: h - mh, x1: w, y1: h }, drop, w, h };
   }
 
   function layout(ctx, w, h, u) {
@@ -44,11 +46,11 @@
     // the window, between the two columns of tiles and under the top bar
     const gx0 = K.L.x1, gx1 = K.Rt.x0, tilesBottom = Math.max(K.L.y1, K.Rt.y1);
     const ww = Math.max(34 * u, Math.min(gx1 - gx0 - 18 * u, 118 * u)), wx = (gx0 + gx1) / 2;
-    const wy = K.top.y1 + 2 * u, wh = Math.max(60 * u, Math.min(tilesBottom - wy + 6 * u, (K.menu.y0 - wy) * (land ? 0.42 : 0.5)));
+    // (measured from where the tiles sat before they moved down, so the window and the first beam stay put)
+    const wy = K.top.y1 + 2 * u, wh = Math.max(60 * u, Math.min(tilesBottom - (K.drop || 0) - wy + 18 * u, (K.menu.y0 - wy) * (land ? 0.42 : 0.5)));
     // the beams, in the open belfry between the window and the cards at the bottom
-    // (on a narrow screen the tiles leave no room beside them, so the beams start below the tiles; the first beam sits
-    // close under them, the owner, 15 October)
-    let ya = wy + wh + 24 * u, yb = K.menu.y0 - 62 * u;
+    // (on a narrow screen the tiles leave no room beside them, so the beams start below the tiles)
+    let ya = wy + wh + 30 * u, yb = K.menu.y0 - 62 * u;
     if (gx1 - gx0 < 160 * u) ya = Math.max(ya, tilesBottom + 14 * u);
     if (yb < ya) { ya = Math.min(ya, K.menu.y0 - 62 * u); yb = ya; }
     const room = yb - ya, roomBeams = room >= 150 * u ? 3 : room >= 70 * u ? 2 : 1, edge = Math.max(w * 0.04, 12 * u);
