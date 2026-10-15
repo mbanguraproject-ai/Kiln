@@ -1,4 +1,4 @@
-package com.mbanguraproject.pipistrelle;
+package game.devbangs.pipistrelle;
 
 import android.app.Activity;
 import android.content.pm.ApplicationInfo;

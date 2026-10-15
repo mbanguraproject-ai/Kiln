@@ -1,7 +1,7 @@
 # Pipistrelle
 
 Fly a thumb-sized bat through pitch-black caves, painting them with your own echoes. A standalone game that grew
-out of Kiln (D14): its own Android app (`com.mbanguraproject.pipistrelle`), build, tests and CI, and nothing outside
+out of Kiln (D14): its own Android app (`game.devbangs.pipistrelle`, D18), build, tests and CI, and nothing outside
 this folder.
 
 ## What is in v1
