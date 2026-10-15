@@ -36,8 +36,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
-    // rewarded ads (owner decision D15): Unity Ads, the RewardedAd API; see PipAdsPlugin.java
-    implementation 'com.unity3d.ads:unity-ads:4.21.0'
+    // ads (owner decision D17): Google AdMob, a rewarded ad and an interstitial between runs, with Google's consent
+    // platform (UMP) for the EEA and the UK; see PipAdsPlugin.java
+    implementation 'com.google.android.gms:play-services-ads:24.4.0'
+    implementation 'com.google.android.ump:user-messaging-platform:3.2.0'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

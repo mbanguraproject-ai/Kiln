@@ -7,7 +7,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // the app's own plugin: rewarded ads through Unity Ads (PipAdsPlugin)
+        // the app's own plugin: ads through Google AdMob (PipAdsPlugin)
         registerPlugin(PipAdsPlugin.class);
         super.onCreate(savedInstanceState);
     }

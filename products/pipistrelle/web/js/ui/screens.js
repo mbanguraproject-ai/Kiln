@@ -50,7 +50,8 @@
     const G = PP.G;
     if (!G || G.mode !== 'play') return;
     if (G.kind === 'practice') { setTimeout(() => { U.show('hangar', {}, { replace: true }); U.toast(res.won ? 'Practice flight complete' : 'Practice over'); GM.attract(); }, 150); return; }
-    setTimeout(() => U.show('results', { res }, { replace: true }), res.won ? 60 : 300);
+    // every third run, the break before the results is where an interstitial plays (js/ads.js)
+    setTimeout(() => PP.ads.runBreak(res).then(() => U.show('results', { res }, { replace: true })), res.won ? 60 : 300);
   });
 
   const card = (title, text, onclick, cls, kids) => h('button.card' + (cls || ''), { onclick: () => { PP.uiSfx(); onclick(); } }, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(kids || []));
@@ -108,16 +109,19 @@
       track.appendChild(h('span.bseg' + (open ? '' : '.shut') + (id === cv.biome ? '.here' : ''), { style: '--bc:' + Bi.palette.accent, title: Bi.name }, h('i', { style: 'width:' + Math.round(k * 100) + '%' })));
     }
     // where the cave takes you: from where you enter to the way out, and what waits on the way
-    const line = mt.line.replace(/\.$/, '') + (pups && cv.mission !== 'kin' ? ' · ' + PP.plural(pups, 'lost pup').replace(/ /g, '\u00a0') : '');
+    // (the owner, 15 October: fewer labels competing; the mission in a line, the lost pups in the route's pink)
+    const line = mt.line.replace(/\.$/, '');
+    const pupNote = pups ? h('span.hpup', null, [h('i'), PP.plural(pups, cv.mission === 'kin' ? 'pup' : 'lost pup').replace(/ /g, '\u00a0')]) : null;
     const fly = h('button.btn.gold.hero-fly', { 'aria-label': 'Fly ' + cv.name, onclick: e => { e.stopPropagation(); PP.uiSfx(); Kit.audio.unlock(); GM.startCave(cv); } }, [h('span', { html: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>' }), 'Fly']);
     const el = h('div.card.mcard.hero', { role: 'button', tabindex: '0', style: '--acc:' + B.palette.accent, onclick: () => { PP.uiSfx(); U.show('map'); } }, [
       h('span.pcwrap', null, [pc, h('span.pcring'), h('span.pcl.from', { text: 'You' }), h('span.pcl.to', null, [h('span.pcl-long', { text: 'Moonlit ' }), 'arch'])]),
       h('span.hbody', null, [
-        h('span.hmeta', null, [h('span.htag', { text: nx.why }), h('span.eyebrow', { text: shortName(B.name) + ' · cave ' + (B.caves.indexOf(cv) + 1) + ' of ' + B.caves.length })]),
-        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', null, [h('b', { text: mt.name }), ' · ' + line])]), fly]),
+        // the plain next cave needs no tag; a retry, Moons still to find or a last cave flown again say so
+        h('span.hmeta', null, [nx.why !== 'Next cave' ? h('span.htag', { text: nx.why }) : null, h('span.eyebrow', { text: shortName(B.name) + ' · cave ' + (B.caves.indexOf(cv) + 1) + ' of ' + B.caves.length })]),
+        h('span.hrow', null, [h('span.htext', null, [h('h3', { text: cv.name }), h('p', { title: mt.name }, [line, pupNote ? ' ' : null, pupNote])]), fly]),
         h('span.hprog', null, [
-          h('span.hpg', null, [h('span.hpl', { text: 'Moons' }), U.moons(PP.profile.caveMoons(cv.id))]),
-          h('span.hpg.grow', null, [h('span.hpl', { text: PP.data.campaign.name.replace(/^The /, '') }), track, h('span.hcount', null, [String(got), h('small', { text: '/ ' + total })])]),
+          h('span.hpg', { title: 'Moons in this cave' }, [U.moons(PP.profile.caveMoons(cv.id))]),
+          h('span.hpg.grow', { title: PP.data.campaign.name + ': Moons in each biome' }, [track, h('span.hcount', { 'aria-label': got + ' of ' + total + ' Moons' }, [String(got), h('small', { text: '/' + total })])]),
         ]),
       ]),
     ]);
@@ -254,7 +258,7 @@
       why.textContent = S.why + (G.kind === 'endless' ? ' · cave ' + G.cave : G.caveDef ? ' · ' + G.caveDef.name : '');
       const ready = PP.ads.ready();
       watch.disabled = !ready || S.busy;
-      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad right now. ' + PP.ads.status().text;
+      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'A short ad, once per flight.' : 'No ad right now' + (PP.ads.error ? ' (' + PP.ads.error.code + ')' : '') + '. Let the echoes fade to end the flight.';
       ring.style.setProperty('--k', String(Math.max(0, S.offerT) / 9));
       ring.textContent = String(Math.ceil(Math.max(0, S.offerT)));
     };
@@ -479,14 +483,18 @@
     });
     // the ad network's state in words, live: so an ad that cannot load says why instead of failing silently
     const adStatus = h('p.ad-status'), retryB = h('button.btn.ghost', { text: 'Try again', onclick: () => { PP.uiSfx(); PP.ads.retry(); } });
-    const testB = h('button.btn.ghost', { text: 'Watch a test ad', onclick: () => { PP.uiSfx(); PP.ads.test(); } });
-    const adRow = h('div.row', null, [testB, retryB]);
+    const testB = h('button.btn.ghost', { text: 'Test rewarded', onclick: () => { PP.uiSfx(); PP.ads.test('rewarded'); } });
+    const testI = h('button.btn.ghost', { text: 'Test interstitial', onclick: () => { PP.uiSfx(); PP.ads.test('interstitial'); } });
+    const privB = h('button.btn.ghost', { text: 'Privacy options', onclick: () => { PP.uiSfx(); PP.ads.privacyOptions(); } });
+    const adRow = h('div.row.ad-row', null, [privB, testB, testI, retryB]);
     const syncAds = () => {
-      const st = PP.ads.status();
+      const st = PP.ads.status(), A = PP.ads;
       adStatus.textContent = st.text; adStatus.classList.toggle('bad', !!st.error); adStatus.classList.toggle('good', !!st.ok);
-      retryB.hidden = PP.ads.state !== 'wait';
-      testB.hidden = !(PP.ads.testMode || PP.debug);
-      adRow.hidden = retryB.hidden && testB.hidden;
+      retryB.hidden = !(A.sdk.state === 'wait' || A.slots.rewarded.state === 'wait' || A.slots.interstitial.state === 'wait');
+      testB.hidden = !(A.testMode || PP.debug);
+      testI.hidden = !(A.testMode || (PP.debug && A.fakeInterstitial));
+      privB.hidden = !A.privacyRequired;
+      adRow.hidden = retryB.hidden && testB.hidden && testI.hidden && privB.hidden;
     };
     syncAds();
     PP.on('adsStatus', () => { if (adStatus.isConnected) syncAds(); });
@@ -498,13 +506,13 @@
     const el = h('div.scr.scrim-strong', null, [U.top('Settings', { larder: false }), h('div.body', null, h('div.wrap', null, [
       h('div.card', null, [toggle('sound', 'Sound'), slider('music', 'Music'), slider('sfx', 'Effects'), slider('echo', 'Echo volume'), toggle('vibration', 'Vibration')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Display' }), resT, resL, h('div.toggle', null, [h('span', null, ['Battery saver', h('small', { text: 'Draws at about 1080p with lighter effects. What you hear and see in the echoes never changes.' })]), saverSw])]),
-      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), adStatus, adRow, toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
+      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'A short ad plays at the break after every third run, never during a flight. At the Last Echo you can also choose to watch one to fly on. No banners.' }), adStatus, adRow, toggle('adsPersonal', 'Personalised ads', 'Off: the ads you see are not based on your activity in other apps.')]),
       h('div.card', null, [toggle('gentle', 'Gentle Wings', 'Bumps cost nothing; other knocks and the dark’s hunger are softer.'), toggle('shapes', 'Echo shapes', 'Each echo colour also gets its own mark: rock dots, food diamonds, pup hearts, danger triangles.'), toggle('captions', 'Sound captions', 'Show what you hear at the edge of the screen.')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Save' }), h('div.row', null, [
         h('button.btn.ghost', { text: 'Export', onclick: () => { code.hidden = false; code.value = PP.profile.exportCode(); code.select(); try { navigator.clipboard.writeText(code.value); U.toast('Save code copied'); } catch (e) { /* select is enough */ } } }),
         h('button.btn.ghost', { text: 'Import', onclick: () => { if (imp.hidden) { imp.hidden = false; imp.focus(); return; } if (PP.profile.importCode(imp.value)) { PP.settings.apply(); U.toast('Save imported'); imp.value = ''; imp.hidden = true; } else U.toast('That code did not work'); } }),
       ]), code, imp]),
-      h('p.muted', { style: 'text-align:center', text: 'Pipistrelle ' + PP.version + ' · no purchases, no timers, ads only when you choose them' }),
+      h('p.muted', { style: 'text-align:center', text: 'Pipistrelle ' + PP.version + ' · no purchases, no timers, no banners' }),
     ]))]);
     return { el, scene: U.stack.some(s => s.name === 'pause') ? 'cave' : 'roost' };
   });

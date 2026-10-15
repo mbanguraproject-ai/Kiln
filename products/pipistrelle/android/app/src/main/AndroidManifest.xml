@@ -9,6 +9,18 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Google AdMob (D17): the AdMob app ID is in res/values/strings.xml (admob_app_id). Until the real one is
+             set there it is Google's sample app ID, which only ever serves test ads. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="@string/admob_app_id" />
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING"
+            android:value="true" />
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"

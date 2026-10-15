@@ -24,6 +24,13 @@ this folder.
   and the Journal.
 - **The Colony**: five bats with their own flight and ability (Pip, plus four bought with moths you earn). No real
   money, no timers.
+  - The Hangar shows six stats, each read from the bat's real numbers: speed, turning, sonar reach, echo life, energy
+    and efficiency. A bar places the bat among the colony, and a figure gives its difference from Pip.
+  - Practice Hollow flies any arrived bat for free.
+- **The Roost** (home):
+  - a living belfry where every pup you bring home hangs from the beams;
+  - new pups fly in through the window on your return;
+  - the colony circling below grows with them.
 - **Modes**: the Nightly Cave (one seeded cave a day, real lunar phase) and The Long Night (endless, through every
   opened biome).
 - **A real chance of losing**: energy drains fast, so a full bar lasts about 32 s without moths and eating keeps
@@ -32,9 +39,13 @@ this folder.
 - **A living cave**: flocks of the colony's bats fly by, and call back when you chirp near them.
 - **The Last Echo**: losing is a moment, not a cut.
   - The Second Wind is four heartbeats; tap three in time to fly on, free and skill only.
-  - After that, one opt-in rewarded ad per attempt lets you fly on (owner decision D15). There are no other ads.
-  - If an ad can't load, Settings says why with Unity's own error name, retries, and in test builds has a Watch a
-    test ad button.
+  - After that, one opt-in rewarded ad per attempt lets you fly on (owner decisions D15 and D17).
+- **Ads** (Google AdMob, D17):
+  - the rewarded ad above;
+  - an interstitial at the break after every third run;
+  - no banners.
+  - If an ad can't load, Settings says why with Google's own error name and retries. In test builds it has test
+    buttons for both ads.
 - **Native 4K by default**: every screen is drawn at its full resolution, up to 4K, with every effect on, and
   there are no quality tiers to pick. A quiet safety net sheds effects before it ever lowers the resolution (never
   below 75%), and once it has stepped down it does not bounce back and forth. Settings has a Battery saver.
@@ -50,7 +61,7 @@ this folder.
 
 ```sh
 npm ci
-npm run serve                 # http://localhost:8920 (add ?debug for test hooks, ?fakeads for the stand-in ad)
+npm run serve                 # http://localhost:8920 (add ?debug for test hooks, ?fakeads for the stand-in ads)
 node tests/test.cjs --unit    # data and economy checks, no browser (CI runs these)
 node tests/test.cjs           # the full suite in Chromium: every cave, every Moon, screens, Last Echo, frame budgets
 npm run shots                 # screenshots into shots/ (every effect on; --quality=native keeps the safety net)
@@ -68,21 +79,39 @@ Video.
 Every push that touches this folder builds the APK in CI (`.github/workflows/pipistrelle.yml`) and publishes it to the
 `pipistrelle-preview` release as `pipistrelle-debug.apk`.
 
-## Ads (Unity Ads, D15)
+## Ads (Google AdMob, D17)
 
-- Rewarded only. Shown only at the Last Echo, only when the player taps "Watch and fly on", and at most once per
+- **Rewarded**: shown only at the Last Echo, only when the player taps "Watch and fly on", and at most once per
   attempt.
-- Unity Ads SDK 4.21 through `android/.../PipAdsPlugin.java`. The Game ID and placement are in `web/js/ads.js`.
-- Non-personalised unless the player turns on "Personalised ads" in Settings.
-- Debug builds show Unity test ads; release builds show live ads.
-- In a browser there is no ad network. `?debug` or `?fakeads` plays a three-second stand-in instead.
+- **Interstitial**: shown at the break after every third finished run (campaign, Nightly Cave or Long Night), before
+  the results.
+  - Never mid-flight, never after practice or a story flight.
+  - Never within two minutes of another ad.
+- No banners.
+- **SDK**: Google Mobile Ads SDK 24 plus the User Messaging Platform (consent), through
+  `android/.../PipAdsPlugin.java`.
+- **Privacy**: ads are non-personalised unless the player turns on "Personalised ads" in Settings. Settings also has
+  "Privacy options" where the law requires consent.
+- **Test ads**: debug builds always use Google's demo ad units. Settings shows the ad state, with "Test rewarded"
+  and "Test interstitial" buttons. To read the logs: `adb logcat -s PipAds`.
+- **In a browser**: `?debug` plays a stand-in rewarded ad. `?fakeads` plays the stand-in interstitial too.
 
-Before the Play listing, the owner needs to do the following (see D15 in `docs/DECISIONS.md`):
+To earn from ads (see D17 in `docs/DECISIONS.md`):
 
-- publish a privacy policy that names Unity Ads;
-- in the Play Console, set "Contains ads" to yes and fill in Data safety and the advertising ID declaration;
-- set a 13+ target audience;
-- put Unity's line in `app-ads.txt`.
+1. In [AdMob](https://admob.google.com), add the app "Pipistrelle" (Android). Create a **Rewarded** ad unit and an
+   **Interstitial** ad unit.
+2. Put the app ID (`ca-app-pub-…~…`) in `android/app/src/main/res/values/strings.xml` as `admob_app_id`.
+3. Put the two ad unit IDs (`ca-app-pub-…/…`) in `web/js/ads.js`, in `CFG.live`. Until then, release builds show
+   Google's demo ads, which earn nothing.
+4. In AdMob, Privacy & messaging, publish a GDPR message (European regulations).
+5. Add AdMob's line to `app-ads.txt` on the developer website.
+6. Publish a privacy policy that names Google AdMob.
+7. In the Play Console:
+   - answer "Contains ads: yes";
+   - declare the advertising ID;
+   - fill in Data safety: device or other IDs, app interactions, diagnostics and approximate location, collected
+     for advertising and analytics and shared with Google;
+   - keep the target audience 13+.
 
 ## Where things are
 
@@ -92,7 +121,7 @@ Before the Play listing, the owner needs to do the following (see D15 in `docs/D
 | `web/js/gen/` | The cave generator |
 | `web/js/hazards/` | One module per hazard |
 | `web/js/render/` | Renderer, chunks, backdrop, bat art, resolution and the safety net (`quality.js`) |
-| `web/js/rescue.js`, `ads.js` | The Last Echo and rewarded ads |
+| `web/js/rescue.js`, `ads.js` | The Last Echo, and the ads (AdMob: rewarded and interstitial) |
 | `web/js/ui/` | Screens: title, map, brief, results, Hangar, Roost, Journal, Requests, settings |
 | `web/data/` | Tuning, economy, bats, missions, requests, campaign and `biomes/` (see `docs/BIOMES.md`) |
 | `tests/` | `unit.cjs` (Node) and `test.cjs` (browser) |
