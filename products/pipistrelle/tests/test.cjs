@@ -323,10 +323,10 @@ const GOALS = {
     check(r.known && r.layouts.split(' ').length >= 6, 'the campaign uses all six cave architectures', r.layouts);
     check(r.dry.length === 0, 'every river and flood a cave asks for is there, whatever its architecture', r.dry.join(', ') || 'all present');
     await pg.close();
-    // an ad that cannot load says why (a stand-in for the Unity plugin that answers "no fill")
+    // an ad that cannot load says why (a stand-in for the AdMob plugin that answers "no fill")
     const ap = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await ap.addInitScript(() => {
-      const mk = { init: () => Promise.resolve({ testMode: true, version: '4.21.0' }), setPrivacy: () => Promise.resolve(), load: () => Promise.reject({ code: 'NO_FILL', message: 'No fill' }), show: () => Promise.resolve({ rewarded: false }), addListener: () => {} };
+      const mk = { init: () => Promise.resolve({ testMode: true, version: '24.4.0' }), setPrivacy: () => Promise.resolve({}), load: () => Promise.reject({ code: 'NO_FILL', message: 'No fill' }), show: () => Promise.resolve({ shown: false, rewarded: false }), privacyOptions: () => Promise.resolve({}), status: () => Promise.resolve({}) };
       window.Capacitor = { isNativePlatform: () => true, Plugins: { PipAds: mk } };
     });
     await ap.goto(`http://127.0.0.1:${port}/`);
@@ -334,6 +334,41 @@ const GOALS = {
     const st = await ap.evaluate(() => { PP.ui.show('settings'); return { text: document.querySelector('.ad-status').textContent, state: PP.ads.state }; });
     check(/NO_FILL/.test(st.text) && st.state === 'wait', 'an ad that cannot load says why in Settings, and retries', st.text);
     await ap.close();
+    // AdMob: Google's demo units in test builds, and an interstitial at the break after every third run that counts
+    const np = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await np.addInitScript(() => {
+      const calls = window.__adCalls = [];
+      const mk = {
+        init: o => { calls.push('init'); return Promise.resolve({ testMode: true, version: '24.4.0', privacyRequired: true }); },
+        setPrivacy: () => Promise.resolve({}),
+        load: o => { calls.push('load ' + o.kind + ' ' + o.unitId); return Promise.resolve({}); },
+        show: o => { calls.push('show ' + o.kind); return Promise.resolve({ shown: true, rewarded: o.kind === 'rewarded' }); },
+        privacyOptions: () => { calls.push('privacy'); return Promise.resolve({}); },
+      };
+      window.Capacitor = { isNativePlatform: () => true, Plugins: { PipAds: mk } };
+      try { localStorage.removeItem('pp.adRuns'); } catch (e) {}
+    });
+    await np.goto(`http://127.0.0.1:${port}/`);
+    await np.waitForTimeout(1800);
+    const ad = await np.evaluate(async () => {
+      const A = PP.ads, out = { ready: [A.ready('rewarded'), A.ready('interstitial')], loads: __adCalls.filter(c => /^load/.test(c)) };
+      PP.ui.show('settings');
+      out.privacyButton = [...document.querySelectorAll('.btn')].some(b => b.textContent === 'Privacy options' && !b.hidden);
+      const breaks = [];
+      for (const kind of ['campaign', 'practice', 'campaign', 'attract', 'flight', 'nightly', 'campaign', 'campaign']) breaks.push(kind + ':' + await A.runBreak({ kind }));
+      out.breaks = breaks.join(' ');
+      // a rewarded ad the player chose starts the count again
+      await A.runBreak({ kind: 'campaign' });
+      await A.show('rewarded');
+      out.afterRewarded = A.runsSinceAd();
+      out.shows = __adCalls.filter(c => /^show/.test(c)).join(', ');
+      return out;
+    });
+    check(ad.ready[0] && ad.ready[1] && ad.loads.join() === 'load rewarded ca-app-pub-3940256099942544/5224354917,load interstitial ca-app-pub-3940256099942544/1033173712', 'AdMob loads a rewarded ad and an interstitial from Google\'s demo units in test builds', ad.loads.join(', '));
+    check(ad.breaks === 'campaign:false practice:false campaign:false attract:false flight:false nightly:true campaign:false campaign:false', 'an interstitial plays at the break after every third run, never after practice, a story flight or the demo', ad.breaks);
+    check(ad.afterRewarded === 0 && ad.shows === 'show interstitial, show rewarded', 'no second interstitial within two minutes, and a chosen rewarded ad starts the count again', ad.shows + ' · count ' + ad.afterRewarded);
+    check(ad.privacyButton, 'Settings offers Google\'s privacy options where the law requires consent');
+    await np.close();
   }
 
   if (want('frames')) {

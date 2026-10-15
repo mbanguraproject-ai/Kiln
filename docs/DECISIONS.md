@@ -126,10 +126,10 @@ original games in Kiln ... After we have pushed Pipistrelle, the next is Napwalk
 - The pilot version of a graduated game stays in the Kiln hub as a short taste of it, sharing the product's look
   where it can: Pipistrelle's pilot draws its bats with the product's renderer (13 October).
 - Bats and other unlocks are bought with currency earned by playing. No real money, no energy timers, no dark
-  patterns. (No ads, until D15 allowed one opt-in rewarded ad at the Last Echo.)
+  patterns. (No ads, until D15 allowed one opt-in rewarded ad at the Last Echo and D17 an interstitial every third run.)
 - Pipistrelle's design and build plan live in `docs/pipistrelle/` (`DESIGN.md`, `BUILD_PLAN.md`).
 
-## D15. Pipistrelle: rewarded ads at the Last Echo, nowhere else (decided 13 October 2026)
+## D15. Pipistrelle: rewarded ads at the Last Echo, nowhere else (decided 13 October 2026; network and interstitials superseded by D17)
 
 The owner, on 13 October: "Add Unity Ads integration, 2026 standards ... strategically place reward ads at the
 pressure point when the player loses, add losing mechanics, fun and interactive, then a continue or something."
@@ -185,6 +185,43 @@ A native rewrite (Kotlin with OpenGL, or a game engine) would mean months of wor
 missions, tests and art, for the same rendering cost unless the renderer were redesigned anyway. If a phone still
 cannot hold a steady frame, the next step is a GPU (WebGL) renderer inside the same app, judged on that phone's
 numbers: Settings → Display now shows the frame rate measured in the caves.
+
+## D17. Pipistrelle: Google AdMob, a rewarded ad and an interstitial every third run (15 October 2026)
+
+The owner, on 15 October: "Remove that Unity Ads, add the latest Google AdMob integration for rewarded ads, and an
+interstitial ad after every 3 runs at game breaks." This replaces D15's ad network and its "no interstitials" rule.
+The Last Echo itself (the Second Wind, then "Fly on?") is unchanged.
+
+- **Network**: Google Mobile Ads SDK 24 (`play-services-ads`) with Google's User Messaging Platform 3 for consent,
+  through the app's own `PipAds` plugin (`android/.../PipAdsPlugin.java`). Unity Ads is removed.
+- **Rewarded**: as in D15. It is offered only at the Last Echo, at most once per attempt, and plays only when the
+  player taps "Watch and fly on".
+- **Interstitial**: at the break after every third finished run (campaign, Nightly Cave or Long Night), between the
+  end of the run and the results. It never plays mid-flight, and never after practice, a story flight or the demo
+  behind the menus. Two ads never play within two minutes of each other; when one is not loaded or would come too
+  soon, it waits for the next break. A run where the player chose a rewarded ad starts the count again. The count
+  survives closing the app (`web/js/ads.js`).
+- **Still never**: banners, ads on the menus, or anything sold or gated behind an ad.
+- **Consent**: UMP asks for consent where the law requires it (the EEA, the UK, Switzerland) before any ad is
+  requested. Settings has "Privacy options" to reopen it. Ads are non-personalised (the `npa` extra) unless the
+  player turns on "Personalised ads".
+- **Test ads**: debug builds always use Google's demo ad units. Release builds use the live units in
+  `web/js/ads.js` and fall back to the demo units (which earn nothing) while those are empty. Settings shows
+  which units are in use, the SDK version, and each ad's state with Google's error name.
+- **Before the Play listing**, the owner must:
+  - create the app in AdMob, with a rewarded and an interstitial ad unit;
+  - put the AdMob app ID in `android/app/src/main/res/values/strings.xml` (`admob_app_id`) and the two unit IDs in
+    `web/js/ads.js` (`live`);
+  - in AdMob, Privacy & messaging, publish a GDPR message (and a US states message if wanted). Without one, UMP
+    shows nothing and EEA users get no ads;
+  - add AdMob's line to `app-ads.txt` on the developer website;
+  - publish a privacy policy that names Google AdMob;
+  - in the Play Console:
+    - answer "Contains ads: yes";
+    - declare the advertising ID;
+    - fill in Data safety: device or other IDs, app interactions, diagnostics, and approximate location, collected
+      for advertising and analytics and shared with Google;
+    - keep the target audience 13+. Anything younger brings the Families policy.
 
 ## Roadmap status (blueprint §18)
 

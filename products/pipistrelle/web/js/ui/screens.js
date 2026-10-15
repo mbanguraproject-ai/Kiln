@@ -50,7 +50,8 @@
     const G = PP.G;
     if (!G || G.mode !== 'play') return;
     if (G.kind === 'practice') { setTimeout(() => { U.show('hangar', {}, { replace: true }); U.toast(res.won ? 'Practice flight complete' : 'Practice over'); GM.attract(); }, 150); return; }
-    setTimeout(() => U.show('results', { res }, { replace: true }), res.won ? 60 : 300);
+    // every third run, the break before the results is where an interstitial plays (js/ads.js)
+    setTimeout(() => PP.ads.runBreak(res).then(() => U.show('results', { res }, { replace: true })), res.won ? 60 : 300);
   });
 
   const card = (title, text, onclick, cls, kids) => h('button.card' + (cls || ''), { onclick: () => { PP.uiSfx(); onclick(); } }, [h('h3', { text: title }), text ? h('p', { text }) : null].concat(kids || []));
@@ -254,7 +255,7 @@
       why.textContent = S.why + (G.kind === 'endless' ? ' · cave ' + G.cave : G.caveDef ? ' · ' + G.caveDef.name : '');
       const ready = PP.ads.ready();
       watch.disabled = !ready || S.busy;
-      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'One per flight. Ads never play by themselves.' : 'No ad right now. ' + PP.ads.status().text;
+      note.textContent = S.busy ? 'The ad is playing…' : ready ? 'A short ad, once per flight.' : 'No ad right now' + (PP.ads.error ? ' (' + PP.ads.error.code + ')' : '') + '. Let the echoes fade to end the flight.';
       ring.style.setProperty('--k', String(Math.max(0, S.offerT) / 9));
       ring.textContent = String(Math.ceil(Math.max(0, S.offerT)));
     };
@@ -479,14 +480,18 @@
     });
     // the ad network's state in words, live: so an ad that cannot load says why instead of failing silently
     const adStatus = h('p.ad-status'), retryB = h('button.btn.ghost', { text: 'Try again', onclick: () => { PP.uiSfx(); PP.ads.retry(); } });
-    const testB = h('button.btn.ghost', { text: 'Watch a test ad', onclick: () => { PP.uiSfx(); PP.ads.test(); } });
-    const adRow = h('div.row', null, [testB, retryB]);
+    const testB = h('button.btn.ghost', { text: 'Test rewarded', onclick: () => { PP.uiSfx(); PP.ads.test('rewarded'); } });
+    const testI = h('button.btn.ghost', { text: 'Test interstitial', onclick: () => { PP.uiSfx(); PP.ads.test('interstitial'); } });
+    const privB = h('button.btn.ghost', { text: 'Privacy options', onclick: () => { PP.uiSfx(); PP.ads.privacyOptions(); } });
+    const adRow = h('div.row', null, [privB, testB, testI, retryB]);
     const syncAds = () => {
-      const st = PP.ads.status();
+      const st = PP.ads.status(), A = PP.ads;
       adStatus.textContent = st.text; adStatus.classList.toggle('bad', !!st.error); adStatus.classList.toggle('good', !!st.ok);
-      retryB.hidden = PP.ads.state !== 'wait';
-      testB.hidden = !(PP.ads.testMode || PP.debug);
-      adRow.hidden = retryB.hidden && testB.hidden;
+      retryB.hidden = !(A.sdk.state === 'wait' || A.slots.rewarded.state === 'wait' || A.slots.interstitial.state === 'wait');
+      testB.hidden = !(A.testMode || PP.debug);
+      testI.hidden = !(A.testMode || (PP.debug && A.fakeInterstitial));
+      privB.hidden = !A.privacyRequired;
+      adRow.hidden = retryB.hidden && testB.hidden && testI.hidden && privB.hidden;
     };
     syncAds();
     PP.on('adsStatus', () => { if (adStatus.isConnected) syncAds(); });
@@ -498,13 +503,13 @@
     const el = h('div.scr.scrim-strong', null, [U.top('Settings', { larder: false }), h('div.body', null, h('div.wrap', null, [
       h('div.card', null, [toggle('sound', 'Sound'), slider('music', 'Music'), slider('sfx', 'Effects'), slider('echo', 'Echo volume'), toggle('vibration', 'Vibration')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Display' }), resT, resL, h('div.toggle', null, [h('span', null, ['Battery saver', h('small', { text: 'Draws at about 1080p with lighter effects. What you hear and see in the echoes never changes.' })]), saverSw])]),
-      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'An ad only ever plays if you choose “Fly on” after losing, at most once a flight. There are no other ads.' }), adStatus, adRow, toggle('adsPersonal', 'Personalised ads', 'Off: the ads you choose to watch are not based on your activity in other apps.')]),
+      h('div.card', null, [h('div.eyebrow', { text: 'Ads' }), h('p.muted', { text: 'A short ad plays at the break after every third run, never during a flight. At the Last Echo you can also choose to watch one to fly on. No banners.' }), adStatus, adRow, toggle('adsPersonal', 'Personalised ads', 'Off: the ads you see are not based on your activity in other apps.')]),
       h('div.card', null, [toggle('gentle', 'Gentle Wings', 'Bumps cost nothing; other knocks and the dark’s hunger are softer.'), toggle('shapes', 'Echo shapes', 'Each echo colour also gets its own mark: rock dots, food diamonds, pup hearts, danger triangles.'), toggle('captions', 'Sound captions', 'Show what you hear at the edge of the screen.')]),
       h('div.card', null, [h('div.eyebrow', { text: 'Save' }), h('div.row', null, [
         h('button.btn.ghost', { text: 'Export', onclick: () => { code.hidden = false; code.value = PP.profile.exportCode(); code.select(); try { navigator.clipboard.writeText(code.value); U.toast('Save code copied'); } catch (e) { /* select is enough */ } } }),
         h('button.btn.ghost', { text: 'Import', onclick: () => { if (imp.hidden) { imp.hidden = false; imp.focus(); return; } if (PP.profile.importCode(imp.value)) { PP.settings.apply(); U.toast('Save imported'); imp.value = ''; imp.hidden = true; } else U.toast('That code did not work'); } }),
       ]), code, imp]),
-      h('p.muted', { style: 'text-align:center', text: 'Pipistrelle ' + PP.version + ' · no purchases, no timers, ads only when you choose them' }),
+      h('p.muted', { style: 'text-align:center', text: 'Pipistrelle ' + PP.version + ' · no purchases, no timers, no banners' }),
     ]))]);
     return { el, scene: U.stack.some(s => s.name === 'pause') ? 'cave' : 'roost' };
   });
