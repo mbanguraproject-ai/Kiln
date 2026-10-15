@@ -244,6 +244,8 @@ button.card:active { transform: scale(0.99); }
 .ad-status { margin: 0; font-weight: 700; color: var(--ink-soft); }
 .ad-status.good { color: var(--teal); }
 .ad-status.bad { color: #ff9a8a; }
+.ad-row { flex-wrap: wrap; gap: 0.45rem; }
+.ad-row .btn { min-height: 2.4rem; padding: 0.5rem 0.85rem; font-size: 0.78rem; }
 .res-title { display: block; font: 800 1.15rem/1.2 var(--display); color: var(--ink); }
 
 /* hangar */

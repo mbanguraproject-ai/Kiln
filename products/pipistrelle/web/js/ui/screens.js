@@ -486,7 +486,7 @@
     const testB = h('button.btn.ghost', { text: 'Test rewarded', onclick: () => { PP.uiSfx(); PP.ads.test('rewarded'); } });
     const testI = h('button.btn.ghost', { text: 'Test interstitial', onclick: () => { PP.uiSfx(); PP.ads.test('interstitial'); } });
     const privB = h('button.btn.ghost', { text: 'Privacy options', onclick: () => { PP.uiSfx(); PP.ads.privacyOptions(); } });
-    const adRow = h('div.row', null, [privB, testB, testI, retryB]);
+    const adRow = h('div.row.ad-row', null, [privB, testB, testI, retryB]);
     const syncAds = () => {
       const st = PP.ads.status(), A = PP.ads;
       adStatus.textContent = st.text; adStatus.classList.toggle('bad', !!st.error); adStatus.classList.toggle('good', !!st.ok);

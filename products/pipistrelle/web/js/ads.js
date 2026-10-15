@@ -156,7 +156,8 @@
       const n = runs(runs() + 1);
       if (n < CFG.interstitialEvery || Date.now() - lastAd < CFG.gap * 1000) return Promise.resolve(false);
       if (!A.ready('interstitial')) { if (plugin()) A.load('interstitial'); return Promise.resolve(false); }
-      return A.show('interstitial').then(r => r.shown);
+      // the results never wait on an ad that never says it closed
+      return Promise.race([A.show('interstitial').then(r => r.shown), new Promise(res => setTimeout(() => res(true), 90000))]);
     },
     runsSinceAd: () => runs(),
     // the state in words, for Settings and the offer card

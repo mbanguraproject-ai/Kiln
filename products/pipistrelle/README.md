@@ -24,6 +24,13 @@ this folder.
   and the Journal.
 - **The Colony**: five bats with their own flight and ability (Pip, plus four bought with moths you earn). No real
   money, no timers.
+  - The Hangar shows six stats, each read from the bat's real numbers: speed, turning, sonar reach, echo life, energy
+    and efficiency. A bar places the bat among the colony, and a figure gives its difference from Pip.
+  - Practice Hollow flies any arrived bat for free.
+- **The Roost** (home):
+  - a living belfry where every pup you bring home hangs from the beams;
+  - new pups fly in through the window on your return;
+  - the colony circling below grows with them.
 - **Modes**: the Nightly Cave (one seeded cave a day, real lunar phase) and The Long Night (endless, through every
   opened biome).
 - **A real chance of losing**: energy drains fast, so a full bar lasts about 32 s without moths and eating keeps
