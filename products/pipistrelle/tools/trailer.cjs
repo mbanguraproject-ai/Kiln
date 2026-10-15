@@ -33,10 +33,12 @@ const SHOTS = [
   { id: 'glass', secs: 5, kicker: 'The Glass Vaults', title: 'Crystal holds your echo', layers: ['deep'],
     setup: `__trailer.campaign(); __ppTest.startCave('3-1', 'comb'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'owls', secs: 5, kicker: 'The Owlstone Crypt', title: 'Slip past the owls', layers: ['danger', 'deep'],
-    setup: `__trailer.campaign(); __ppTest.startCave('4-1', 'hark'); __ppTest.autopilot(true, { careful: true }); __trailer.until(() => PP.L.owls.some(o => Math.hypot(o.x - PP.G.bat.x, o.y - PP.G.bat.y) < 420), 60);`,
-    frames: { 110: `__ppTest.shriek();` } },
+    setup: `__trailer.campaign(); __ppTest.startCave('4-1', 'hark'); __ppTest.step(1); const o = PP.L.owls[0]; __ppTest.teleport(o.x - 330, o.y + 30); __trailer.botFrom({ careful: true, pups: false }); __ppTest.chirp(); __ppTest.step(0.5);`,
+    frames: { 110: `__ppTest.shriek();` },
+    // the store still: close to a perched owl, a chirp, then a shriek that lights the crypt
+    still: `__trailer.campaign(); __ppTest.startCave('4-1', 'hark'); __ppTest.step(5); const o = PP.L.owls[0], q = PP.world.nearestOpen(o.x - 190, o.y + 10, 1); __ppTest.teleport(q[0], q[1]); __ppTest.step(0.2); __ppTest.chirp(); __ppTest.step(0.5); __ppTest.chirp(); __ppTest.step(0.5); __ppTest.shriek(); __ppTest.step(0.7);` },
   { id: 'lady', secs: 5, kicker: 'Set piece', title: 'Something hunts by ear', layers: ['danger'],
-    setup: `__trailer.campaign(); __ppTest.startCave('4-6', 'pip'); __ppTest.autopilot(true, { fast: true }); __trailer.until(() => { const D = PP.L.lady; return D && (D.state === 'chase' || D.state === 'fly') && Math.hypot(D.x - PP.G.bat.x, D.y - PP.G.bat.y) < 520; }, 60);` },
+    setup: `__trailer.campaign(); __ppTest.startCave('4-6', 'pip'); __ppTest.autopilot(true, { fast: true }); __trailer.until(() => { const D = PP.L.lady; return D && (D.state === 'chase' || D.state === 'fly') && Math.hypot(D.x - PP.G.bat.x, D.y - PP.G.bat.y) < 360; }, 60);` },
   { id: 'hush', secs: 4.4, kicker: 'The Hush', title: 'Five biomes. Twenty-five caves.', layers: ['exit'],
     setup: `__trailer.campaign(); __ppTest.startCave('5-1', 'pip'); __ppTest.autopilot(true, { survey: true }); __ppTest.step(9);` },
   { id: 'roost', secs: 5.2, layers: ['pups', 'exit'],
@@ -107,9 +109,10 @@ function prelude() {
     const dir = path.resolve(arg('dir', path.join(__dirname, '..', 'shots')));
     fs.mkdirSync(dir, { recursive: true });
     for (const S of shots) {
-      await page.evaluate(src => { window.__vtOn = false; PP.loop.start(); (0, eval)(src); PP.loop.stop(); window.__vt = performance.now(); window.__vtOn = true; }, S.setup);
+      // a shot may have its own setup for the still (s.still); otherwise the still is the middle of the shot
+      await page.evaluate(src => { window.__vtOn = false; PP.loop.start(); (0, eval)(src); PP.loop.stop(); window.__vt = performance.now(); window.__vtOn = true; }, S.still || S.setup);
       await page.evaluate(([k, t]) => { const c = document.getElementById('tcap'); c.children[0].textContent = k || ''; c.children[1].textContent = t || ''; c.style.opacity = t ? 1 : 0; }, [S.kicker, S.title]);
-      const N = Math.round(S.secs * FPS / 2);
+      const N = S.still ? 1 : Math.round(S.secs * FPS / 2);
       for (let f = 0; f < N; f++) await page.evaluate(([dt, act]) => { window.__vt += dt; if (act) (0, eval)(act); PP.loop.step(1); }, [1000 / FPS, (S.frames && S.frames[f]) || (S.every && f % S.every[0] === 0 ? S.every[1] : null)]);
       await page.screenshot({ path: path.join(dir, `trailer-${S.id}.png`) });
       console.log('preview', S.id);
